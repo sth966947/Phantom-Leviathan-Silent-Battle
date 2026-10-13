@@ -1,0 +1,153 @@
+/* Layout: a fire-control console. Tactical plot left, sonar waterfall under it,
+   ship's status and orders in a narrow panel right; stacks on phones. */
+:root {
+  --sea: #071624;        /* page and plot water */
+  --panel: #0d2133;      /* console panels */
+  --rule: #1f3b54;       /* grid lines, borders */
+  --ink: #c9dbe8;        /* body text */
+  --dim: #6f8ea6;        /* labels */
+  --own: #7cc8ff;        /* own ship, own weapons */
+  --contact: #f3b04b;    /* sonar contacts */
+  --threat: #ff5d4f;     /* incoming torpedoes, loss */
+  --good: #6fd3a8;       /* hits, confirmations */
+  --f-display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-data: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Menlo, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; background: var(--sea); color: var(--ink);
+  font: 15px/1.4 var(--f-body);
+}
+.app {
+  display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 14px;
+  max-width: 1280px; margin: 0 auto; padding-block: 14px; padding-inline: 16px;
+  box-sizing: border-box;
+}
+header {
+  grid-column: 1 / -1; display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+}
+h1 {
+  font: 700 22px/1 var(--f-display); letter-spacing: 0.08em; text-transform: uppercase; margin: 0;
+}
+h1 span { color: var(--dim); font-weight: 500; }
+.clock { font: 600 15px var(--f-data); color: var(--ink); font-variant-numeric: tabular-nums; }
+.left { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.plot-wrap {
+  position: relative; width: 100%; max-width: min(100%, calc(100vh - 260px)); min-width: min(100%, 320px);
+  aspect-ratio: 1 / 1; align-self: center; border: 1px solid var(--rule);
+  background: radial-gradient(circle at 50% 50%, #0b2236 0%, var(--sea) 70%);
+  cursor: crosshair; overflow: hidden;
+}
+.plot-wrap canvas { position: absolute; inset: 0; }
+canvas { display: block; width: 100%; height: 100%; }
+.plot-hint {
+  position: absolute; left: 10px; bottom: 8px; font: 12px var(--f-data); color: var(--dim);
+  pointer-events: none; z-index: 1;
+}
+.zoom { position: absolute; right: 8px; top: 8px; display: flex; gap: 4px; z-index: 1; }
+.sonar { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 10px; }
+.wf-wrap, .sig-wrap { border: 1px solid var(--rule); background: #020a12; position: relative; min-width: 0; }
+.sig-wrap canvas { height: 120px; image-rendering: pixelated; }
+.wf-wrap canvas { height: 120px; image-rendering: pixelated; }
+.wf-scale {
+  display: flex; justify-content: space-between; font: 11px var(--f-data); color: var(--dim);
+  padding: 2px 6px; border-top: 1px solid var(--rule);
+}
+.wf-label {
+  position: absolute; left: 6px; top: 4px; font: 11px var(--f-data); color: var(--dim);
+  letter-spacing: 0.08em; text-transform: uppercase; pointer-events: none;
+}
+aside { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+section.card { background: var(--panel); border: 1px solid var(--rule); padding: 10px 12px; }
+.card h2 {
+  font: 600 12px var(--f-display); letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--dim); margin: 0 0 8px;
+}
+dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; }
+dt { color: var(--dim); font-size: 13px; }
+dd { margin: 0; font: 14px var(--f-data); font-variant-numeric: tabular-nums; text-align: right; }
+.own dd { color: var(--own); }
+.contact dd { color: var(--contact); }
+.meter { height: 6px; background: var(--rule); margin-top: 6px; }
+.meter i { display: block; height: 100%; background: var(--contact); width: 0; transition: width 0.3s; }
+.row { display: flex; gap: 6px; flex-wrap: wrap; }
+.row + .row { margin-top: 6px; }
+button {
+  width: auto;
+  font: 600 13px var(--f-display); letter-spacing: 0.04em; color: var(--ink);
+  background: #13304a; border: 1px solid var(--rule); padding: 7px 10px; cursor: pointer;
+  flex: 1 1 auto; min-width: 0;
+}
+button:hover { background: #1a3d5c; }
+button:focus-visible { outline: 2px solid var(--own); outline-offset: 1px; }
+button.on { background: var(--own); color: var(--sea); border-color: var(--own); }
+button.fire { background: #4a1e1a; border-color: #7a2e26; color: #ffd9d4; }
+button.fire:hover { background: #622520; }
+button:disabled { opacity: 0.4; cursor: default; }
+kbd {
+  font: 11px var(--f-data); color: var(--dim); border: 1px solid var(--rule); padding: 0 3px; margin-left: 4px;
+}
+.log { list-style: none; margin: 0; padding: 0; max-height: 210px; overflow-y: auto; font-size: 13.5px; }
+.log li { padding: 4px 0; border-bottom: 1px solid rgba(31, 59, 84, 0.6); display: grid; grid-template-columns: 62px 1fr; gap: 8px; }
+.log time { font: 12px var(--f-data); color: var(--dim); padding-top: 1px; }
+.log .contact { color: var(--contact); }
+.log .danger { color: var(--threat); font-weight: 600; }
+.log .good { color: var(--good); }
+.log .warn { color: #e8d39a; }
+.overlay {
+  position: fixed; inset: 0; background: rgba(3, 10, 18, 0.82); display: grid; place-items: center;
+  padding: 16px; z-index: 10;
+}
+.brief {
+  max-width: 560px; background: var(--panel); border: 1px solid var(--rule); padding: 22px 24px;
+  max-height: calc(100% - 32px); overflow-y: auto; box-sizing: border-box;
+}
+.brief h2 { font: 700 26px/1.1 var(--f-display); letter-spacing: 0.05em; margin: 0 0 4px; text-wrap: balance; }
+.brief .sub { font: 12px var(--f-data); color: var(--dim); letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 14px; }
+.brief p { margin: 0 0 10px; max-width: 65ch; }
+.brief ul { margin: 0 0 16px; padding-left: 18px; }
+.brief li { margin-bottom: 4px; }
+.brief button { font-size: 15px; padding: 10px 16px; width: 100%; }
+.win h2 { color: var(--good); }
+.loss h2 { color: var(--threat); }
+@media (max-width: 860px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .plot-wrap { max-width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { .meter i { transition: none; } }
+
+.contacts { list-style: none; margin: 0; padding: 0; }
+.contacts li {
+  display: grid; grid-template-columns: 1fr auto auto; gap: 4px 10px; align-items: baseline;
+  padding: 5px 6px; border: 1px solid transparent; cursor: pointer; font: 13px var(--f-data);
+}
+.contacts li:hover { background: #13304a; }
+.contacts li.sel { border-color: var(--contact); background: #13304a; }
+.contacts li.friend .nm { color: var(--good); }
+.contacts li.lost { opacity: 0.55; }
+.contacts li.sunk { opacity: 0.4; text-decoration: line-through; }
+.contacts li.empty { display: block; cursor: default; color: var(--dim); font-family: var(--f-body); }
+.contacts .nm { color: var(--contact); font-family: var(--f-body); font-size: 14px; font-weight: 600; min-width: 0; }
+.contacts .num { color: var(--ink); font-variant-numeric: tabular-nums; }
+.ident { border-top: 1px solid var(--rule); margin-top: 8px; padding-top: 8px; }
+.prop { font: 12.5px var(--f-data); color: var(--dim); margin-bottom: 6px; }
+.matches { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.matches li { display: grid; grid-template-columns: minmax(0, 1fr) 44px auto; gap: 8px; align-items: center; font-size: 13.5px; }
+.matches .bar { grid-column: 1 / -1; height: 3px; background: var(--rule); }
+.matches .bar i { display: block; height: 100%; background: var(--contact); }
+.matches .pct { font: 13px var(--f-data); text-align: right; font-variant-numeric: tabular-nums; }
+.matches button { padding: 3px 8px; font-size: 12px; flex: none; }
+.matches .done { color: var(--good); font-size: 13px; }
+.note { margin: 6px 0 0; font-size: 12.5px; color: var(--dim); min-height: 1em; }
+.missions { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 4px 0 16px; }
+.mission { border: 1px solid var(--rule); padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.mission h3 { font: 700 18px var(--f-display); margin: 0; letter-spacing: 0.03em; }
+.mission p { margin: 0; font-size: 14px; }
+.mission .sub { margin: 0; }
+.mission button { margin-top: auto; flex: none; }
+.brief { max-width: 760px; }
+@media (max-width: 560px) { .sonar { grid-template-columns: minmax(0, 1fr); } }

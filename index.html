@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Red Storm Sonar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Condensed:wght@400;600&display=swap">
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Red Storm Sonar <span id="place">· Denmark Strait, 24 May 1941</span></h1>
+    <div class="clock" id="clock">00:00:00</div>
+  </header>
+
+  <div class="left">
+    <div class="plot-wrap" id="plotWrap" aria-label="Tactical plot. Click a contact to select it, click open water to steer, scroll to zoom.">
+      <div class="zoom">
+        <button id="zoomIn" title="Zoom in">+</button>
+        <button id="zoomOut" title="Zoom out">−</button>
+      </div>
+      <div class="plot-hint">Click a contact to select · click water to steer · scroll to zoom</div>
+    </div>
+    <div class="sonar">
+      <div class="wf-wrap">
+        <div class="wf-label">Broadband · true bearing · newest on top</div>
+        <canvas id="waterfall" width="360" height="150" aria-label="Broadband sonar waterfall"></canvas>
+        <div class="wf-scale"><span>000</span><span>090</span><span>180</span><span>270</span><span>360</span></div>
+      </div>
+      <div class="sig-wrap">
+        <div class="wf-label" id="sigLabel">Signature · no contact selected</div>
+        <canvas id="signature" width="200" height="150" aria-label="Narrowband signature of the selected contact"></canvas>
+        <div class="wf-scale"><span>0 Hz</span><span>50</span><span>100</span><span>150</span><span>200</span></div>
+      </div>
+    </div>
+  </div>
+
+  <aside>
+    <section class="card contact">
+      <h2>Contacts <kbd>Tab</kbd></h2>
+      <ul class="contacts" id="contacts"><li class="empty">No contacts yet. Listen.</li></ul>
+      <div class="ident" id="ident">
+        <div class="prop" id="prop">Select a contact to see its signature.</div>
+        <ul class="matches" id="matches"></ul>
+      </div>
+    </section>
+
+    <section class="card own">
+      <h2>Own ship · USS Tang (SSN-805)</h2>
+      <dl>
+        <dt>Heading</dt><dd id="oHdg">000°</dd>
+        <dt>Speed</dt><dd id="oSpd">5 kt</dd>
+        <dt>Depth</dt><dd id="oDepth">150 ft, above layer</dd>
+        <dt>Radiated noise</dt><dd id="oNoise">quiet</dd>
+        <dt>Towed array</dt><dd id="oArray">tracking</dd>
+      </dl>
+      <div class="row" style="margin-top:8px">
+        <button id="left">◀ 10° <kbd>A</kbd></button>
+        <button id="right">10° ▶ <kbd>D</kbd></button>
+      </div>
+      <div class="row" id="speeds"></div>
+      <div class="row" id="depths"></div>
+    </section>
+
+    <section class="card">
+      <h2>Weapons</h2>
+      <dl>
+        <dt>Torpedo tubes</dt><dd id="wTubes">—</dd>
+        <dt>Vertical launch tubes</dt><dd id="wVls">—</dd>
+        <dt>ADC Mk 5 countermeasures</dt><dd id="wDecoys">4</dd>
+      </dl>
+      <div class="row" style="margin-top:8px">
+        <button class="fire" id="fireMk48" title="Mk 48 ADCAP Mod 7, wire-guided torpedo">Mk 48 <kbd>F</kbd></button>
+        <button class="fire" id="fireHarpoon" title="UGM-84 Harpoon Block II from a torpedo tube. Surface ships only, 150 ft or shallower.">Harpoon <kbd>H</kbd></button>
+        <button class="fire" id="fireMst" title="Maritime Strike Tomahawk from a vertical tube. Surface ships only, 150 ft or shallower.">Tomahawk <kbd>T</kbd></button>
+      </div>
+      <div class="row">
+        <button id="ping">Active ping <kbd>P</kbd></button>
+        <button id="decoy">Countermeasure <kbd>C</kbd></button>
+      </div>
+      <p class="note" id="wNote"></p>
+    </section>
+
+    <section class="card">
+      <h2>Time compression</h2>
+      <div class="row" id="times"></div>
+    </section>
+
+    <section class="card">
+      <h2>Control room log</h2>
+      <ul class="log" id="log"></ul>
+    </section>
+  </aside>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="brief" id="brief">
+    <h2>USS Tang, through the vortex</h2>
+    <p class="sub">Training mission and duel</p>
+    <div class="missions">
+      <article class="mission">
+        <h3>Sink the Bismarck</h3>
+        <p class="sub">Denmark Strait · 24 May 1941 · 0300</p>
+        <p>A shakedown cruise ends in a time vortex. Tang surfaces in May 1941 with no GPS and only Morse on the radio. Bismarck and Prinz Eugen are breaking out into the Atlantic at 27 knots, with the British cruisers Suffolk and Norfolk shadowing them by radar. Sink Bismarck before she gets past you. Don't hit the British.</p>
+        <button data-scenario="bismarck">Begin training mission</button>
+      </article>
+      <article class="mission">
+        <h3>Duel: Kazan</h3>
+        <p class="sub">Bear Gap · March 2029 · 0200</p>
+        <p>Back in the present war. A Yasen-M, Kazan, is in your patrol box, quiet and armed. Find it on passive sonar and sink it before it finds you.</p>
+        <button data-scenario="duel">Begin duel</button>
+      </article>
+    </div>
+    <ul>
+      <li><b>Stay slow to stay hidden.</b> Above about 10 knots you get loud and your sonar goes deaf. The towed array hears farther and covers astern at 12 knots or less, once you've held a course for 90 seconds.</li>
+      <li><b>Identify by signature.</b> Select a contact to see its machinery and propeller lines. The crew suggests classes with a match %. More lines appear as the contact gets louder or closer. Accept a match to classify it.</li>
+      <li><b>Look.</b> At periscope depth you get exact bearing, range and class on ships within 8 miles, but they may spot your periscope.</li>
+      <li><b>Build a solution.</b> Range firms up the longer you track, and each new leg (a turn of 40° or more) improves it sharply.</li>
+      <li><b>Shoot.</b> Mk 48s are wire-guided to your solution. Harpoon and Tomahawk fly to your solution and home on the ship nearest it, friend or foe, so a poor solution can hit the wrong ship. Missiles launch from 150 feet or shallower.</li>
+    </ul>
+  </div>
+</div>
+
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>
