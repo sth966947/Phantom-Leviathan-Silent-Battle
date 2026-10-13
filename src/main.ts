@@ -7,6 +7,7 @@ import { SignatureDisplay } from './ui/signature';
 import { addLog, updatePanel } from './ui/panel';
 import { play, unlockAudio } from './ui/audio';
 import { Periscope } from './ui/periscope';
+import { Solution } from './ui/solution';
 
 const $ = (id: string) => document.getElementById(id)!;
 
@@ -26,6 +27,7 @@ const plot = new Plot();
 const waterfall = new Waterfall($('waterfall') as HTMLCanvasElement);
 const signature = new SignatureDisplay($('signature') as HTMLCanvasElement);
 const periscope = new Periscope($('scopeView') as HTMLCanvasElement, () => g);
+const solution = new Solution(periscope, (id) => orders.select(g, id));
 function togglePeriscope() {
   const why = periscope.toggle();
   if (why) addLog(g, { t: g.t, kind: 'warn', text: why });
@@ -55,6 +57,7 @@ on('fireJatm', () => orders.fire(g, 'jatm'));
 on('fireSm6', () => orders.fire(g, 'sm6'));
 on('radar', () => orders.radar(g));
 on('scopeBtn', togglePeriscope);
+on('solBtn', () => solution.toggle());
 on('ping', () => orders.ping(g));
 on('decoy', () => orders.decoy(g));
 on('zoomIn', () => { plot.zoom = Math.max(0, plot.zoom - 1); });
@@ -110,7 +113,7 @@ document.addEventListener('keydown', (ev) => {
     l: () => orders.layer(g),
     f: () => orders.fire(g, 'mk48'), h: () => orders.fire(g, 'harpoon'), t: () => orders.fire(g, 'mst'),
     g: () => orders.fire(g, 'asroc'), j: () => orders.fire(g, 'jatm'), m: () => orders.fire(g, 'sm6'),
-    r: () => orders.radar(g), v: togglePeriscope, escape: () => periscope.close(),
+    r: () => orders.radar(g), v: togglePeriscope, b: () => solution.toggle(), escape: () => { if (periscope.open) periscope.close(); else solution.close(); },
     p: () => orders.ping(g), c: () => orders.decoy(g),
     tab: () => orders.cycleContact(g), k: acceptTop,
     ' ': () => { timeScale = timeScale ? 0 : 30; },
@@ -131,6 +134,7 @@ function newGame(key: ScenarioKey) {
   signature.clear();
   plot.reset(key === 'bismarck' ? 3 : 2);
   periscope.close();
+  solution.close();
   overShown = false;
   acc = 0;
   addLog(g, {
@@ -177,11 +181,13 @@ function frame(now: number) {
   g.events.length = 0;
   plot.draw(g, now);
   periscope.draw(g, now);
+  solution.draw(g, now);
   waterfall.draw(g);
   signature.draw(g);
   if (now - panelT > 150) {
     panelT = now;
     updatePanel(g);
+    solution.update(g);
     for (const b of $('speeds').children as HTMLCollectionOf<HTMLElement>) b.classList.toggle('on', +b.dataset.v! === g.own.ordSpd);
     for (const b of $('depths').children as HTMLCollectionOf<HTMLElement>) b.classList.toggle('on', +b.dataset.v! === g.own.ordDepth);
     for (const b of $('times').children as HTMLCollectionOf<HTMLElement>) b.classList.toggle('on', +b.dataset.v! === timeScale);

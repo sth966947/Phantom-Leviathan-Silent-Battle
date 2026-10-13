@@ -143,11 +143,9 @@ const NM = 1852;
 
 export class Periscope {
   open = false;
-  private ctx: CanvasRenderingContext2D;
   private flakes = Array.from({ length: 140 }, () => ({ x: Math.random(), y: Math.random(), s: 0.5 + Math.random() * 1.5 }));
   private refFor = '';
   constructor(private canvas: HTMLCanvasElement, private g: () => Game) {
-    this.ctx = canvas.getContext('2d')!;
     $('scopeRef').addEventListener('click', (ev) => {
       const b = (ev.target as HTMLElement).closest<HTMLElement>('button[data-classify]');
       if (b) { orders.classify(this.g(), Number(b.dataset.contact), b.dataset.classify!); this.refFor = ''; }
@@ -173,7 +171,15 @@ export class Periscope {
     const v = inPeriscope(g, c);
     if (!c || !v) { this.close(); return; }
     this.reference(g, c.id, v);
-    const { canvas: cv, ctx } = this;
+    const read = this.render(this.canvas, g, v, now);
+    if ($('scopeRead').textContent !== read) $('scopeRead').textContent = read;
+    const title = `Periscope · ${contactLabel(c)}`;
+    if ($('scopeTitle').textContent !== title) $('scopeTitle').textContent = title;
+  }
+
+  /** Draw the view of `v` into any canvas; returns the bearing, range and angle-on-the-bow readout. */
+  render(cv: HTMLCanvasElement, g: Game, v: Vessel, now: number): string {
+    const ctx = cv.getContext('2d')!;
     const W = cv.width, H = cv.height, cx = W / 2, cy = H / 2;
     const sil = silOf(v.cls.key);
     const rNm = dist(g.own, v), rM = rNm * NM;
@@ -241,10 +247,7 @@ export class Periscope {
     ctx.strokeStyle = '#0d2133'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(cx, cy, W / 2 - 2, 0, Math.PI * 2); ctx.stroke();
 
     const aob = angDiff(brg(v, g.own), v.hdg);
-    const read = `Bearing ${fmtBrg(brg(g.own, v))}° · range ${fmtRng(rNm)} · angle on the bow ${Math.abs(Math.round(aob))}° ${aob >= 0 ? 'starboard' : 'port'} · zoom ×${zoom}`;
-    if ($('scopeRead').textContent !== read) $('scopeRead').textContent = read;
-    const title = `Periscope · ${contactLabel(c)}`;
-    if ($('scopeTitle').textContent !== title) $('scopeTitle').textContent = title;
+    return `Bearing ${fmtBrg(brg(g.own, v))}° · range ${fmtRng(rNm)} · angle on the bow ${Math.abs(Math.round(aob))}° ${aob >= 0 ? 'starboard' : 'port'} · zoom ×${zoom}`;
   }
 
   /** The ID book: every class this contact could be, broadside, with the crew's match % and Accept. */
