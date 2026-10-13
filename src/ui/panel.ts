@@ -1,5 +1,5 @@
 // Ship status, contact list, identification and weapons readouts, plus the log.
-import { ARRAY, DEPTH_FT, arrayActive, bearingRate, contactById, contactLabel, isFriendlyClass, missileDepthOk, vesselSL, type Game, type GameEvent } from '../sim/sim';
+import { ARRAY, DEPTH_FT, JATM_PER_CANISTER, WEAPONS, arrayActive, atPeriscopeDepth, bearingRate, contactById, contactLabel, isFriendlyClass, missileDepthOk, radarTracked, targetContact, vesselSL, type Game, type GameEvent } from '../sim/sim';
 import { CLASSES } from '../sim/classes';
 import { angDiff, dist, fmtBrg, fmtRng } from '../sim/math';
 
@@ -30,7 +30,7 @@ function contactsHTML(g: Game) {
   const rows = g.contacts.filter((c) => c.ever).map((c) => {
     const v = g.vessels.find((x) => x.id === c.vid)!;
     const cls = [c.id === g.selected ? 'sel' : '', isFriendlyClass(c.classified) ? 'friend' : '', !v.alive ? 'sunk' : !c.held ? 'lost' : ''].join(' ');
-    const status = !v.alive ? 'sunk' : !c.held ? 'lost' : `${Math.round(c.q * 100)}%`;
+    const status = !v.alive ? (c.air ? 'down' : 'sunk') : !c.held ? 'lost' : c.air ? (radarTracked(g, c) ? 'radar' : c.est ? 'seen' : 'ESM') : `${Math.round(c.q * 100)}%`;
     const rng = c.est && v.alive ? fmtRng(dist(g.own, c.est)) : '';
     return `<li class="${cls}" data-id="${c.id}"><span class="nm">${esc(contactLabel(c))}</span>`
       + `<span class="num">${c.bearing === null ? '—' : fmtBrg(c.bearing) + '°'} ${rng}</span><span class="num">${status}</span></li>`;
@@ -42,7 +42,12 @@ function identHTML(g: Game) {
   const c = contactById(g, g.selected);
   if (!c) return { prop: 'Select a contact to see its signature.', matches: '' };
   const v = g.vessels.find((x) => x.id === c.vid)!;
-  if (!v.alive) return { prop: `${contactLabel(c)} has been sunk.`, matches: '' };
+  if (!v.alive) return { prop: `${contactLabel(c)} has been ${c.air ? 'shot down' : 'sunk'}.`, matches: '' };
+  if (c.air) {
+    const how = !c.held ? 'Air contact lost.' : radarTracked(g, c) ? 'Air contact · radar track. JATM or SM-6 can engage.' : c.est ? 'Air contact · seen through the periscope. Radar track needed to engage.' : 'Air contact · ESM bearing only. Radar track needed to engage.';
+    const m = c.classified ? `<li><span>${esc(contactLabel(c).split(' · ')[1])}</span><span class="pct">100%</span><span class="done">classified</span><span class="bar"><i style="width:100%"></i></span></li>` : '';
+    return { prop: how, matches: m };
+  }
   const sig = c.sig;
   let prop = !c.held ? 'Contact lost. Signature fading.' : !sig || !sig.lines.length ? 'Too faint to show any lines yet.' : `${sig.lines.length - (sig.prop ? 1 : 0)} tonal line${sig.lines.length - (sig.prop ? 1 : 0) === 1 ? '' : 's'}`;
   if (c.held && sig?.prop) prop += ` · ${sig.prop.blades} blades at ${sig.prop.shaftHz.toFixed(1)} Hz shaft`;
@@ -71,7 +76,7 @@ export function updatePanel(g: Game) {
   setText('oDepth', `${ft} ft${o.depthT < 0.3 ? ', periscope up' : o.depthT > 1.5 ? ', below layer' : ', above layer'}${Math.abs(o.depthT - o.ordDepth) > 0.05 ? ` → ${DEPTH_FT[o.ordDepth]}` : ''}`);
   const sl = vesselSL(o) - o.cls.slBase;
   setText('oNoise', sl < 10 ? 'quiet' : sl < 20 ? 'moderate' : sl < 35 ? 'loud' : 'very loud');
-  setText('oArray', arrayActive(g) ? 'tracking' : o.spd > ARRAY.maxSpd ? 'flow noise, too fast' : `settling ${Math.ceil(o.arrayStableAt - g.t)}s`);
+  setText('oArray', o.radar ? 'radar transmitting' : arrayActive(g) ? 'tracking' : o.spd > ARRAY.maxSpd ? 'flow noise, too fast' : `settling ${Math.ceil(o.arrayStableAt - g.t)}s`);
 
   setHTML($('contacts'), contactsHTML(g));
   const id = identHTML(g);
@@ -85,12 +90,22 @@ export function updatePanel(g: Game) {
   setText('wTubes', `${ready(o.tubes)} of ${o.tubes.length} ready${next(o.tubes)}`);
   setText('wVls', `${ready(o.vls)} of ${o.vls.length} ready${next(o.vls)}`);
   setText('wDecoys', String(o.decoys));
-  const over = !!g.over, depthOk = missileDepthOk(g), hasTarget = !!sel?.est || g.contacts.some((c) => c.held && c.est);
-  ($('fireMk48') as HTMLButtonElement).disabled = over || !ready(o.tubes);
-  ($('fireHarpoon') as HTMLButtonElement).disabled = over || !ready(o.tubes) || !depthOk || !hasTarget;
-  ($('fireMst') as HTMLButtonElement).disabled = over || !ready(o.vls) || !depthOk || !hasTarget;
-  ($('decoy') as HTMLButtonElement).disabled = o.decoys <= 0 || over;
-  const target = sel?.est ? `Target: ${contactLabel(sel)}${isFriendlyClass(sel.classified) ? ' (friendly!)' : ''}` : 'No target selected';
+  setText('wJatm', o.jatm ? `${o.jatm} of ${JATM_PER_CANISTER} rounds` : 'next shot loads a canister');
+  const over = !!g.over, depthOk = missileDepthOk(g);
+  const ship = targetContact(g, false), air = targetContact(g, true);
+  const asrocRange = ship?.est ? (() => { const r = dist(o, ship.est!); return r >= WEAPONS.asroc.minRun! && r <= WEAPONS.asroc.maxRun; })() : false;
+  const dis = (id: string, off: boolean) => { ($(id) as HTMLButtonElement).disabled = over || off; };
+  dis('fireMk48', !ready(o.tubes));
+  dis('fireHarpoon', !ready(o.tubes) || !depthOk || !ship);
+  dis('fireMst', !ready(o.vls) || !depthOk || !ship);
+  dis('fireAsroc', !ready(o.vls) || !depthOk || !asrocRange);
+  dis('fireJatm', (!o.jatm && !ready(o.vls)) || !depthOk || !air);
+  dis('fireSm6', !ready(o.vls) || !depthOk || !air);
+  dis('radar', !o.radar && !atPeriscopeDepth(g));
+  $('radar').classList.toggle('on-air', o.radar);
+  setHTML($('radar'), `${o.radar ? 'Radar on' : 'Radar'} <kbd>R</kbd>`);
+  const pick = sel?.air ? air : ship;
+  const target = pick?.est ? `Target: ${contactLabel(pick)}${isFriendlyClass(pick.classified) ? ' (friendly!)' : ''}` : 'No target selected';
   setText('wNote', depthOk ? target : `${target} · missiles need 150 ft or shallower`);
 }
 

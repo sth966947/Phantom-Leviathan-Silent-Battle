@@ -5,7 +5,7 @@
 // contact shows only the first one or two. `blades` and `shaftHzPerKt` give the
 // propeller blade-rate line (blades x shaft rate), which shifts with speed.
 
-export type Kind = 'sub' | 'surface';
+export type Kind = 'sub' | 'surface' | 'air';
 export type Nation = 'US' | 'UK' | 'Germany' | 'Russia';
 
 export interface ClassCard {
@@ -21,6 +21,7 @@ export interface ClassCard {
   tonals: number[];
   blades: number;
   shaftHzPerKt: number;
+  emitter?: boolean;       // carries a search radar that our ESM can intercept
 }
 
 export const CLASSES: Record<string, ClassCard> = {
@@ -61,6 +62,15 @@ export const CLASSES: Record<string, ClassCard> = {
   merchant: {
     key: 'merchant', name: 'Merchant steamer', type: 'merchant', nation: 'UK', kind: 'surface',
     slBase: 84, maxSpd: 11, threshold: null, hp: 3, tonals: [30, 60, 90], blades: 4, shaftHzPerKt: 0.2,
+  },
+  // Aircraft: no acoustic signature. Found by radar, by eye at periscope depth, or by ESM.
+  ar196: {
+    key: 'ar196', name: 'Arado Ar 196', type: 'floatplane', nation: 'Germany', kind: 'air',
+    slBase: 0, maxSpd: 165, threshold: null, hp: 1, tonals: [], blades: 0, shaftHzPerKt: 0,
+  },
+  il38: {
+    key: 'il38', name: 'Il-38N May', type: 'maritime patrol aircraft', nation: 'Russia', kind: 'air',
+    slBase: 0, maxSpd: 350, threshold: null, hp: 1, tonals: [], blades: 0, shaftHzPerKt: 0, emitter: true,
   },
 };
 

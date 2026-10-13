@@ -151,3 +151,6 @@ kbd {
 .mission button { margin-top: auto; flex: none; }
 .brief { max-width: 760px; }
 @media (max-width: 560px) { .sonar { grid-template-columns: minmax(0, 1fr); } }
+
+.wlabel { font-size: 11px; color: var(--dim, #6f8ea6); text-transform: uppercase; letter-spacing: 0.06em; margin: 10px 0 4px; }
+button.on-air { background: #1d4a3a; border-color: #2f7a5e; color: #d4ffe9; }

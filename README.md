@@ -5,9 +5,11 @@ You command USS Tang (SSN-805, Virginia Block V). Two scenarios, picked on the s
 
 - **Sink the Bismarck** (training mission, default). Tang comes out of the time vortex in the
   Denmark Strait at 0300 on 24 May 1941. Bismarck and Prinz Eugen run southwest at 27 kt with the
-  British cruisers Suffolk and Norfolk shadowing 13 to 15 nm astern. Sink Bismarck before she
+  British cruisers Suffolk and Norfolk shadowing 13 to 15 nm astern, and Bismarck's Arado Ar 196
+  floatplane circling ahead of the group. Sink Bismarck before she
   breaks out (5 hours, or 60 nm clear of Tang). Sinking a British cruiser fails the mission.
-- **Duel: Kazan** (2029). Tang against the Yasen-M Kazan in the Bear Gap.
+- **Duel: Kazan** (2029). Tang against the Yasen-M Kazan in the Bear Gap, with an Il-38N May
+  laying sonobuoys overhead and passing what it finds to Kazan.
 
 Stack: TypeScript, Vite, PixiJS 8, Vitest. The simulation in `src/sim` has no rendering code.
 
@@ -32,7 +34,10 @@ Stack: TypeScript, Vite, PixiJS 8, Vitest. The simulation in `src/sim` has no re
 | Accept the suggested class | Accept beside a match | K (top match) |
 | Depth: periscope / 150 ft / 700 ft | Depth buttons | Q shallower, E deeper, L toggles 150/700 |
 | Fire Mk 48 at the selected contact | Mk 48 | F |
-| Fire Harpoon / Maritime Strike Tomahawk | Harpoon / Tomahawk | H / T |
+| Fire Harpoon / Tomahawk anti-ship (Maritime Strike) | Harpoon / Tomahawk anti-ship | H / T |
+| Fire ASROC at the selected sub (1 to 15 nm) | ASROC | G |
+| Fire JATM / SM-6 at the selected aircraft | JATM / SM-6 | J / M |
+| Radar on or off (periscope depth only) | Radar | R |
 | Active ping | Active ping | P |
 | Countermeasure | Countermeasure | C |
 | Time compression | Pause / ×10 / ×30 / ×90 | Space, 1, 2, 3 |
@@ -76,10 +81,30 @@ identified by sight. Accepting a match labels the contact; friendly classes turn
   fires UGST (50 kt, 13 nm, unlimited, one shot per 5 min); evades incoming torpedoes with a decoy, sprint, layer change and
   often a snap shot back down the bearing.
 
+- ASROC (sub-launched RUM-139C, vertical tube): flies at 600 kt to the solution 1 to 15 nm out and
+  drops a Mk 54 there. The Mk 54 (40 kt, 6 nm, 1.6 nm seeker) circles and switches layers until it
+  acquires; it kills a submarine (5 damage) but only dents a ship (2).
+- Air defence from the vertical tubes, both needing a radar track: AIM-260 JATM (60 nm, Pk 0.85;
+  a 7-round canister occupies one tube until it is empty) for slow sub-hunting aircraft, and SM-6
+  (130 nm, Pk 0.9) for missiles and fast jets, which also kills aircraft.
+- Radar (periscope depth only, one sweep every 4 s): ships inside 15 nm are fixed and classified
+  within a sweep or two; from 15 to 24 nm returns are patchy and classification is a matter of
+  luck each sweep; aircraft show to 40 nm and are classified inside 20 nm. In 1941 nobody can
+  detect it (radar warning receivers came later). In 2029 the Il-38's ESM hears it out to 100 nm.
+- Contacts are named for the sensor that found them: Sierra (sonar), Victor (eyes), Romeo (radar),
+  Echo (ESM). At periscope depth, ESM picks up the Il-38's search radar as a bearing.
+- Arado Ar 196: circles 12 nm from Bismarck. Inside 5 nm it may spot a periscope, and it sees
+  missile launches within 20 nm; either turns the German group away.
+- Il-38N: searches the patrol box laying sonobuoys (shallow or deep), comes to any datum (buoy
+  contact, periscope on its radar inside 12 nm, our radar on its ESM, a missile launch inside 20 nm),
+  seeds buoys round it, drops an APR-3E (60 kt, 3 nm, 3 damage) on a fresh, close fix, and
+  datalinks the datum to Kazan. Buoys hear a quiet, slow boat only close in; speed gives you away.
+  Splashes within 5 nm are reported by sonar.
+
 ## Planned
 
-USS Tang's full loadout, per Scott. These need surface and land targets first; this prototype
-has one submerged target, so only the Mk 48 is in the game today.
+USS Tang's full loadout, per Scott. Everything below except land-attack Tomahawk is now in the
+game, with unlimited weapons and only tube reloads limiting fire.
 
 - **Torpedo room:** 25 weapons (unlimited in early versions) shared between Mk 48 ADCAP torpedoes and UGM-84 Harpoon
   anti-ship missiles, fired from the four 21-inch tubes.
