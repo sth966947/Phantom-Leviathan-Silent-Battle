@@ -94,6 +94,8 @@ export interface Reference {
   armament: string[];
   armor: string;
   notes?: string;
+  /** Photo under public/ships/, free to use, with its credit line. Falls back to the drawn silhouette. */
+  photo?: { file: string; credit: string };
 }
 
 export const REFERENCE: Record<string, Reference> = {

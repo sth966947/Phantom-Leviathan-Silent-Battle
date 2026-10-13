@@ -117,6 +117,7 @@ export class Solution {
       setText($('clsName'), c ? 'No class to show' : 'No contact selected');
       accept.hidden = true;
       pic.getContext('2d')!.clearRect(0, 0, pic.width, pic.height);
+      pic.hidden = false; $('clsPhoto').hidden = true;
       this.drawSig(sig, null, c);
       setHTML($('clsFacts'), ''); setText($('clsNotes'), '');
       return;
@@ -127,6 +128,15 @@ export class Solution {
     accept.hidden = !c || c.classified === key;
     accept.textContent = c?.classified ? 'Reclassify as this' : 'Accept match';
     drawClassPicture(pic, key);
+    const photo = ref?.photo;
+    pic.hidden = !!photo;
+    $('clsPhoto').hidden = !photo;
+    if (photo) {
+      const img = $('clsImg') as HTMLImageElement;
+      img.src = `${import.meta.env.BASE_URL}ships/${photo.file}`;
+      img.alt = `Photo of ${k.name}`;
+      setText($('clsCredit'), photo.credit);
+    }
     this.drawSig(sig, key, c);
     setText($('clsSigLabel'), !k.tonals.length ? 'Reference signature · none, silent to sonar'
       : `Reference signature · amber ticks are ${c ? `${c.name}'s` : 'the contact\'s'} lines`);

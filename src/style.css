@@ -237,3 +237,6 @@ button.on-air { background: #1d4a3a; border-color: #2f7a5e; color: #d4ffe9; }
 @media (max-width: 1600px) { .sol-table table { font-size: 12px; } .sol-table td, .sol-table th { padding: 4px 5px; } }
 .sol-table td:first-child { white-space: normal; min-width: 9em; }
 @media (max-width: 1600px) { .sol-table td:nth-child(3), .sol-table th:nth-child(3) { display: none; } }
+.cls-photo { margin: 0; }
+.cls-photo img { width: 100%; max-height: 180px; object-fit: cover; display: block; border: 1px solid var(--rule); }
+.cls-photo figcaption { font-size: 11px; color: var(--dim); margin-top: 2px; }
