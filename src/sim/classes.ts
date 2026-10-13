@@ -72,10 +72,15 @@ export const CLASSES: Record<string, ClassCard> = {
     key: 'il38', name: 'Il-38N May', type: 'maritime patrol aircraft', nation: 'Russia', kind: 'air',
     slBase: 0, maxSpd: 350, threshold: null, hp: 1, tonals: [], blades: 0, shaftHzPerKt: 0, emitter: true,
   },
+  // Heard only while hovering with its dipping sonar in the water: rotor and gearbox lines.
+  ka27: {
+    key: 'ka27', name: 'Ka-27PL Helix', type: 'ASW helicopter', nation: 'Russia', kind: 'air',
+    slBase: 104, maxSpd: 140, threshold: null, hp: 1, tonals: [14, 28, 115, 42], blades: 0, shaftHzPerKt: 0,
+  },
 };
 
 /** Which classes the signature library offers for each scenario's era. */
 export const LIBRARY: Record<'1941' | '2029', string[]> = {
   '1941': ['bismarck', 'hipper', 'county', 'admiral', 'kgv', 'merchant'],
-  '2029': ['yasen', 'akula', 'virginia'],
+  '2029': ['yasen', 'akula', 'virginia', 'ka27'],
 };

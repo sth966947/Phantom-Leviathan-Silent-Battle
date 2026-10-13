@@ -21,6 +21,12 @@
         <button id="zoomOut" title="Zoom out">−</button>
       </div>
       <div class="plot-hint">Click a contact to select · click water to steer · scroll to zoom</div>
+      <div class="scope" id="scope" hidden>
+        <div class="scope-head"><span id="scopeTitle">Periscope</span><button id="scopeClose">Lower <kbd>V</kbd></button></div>
+        <canvas id="scopeView" width="440" height="440" aria-label="Periscope view of the selected contact"></canvas>
+        <div class="scope-read" id="scopeRead"></div>
+        <div class="scope-ref" id="scopeRef" aria-label="Identification book"></div>
+      </div>
     </div>
     <div class="sonar">
       <div class="wf-wrap">
@@ -87,6 +93,7 @@
       </div>
       <div class="wlabel">Sensors and defence</div>
       <div class="row">
+        <button id="scopeBtn" title="Look at the selected contact through the periscope and compare it with the identification book. Periscope depth, ships within 8 nm, aircraft within 10 nm.">Periscope view <kbd>V</kbd></button>
         <button id="radar" title="Mast radar, periscope depth only. Fixes and classifies ships inside 15 nm almost at once, less well out to 24 nm; sees aircraft to 40 nm. Enemies with radar warning receivers hear it.">Radar <kbd>R</kbd></button>
         <button id="ping">Active ping <kbd>P</kbd></button>
         <button id="decoy">Countermeasure <kbd>C</kbd></button>
@@ -120,17 +127,18 @@
       <article class="mission">
         <h3>Duel: Kazan</h3>
         <p class="sub">Bear Gap · March 2029 · 0200</p>
-        <p>Back in the present war. A Yasen-M, Kazan, is in your patrol box, quiet and armed, and an Il-38N is laying sonobuoys overhead to cue it. Find Kazan on passive sonar and sink it before they find you.</p>
+        <p>Back in the present war. A Yasen-M, Kazan, is in your patrol box, quiet and armed, an Il-38N is laying sonobuoys overhead to cue it, and a Ka-27 helicopter is dipping its sonar. Find Kazan on passive sonar and sink it before they find you.</p>
         <button data-scenario="duel">Begin duel</button>
       </article>
     </div>
     <ul>
       <li><b>Stay slow to stay hidden.</b> Above about 10 knots you get loud and your sonar goes deaf. The towed array hears farther and covers astern at 12 knots or less, once you've held a course for 90 seconds.</li>
       <li><b>Identify by signature.</b> Select a contact to see its machinery and propeller lines. The crew suggests classes with a match %. More lines appear as the contact gets louder or closer. Accept a match to classify it.</li>
-      <li><b>Look.</b> At periscope depth you get exact bearing, range and class on ships within 8 miles, but they may spot your periscope.</li>
-      <li><b>Radar.</b> At periscope depth, press R. Ships inside 15 miles are fixed and classified almost at once; farther out it is patchy. In 1941 nobody can hear it. In 2029 the Il-38's receiver can, and it will come looking.</li>
+      <li><b>Look.</b> At periscope depth you get an exact fix on ships within 8 miles, but they may spot your periscope. Click the ship (or press V) to see it through the periscope and compare it with the identification book.</li>
+      <li><b>Radar.</b> At periscope depth, press R. Ships inside 15 miles are fixed and classified almost at once; farther out it is patchy. In 1941 nobody can hear it. In 2029 the Il-38's receiver can, and it will come looking. In 1941, radar is the only way to find aircraft.</li>
+      <li><b>Listen for aircraft.</b> In 2029, sonobuoy splashes and a Ka-27's dipping sonar are on your sonar, and give away where the aircraft are. JATM and SM-6 are fire and forget: they fly down the selected air contact's bearing (or your heading) and take the first aircraft their seeker sees within 50 miles and 45° either side.</li>
       <li><b>Build a solution.</b> Range firms up the longer you track, and each new leg (a turn of 40° or more) improves it sharply.</li>
-      <li><b>Shoot.</b> Mk 48s are wire-guided to your solution. Harpoon and Tomahawk fly to your solution and home on the ship nearest it, friend or foe, so a poor solution can hit the wrong ship. ASROC drops a Mk 54 on your solution 1 to 15 miles out. JATM and SM-6 shoot down aircraft on a radar track. Missiles launch from 150 feet or shallower.</li>
+      <li><b>Shoot.</b> Mk 48s are wire-guided to your solution. Harpoon and Tomahawk fly to your solution and home on the ship nearest it, friend or foe, so a poor solution can hit the wrong ship. ASROC drops a Mk 54 on your solution 1 to 15 miles out. JATM and SM-6 shoot down aircraft. Missiles launch from 150 feet or shallower.</li>
     </ul>
   </div>
 </div>

@@ -154,3 +154,18 @@ kbd {
 
 .wlabel { font-size: 11px; color: var(--dim, #6f8ea6); text-transform: uppercase; letter-spacing: 0.06em; margin: 10px 0 4px; }
 button.on-air { background: #1d4a3a; border-color: #2f7a5e; color: #d4ffe9; }
+.scope {
+  position: absolute; inset: 0; z-index: 2; background: rgba(4, 12, 20, 0.94); cursor: default;
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px; overflow-y: auto;
+}
+.scope[hidden] { display: none !important; }
+.scope canvas { position: static; width: min(100%, calc(100% - 150px), 440px); height: auto; aspect-ratio: 1; flex: none; }
+.scope-head { display: flex; justify-content: space-between; align-items: center; width: 100%; font: 600 13px var(--f-data); color: var(--ink); }
+.scope-head button { flex: none; }
+.scope-read { font: 12.5px var(--f-data); color: var(--good); text-align: center; }
+.scope-ref { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; width: 100%; }
+.scope-ref .ref { border: 1px solid var(--rule); padding: 4px 6px; display: grid; justify-items: center; gap: 2px; font-size: 12px; width: 162px; }
+.scope-ref .ref.chosen { border-color: var(--good); }
+.scope-ref .ref canvas { width: 150px; height: 46px; aspect-ratio: auto; }
+.scope-ref .ref button { padding: 2px 10px; font-size: 12px; }
+.scope-ref .done { color: var(--good); font-size: 11px; }

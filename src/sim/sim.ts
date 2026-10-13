@@ -26,13 +26,13 @@ const LAYER_AT = 1.5; // depthT above this is below the layer
 
 export interface Knowledge extends Vec { t: number; deep: boolean; exact?: boolean }
 export interface AI {
-  mode: 'patrol' | 'attack' | 'evade' | 'transit' | 'station' | 'alert' | 'orbit' | 'search' | 'prosecute';
+  mode: 'patrol' | 'attack' | 'evade' | 'transit' | 'station' | 'alert' | 'orbit' | 'search' | 'prosecute' | 'dip';
   legT: number; holdT: number; knows: Knowledge | null; cool: number; evadeT: number;
   threat: Weapon | null; snapTaken: boolean; decoys: number;
   baseCourse: number; zig: number; cruise: number;
   leader?: number; rel?: number; rng?: number; alertT: number; fleeHdg: number;
   // Aircraft: patrol centre, current waypoint, sonobuoy timer and torpedoes left.
-  center?: Vec; wp?: Vec; buoyT?: number; torps?: number; datum?: Knowledge | null; phase?: number;
+  center?: Vec; wp?: Vec; buoyT?: number; torps?: number; datum?: Knowledge | null; phase?: number; hits?: number; dipT?: number;
 }
 
 export interface Vessel extends Vec {
@@ -49,7 +49,7 @@ export interface OwnBoat extends Vessel {
 }
 
 /** An enemy sonobuoy: a small omnidirectional hydrophone, shallow or deep. */
-export interface Buoy extends Vec { id: number; life: number; deep: boolean; heard: boolean; hits: number }
+export interface Buoy extends Vec { id: number; life: number; deep: boolean; heard: boolean; hits: number; est: Vec | null }
 
 export interface Decoy extends Vec { id: number; side: Side; life: number; deep: boolean }
 
@@ -69,7 +69,7 @@ export interface Contact {
   bearing: number | null; q: number; bias: number; air: boolean; radarT: number; radarHits: number;
   est: (Vec & { t: number }) | null; estErr: number; legHdg: number;
   history: { t: number; b: number }[]; cavitating: boolean;
-  sig: SignatureView | null; matches: Match[]; classified: string | null; sighted: string | null;
+  sig: SignatureView | null; matches: Match[]; classified: string | null; sighted: string | null; spotted: boolean;
 }
 
 export interface WaterfallRow { row: Float32Array; baffle: Uint8Array; t: number }
@@ -102,11 +102,14 @@ export const WEAPONS: Record<WeaponKey, {
   asroc: { name: 'ASROC (sub-launched RUM-139C)', short: 'ASROC', spd: 600, maxRun: 15, seeker: 0, damage: 0, missile: true, role: 'asw', vls: true, minRun: 1 },
   // A lightweight warhead kills a submarine but only dents a big surface ship.
   mk54: { name: 'Mk 54 lightweight torpedo', short: 'Mk 54', spd: 40, maxRun: 6, seeker: 1.6, damage: 5, surfaceDamage: 2, missile: false, role: 'torpedo' },
-  jatm: { name: 'AIM-260 JATM (sub-launched)', short: 'JATM', spd: 2300, maxRun: 60, seeker: 10, damage: 1, missile: true, role: 'aa', vls: true, pk: 0.85 },
-  sm6: { name: 'SM-6 (sub-launched)', short: 'SM-6', spd: 2000, maxRun: 130, seeker: 15, damage: 1, missile: true, role: 'aa', vls: true, pk: 0.9 },
+  // Surface-to-air missiles are fire and forget: they fly down the launch bearing and take the
+  // first aircraft their seeker finds in a 50 nm, ±45° cone, or run out of fuel.
+  jatm: { name: 'AIM-260 JATM (sub-launched)', short: 'JATM', spd: 2300, maxRun: 100, seeker: 50, damage: 1, missile: true, role: 'aa', vls: true, pk: 0.85 },
+  sm6: { name: 'SM-6 (sub-launched)', short: 'SM-6', spd: 2000, maxRun: 130, seeker: 50, damage: 1, missile: true, role: 'aa', vls: true, pk: 0.9 },
   apr3: { name: 'APR-3E air-dropped torpedo', short: 'APR-3', spd: 60, maxRun: 3, seeker: 1.2, damage: 3, missile: false, role: 'torpedo' },
 };
 export const JATM_PER_CANISTER = 7;
+const AA_CONE = 45;
 const TUBE_RELOAD = 120;
 const VLS_RELOAD = 600;
 const MISSILE_MAX_DEPTH = 1.05; // missiles launch from 150 ft or shallower
@@ -207,7 +210,7 @@ export function create(scenario: ScenarioKey = 'bismarck', seed?: number): Game 
     nor.ai = makeAI({ mode: 'station', leader: bis.id, rel: 200, rng: 15 });
     // Bismarck's Arado floatplane scouts around the group, watching for periscopes.
     const ar = makeVessel(g, 'ar196', 'Arado Ar 196', 'enemy', offset(bPos, course, 12), course, 140, 0);
-    ar.ai = makeAI({ mode: 'orbit', leader: bis.id, phase: r() * 360, rng: 12 });
+    ar.ai = makeAI({ mode: 'orbit', leader: bis.id, phase: r() * 360, rng: 12, torps: 1 });
     g.vessels.push(bis, pe, suf, nor, ar);
   } else {
     g.startClock = 2 * 3600;
@@ -220,7 +223,11 @@ export function create(scenario: ScenarioKey = 'bismarck', seed?: number): Game 
     const ilBrg = r() * 360;
     const il = makeVessel(g, 'il38', 'Il-38N May', 'enemy', offset(center, ilBrg, 70), norm(ilBrg + 180), 300, 0);
     il.ai = makeAI({ mode: 'search', center, wp: center, buoyT: 0, torps: 2, datum: null });
-    g.vessels.push(kaz, il);
+    // A Ka-27PL from a frigate over the horizon hops between dips with its sonar.
+    const kaBrg = r() * 360;
+    const ka = makeVessel(g, 'ka27', 'Ka-27PL Helix', 'enemy', offset(center, kaBrg, 35), norm(kaBrg + 180), 120, 0);
+    ka.ai = makeAI({ mode: 'search', center, wp: offset(center, r() * 360, r() * 8), torps: 1, datum: null, hits: 0, dipT: 0 });
+    g.vessels.push(kaz, il, ka);
   }
   return g;
 }
@@ -256,7 +263,8 @@ function moveVessel(v: Vessel, dt: number) {
 // ---- Player orders ----------------------------------------------------------------------
 /** The contact a weapon would go after: the selected one if it suits, else the first that does. */
 export function targetContact(g: Game, air = false): Contact | null {
-  const ok = (c: Contact | null) => !!c && !!c.est && c.air === air && vesselById(g, c.vid).alive && (!air || radarTracked(g, c));
+  // Air contacts only need a bearing: the missile does its own finding.
+  const ok = (c: Contact | null) => !!c && c.air === air && (air ? c.bearing !== null : !!c.est) && vesselById(g, c.vid).alive;
   const sel = contactById(g, g.selected);
   if (ok(sel)) return sel;
   return g.contacts.find((c) => c.held && ok(c)) ?? null;
@@ -299,12 +307,11 @@ export const orders = {
     if (w.missile && o.depthT > MISSILE_MAX_DEPTH) return log(g, 'warn', `${w.short}: come up to 150 feet or shallower to launch.`);
     const aa = w.role === 'aa';
     const c = targetContact(g, aa);
-    if (aa && !c) return log(g, 'warn', `${w.short}: no radar track on an aircraft. Radar on at periscope depth (R) and select the air contact.`);
-    if (w.missile && !c) return log(g, 'warn', `${w.short}: no contact to target. Select a contact with a solution first.`);
-    const aim = c?.est ? { x: c.est.x, y: c.est.y } : offset(o, o.hdg, 8);
+    if (!aa && w.missile && !c) return log(g, 'warn', `${w.short}: no contact to target. Select a contact with a solution first.`);
+    // A SAM goes down the bearing of the selected air contact, or straight ahead if there is none.
+    const aim = aa ? offset(o, c ? c.bearing! : o.hdg, w.seeker) : c?.est ? { x: c.est.x, y: c.est.y } : offset(o, o.hdg, 8);
     const range = dist(o, aim);
     if (w.role === 'asw' && (range < w.minRun! || range > w.maxRun)) return log(g, 'warn', `ASROC: solution is ${fmtRng(range)} out. ASROC reaches 1 to 15 nm.`);
-    if (aa && range > w.maxRun) return log(g, 'warn', `${w.short}: target is ${fmtRng(range)} out, beyond ${w.maxRun} nm.`);
     // A JATM canister holds seven rounds; it takes a vertical tube until it is empty.
     const fromCanister = type === 'jatm' && o.jatm > 0;
     const bank = w.vls ? o.vls : o.tubes;
@@ -317,7 +324,7 @@ export const orders = {
     const hdg = brg(o, aim);
     g.stats.fired[type]++;
     const label = `${w.short} ${g.stats.fired[type]}`;
-    const enableAt = w.role === 'antiship' ? Math.max(1, range - 8) : w.role === 'aa' ? Math.max(0.5, range - w.seeker) : 1;
+    const enableAt = w.role === 'antiship' ? Math.max(1, range - 8) : w.role === 'aa' ? 0.5 : 1;
     g.weapons.push({
       id: g.seq++, type, side: 'us', label, x: o.x, y: o.y, hdg, ordHdg: hdg, spd: w.spd,
       run: 0, maxRun: w.maxRun, enableAt, enabled: false,
@@ -326,7 +333,7 @@ export const orders = {
     });
     const at = c ? ` at ${contactLabel(c)}` : '';
     const from = type === 'jatm' ? `JATM canister, ${o.jatm} of ${JATM_PER_CANISTER} left${fromCanister ? '' : `, VLS tube ${tube + 1}`}` : w.vls ? `VLS tube ${tube + 1}` : `Tube ${tube + 1}`;
-    const tail = w.role === 'torpedo' ? '. Wire guidance active.' : w.role === 'asw' ? `, drop point ${fmtRng(range)}.` : `, range ${fmtRng(range)}.`;
+    const tail = w.role === 'torpedo' ? '. Wire guidance active.' : w.role === 'asw' ? `, drop point ${fmtRng(range)}.` : aa ? '. Fire and forget, seeker searching.' : `, range ${fmtRng(range)}.`;
     log(g, 'good', `${from} fired. ${label}${at}, bearing ${fmtBrg(hdg)}${tail}`, w.missile ? 'missile' : 'launch');
     transient(g, o, 'us');
     if (w.missile) launchSeen(g);
@@ -386,7 +393,7 @@ function contactFor(g: Game, v: Vessel, sensor: Sensor = 'Sierra'): Contact {
       id: g.seq++, vid: v.id, name: `${sensor} ${n}`, held: false, ever: false, lastSeen: -1e9, se: -99, seAvg: -10,
       bearing: null, q: 0, bias: 0, air: v.cls.kind === 'air', radarT: -1e9, radarHits: 0,
       est: null, estErr: 0, legHdg: 0, history: [], cavitating: false,
-      sig: null, matches: [], classified: null, sighted: null,
+      sig: null, matches: [], classified: null, sighted: null, spotted: false,
     };
     g.contacts.push(c);
     if (g.selected === null) g.selected = c.id;
@@ -458,12 +465,6 @@ function updateWeapon(g: Game, w: Weapon, dt: number) {
     if (c?.held && c.est) { w.aim = { x: c.est.x, y: c.est.y }; w.enableAt = w.run + Math.max(0, dist(w, w.aim) - 8); }
     w.ordHdg = brg(w, w.aim);
   }
-  // Surface-to-air missiles fly out on our radar track until their own seeker takes over.
-  if (spec.role === 'aa' && !w.target) {
-    const c = contactById(g, w.contactId);
-    if (c && radarTracked(g, c) && c.est) { w.aim = { x: c.est.x, y: c.est.y }; w.enableAt = Math.min(w.enableAt, w.run + Math.max(0, dist(w, w.aim) - spec.seeker)); }
-    w.ordHdg = brg(w, w.aim);
-  }
 
   if (w.enabled) {
     if (w.target) {
@@ -490,7 +491,7 @@ function updateWeapon(g: Game, w: Weapon, dt: number) {
     }
     if (!w.target || w.targetKind === 'vessel') seek(g, w);
     // Unwired torpedoes with nothing on the seeker circle and switch layers to search.
-    if (!w.target && !w.wire && w.type !== 'mk48' && w.type !== 'ugst') {
+    if (!w.target && !w.wire && (w.type === 'mk54' || w.type === 'apr3')) {
       w.ordHdg = norm(w.hdg + 4);
       w.layerT = (w.layerT ?? 0) + dt;
       if (w.layerT > 45) { w.layerT = 0; w.deep = !w.deep; }
@@ -506,10 +507,10 @@ function moveWeapon(g: Game, w: Weapon, spec: (typeof WEAPONS)[WeaponKey], dt: n
   w.y += Math.cos(w.hdg * D2R) * w.spd * KT * dt;
   if (g.t % (spec.missile ? 1 : 4) === 0) { w.trail.push({ x: w.x, y: w.y }); if (w.trail.length > 90) w.trail.shift(); }
   // Missiles that find nothing past their aim point destroy themselves.
-  const overrun = spec.missile && w.enabled && !w.target && w.run > w.enableAt + 8 + spec.seeker;
+  const overrun = spec.role === 'antiship' && w.enabled && !w.target && w.run > w.enableAt + 8 + spec.seeker;
   if (w.run >= w.maxRun || overrun) {
     w.dead = true;
-    if (w.side === 'us') log(g, 'warn', spec.missile ? `${w.label} found no target and self-destructed.` : `${w.label} ran out of fuel and shut down.`);
+    if (w.side === 'us') log(g, 'warn', spec.role === 'antiship' ? `${w.label} found no target and self-destructed.` : spec.role === 'aa' ? `${w.label} ran out of fuel without finding a target.` : `${w.label} ran out of fuel and shut down.`);
     else if (g.heard.has(w.id)) log(g, 'good', 'Enemy torpedo has run out of fuel.');
   }
 }
@@ -525,7 +526,8 @@ function dropTorpedo(g: Game, type: 'mk54' | 'apr3', side: Side, at: Vec, hdg: n
 
 function seek(g: Game, w: Weapon) {
   const spec = WEAPONS[w.type];
-  const inCone = (obj: Vec, range: number) => dist(w, obj) < range && Math.abs(angDiff(brg(w, obj), w.hdg)) < 30;
+  const cone = spec.role === 'aa' ? AA_CONE : 30;
+  const inCone = (obj: Vec, range: number) => dist(w, obj) < range && Math.abs(angDiff(brg(w, obj), w.hdg)) < cone;
   if (!spec.missile) {
     for (const d of g.decoys) {
       if (d.side === w.side || w.rolled.has(d.id) || !inCone(d, spec.seeker)) continue;
@@ -546,7 +548,7 @@ function seek(g: Game, w: Weapon) {
     if (spec.role === 'aa' ? v.cls.kind !== 'air' : spec.role === 'antiship' ? v.cls.kind !== 'surface' : v.cls.kind === 'air') continue;
     const acq = !spec.missile && deepOf(v) !== w.deep ? spec.seeker / 2 : spec.seeker;
     // Torpedoes take the nearest return; anti-ship missiles take the ship nearest their aim point.
-    const score = (x: Vessel) => (spec.missile ? dist(x, w.aim) : dist(w, x));
+    const score = (x: Vessel) => (spec.role === 'antiship' ? dist(x, w.aim) : dist(w, x));
     if (inCone(v, acq) && (!best || score(v) < score(best))) best = v;
   }
   if (!best) return;
@@ -602,7 +604,7 @@ function ownSensors(g: Game, dt: number) {
   const ears = ownEars(g);
   const atPD = o.depthT < 0.3;
   for (const v of g.vessels) {
-    if (v === o || v.cls.kind === 'air') continue;
+    if (v === o || (v.cls.kind === 'air' && !dipping(v))) continue;
     const exists = g.contacts.find((x) => x.vid === v.id);
     if (!v.alive) { if (exists) exists.held = false; continue; }
     const se = excess(vesselSL(v), v, ears, o.cls.threshold!) + gauss(g.r) * 2;
@@ -633,9 +635,9 @@ function ownSensors(g: Game, dt: number) {
         }
       }
       if (seen) {
-        // Periscope with laser rangefinder: exact fix, and the class by sight.
-        if (!c.sighted) log(g, 'contact', `Periscope: ${v.cls.name}, ${v.cls.type}, bearing ${fmtBrg(brg(o, v))}, range ${fmtRng(r)}.`);
-        c.sighted = v.cls.key; c.q = Math.max(c.q, 0.99); c.bias = 0;
+        // Periscope with laser rangefinder: exact fix. The class is for the player to judge by eye.
+        if (!c.spotted) log(g, 'contact', `Periscope: ship in sight, bearing ${fmtBrg(brg(o, v))}, range ${fmtRng(r)}. Select it and raise the periscope view (V) to identify.`);
+        c.spotted = true; c.q = Math.max(c.q, 0.99); c.bias = 0;
       }
       const estR = r * (1 + c.bias * (1 - c.q));
       c.est = { ...offset(o, c.bearing, estR), t: g.t };
@@ -728,13 +730,12 @@ function radarAndAir(g: Game) {
       }
     }
     if (!air) continue;
-    // Eyes and ESM on aircraft, at periscope depth.
-    if (atPD && r < AIR_VISUAL_RANGE && g.r() < 0.05) {
+    // Eyes and ESM on aircraft, at periscope depth. In 1941 only radar finds aircraft.
+    if (g.era === '2029' && atPD && r < AIR_VISUAL_RANGE && g.r() < 0.05) {
       c = c ?? contactFor(g, v, 'Victor');
-      if (!c.held || !c.est || g.t - c.lastSeen > 10) log(g, 'contact', `Periscope: aircraft, bearing ${fmtBrg(brg(o, v))}.`);
-      c.held = true; c.ever = true; c.lastSeen = g.t; c.bearing = brg(o, v);
+      if (!c.held || !c.est || g.t - c.lastSeen > 10) log(g, 'contact', `Periscope: aircraft, bearing ${fmtBrg(brg(o, v))}. Raise the periscope view (V) to identify.`);
+      c.held = true; c.ever = true; c.lastSeen = g.t; c.bearing = brg(o, v); c.spotted = true;
       if (!c.est || g.t - c.radarT > RADAR.sweep * 3) { c.est = { ...offset(o, c.bearing, r * (0.8 + g.r() * 0.4)), t: g.t }; c.estErr = r * 0.2; }
-      if (r < 5) classifyBy(g, c, v, 'Periscope');
     }
     if (atPD && v.cls.emitter && r < RADAR.esm) {
       c = c ?? contactFor(g, v, 'Echo');
@@ -769,9 +770,13 @@ function airDatum(g: Game, v: Vessel, k: Knowledge, why: string) {
   const fresh = !ai.datum || ai.mode !== 'prosecute';
   ai.datum = k; ai.mode = 'prosecute'; ai.wp = { x: k.x, y: k.y };
   if (fresh && g.own.depthT < PD_MAX && dist(g.own, v) < RADAR.esm) log(g, 'danger', `ESM: ${v.cls.name} search radar bearing is steadying on us (${why}).`, 'alarm');
-  // The aircraft passes its datum to the submarine by datalink.
+  shareDatum(g, v.side, k);
+}
+
+/** Aircraft pass their datum to the submarine by datalink. */
+function shareDatum(g: Game, side: Side, k: Knowledge) {
   for (const s of g.vessels) {
-    if (!s.alive || s.side !== v.side || s.cls.kind !== 'sub' || !s.ai) continue;
+    if (!s.alive || s.side !== side || s.cls.kind !== 'sub' || !s.ai) continue;
     s.ai.knows = { x: k.x, y: k.y, t: g.t, deep: k.deep };
     if (s.ai.mode === 'patrol') s.ai.mode = 'attack';
   }
@@ -789,9 +794,17 @@ function airAI(g: Game, v: Vessel, dt: number) {
     if (o.depthT < PD_MAX && r < 5 && g.r() < 0.012 * (1 - r / 5) && !alerted(g)) {
       log(g, 'danger', `The ${v.cls.name} has spotted our periscope! The German group is turning away at full speed.`, 'alarm');
       alertGroup(g, brg(o, lead), 'enemy');
+      // Its two 50 kg bombs are the only way it can touch us.
+      if (ai.torps! > 0) {
+        ai.torps = 0;
+        g.blasts.push({ x: o.x + gauss(g.r) * 0.05, y: o.y + gauss(g.r) * 0.05, t: g.t, missile: false });
+        if (g.r() < 0.35) { o.hp -= 1; log(g, 'danger', 'Bomb hit aft! Minor flooding, still in the fight.', 'boom'); }
+        else log(g, 'warn', 'Two bombs close aboard. No damage.', 'boom');
+      }
     }
     return;
   }
+  if (v.cls.key === 'ka27') return heloAI(g, v, dt);
   // Il-38: search the box laying sonobuoys; on a datum, seed buoys round it and attack.
   v.ordSpd = ai.mode === 'prosecute' ? 300 : 230;
   if (dist(v, ai.wp!) < 1.5) {
@@ -802,7 +815,7 @@ function airAI(g: Game, v: Vessel, dt: number) {
         dropTorpedo(g, 'apr3', 'enemy', d, v.hdg, 'APR-3', null);
         d.exact = false;
       } else if (g.buoys.length < 24) {
-        for (let i = 0; i < 4; i++) dropBuoy(g, offset(d, i * 90 + 45, 1.2), i % 2 === 1);
+        for (let i = 0; i < 4; i++) dropBuoy(g, v, offset(d, i * 90 + 45, 1.2), i % 2 === 1);
       }
       ai.wp = offset(d, g.r() * 360, 3);
       if (g.t - d.t > 900) { ai.mode = 'search'; ai.datum = null; }
@@ -813,7 +826,7 @@ function airAI(g: Game, v: Vessel, dt: number) {
   v.ordHdg = brg(v, ai.wp!);
   ai.cool = Math.max(0, ai.cool - dt);
   ai.buoyT! -= dt;
-  if (ai.mode === 'search' && ai.buoyT! <= 0 && dist(v, ai.center!) < 25) { ai.buoyT = 180; dropBuoy(g, v, g.r() < 0.3); }
+  if (ai.mode === 'search' && ai.buoyT! <= 0 && dist(v, ai.center!) < 25) { ai.buoyT = 180; dropBuoy(g, v, v, g.r() < 0.3); }
   // Masts and periscope show on its radar a few miles out; our radar shows on its ESM far out.
   const r = dist(o, v);
   if (o.depthT < PD_MAX && r < 12 && g.r() < 0.02 * (1 - r / 12)) airDatum(g, v, { x: o.x, y: o.y, t: g.t, deep: false, exact: true }, 'periscope on its radar');
@@ -825,20 +838,75 @@ function airAI(g: Game, v: Vessel, dt: number) {
 
 const BUOY_THRESHOLD = 31; // a small hydrophone: hears us when fast or close, not when slow
 
-function dropBuoy(g: Game, at: Vec, deep: boolean) {
-  // A splash close aboard is audible; one report per pattern is enough.
-  const heard = dist(g.own, at) < 5;
-  g.buoys.push({ id: g.seq++, x: at.x, y: at.y, life: 2400, deep, heard, hits: 0 });
-  if (heard && g.t - g.splashT > 60) {
+const SL_SPLASH = 108;    // a sonobuoy hitting the water and deploying its hydrophone
+const DIP_THRESHOLD = 26; // a dipping sonar hears better than a buoy
+
+/** Sonobuoy splashes are audible, and give away where the aircraft is working. */
+function dropBuoy(g: Game, by: Vessel, at: Vec, deep: boolean) {
+  const o = g.own;
+  const heard = excess(SL_SPLASH, { x: at.x, y: at.y, depthT: 1 }, ownEars(g), o.cls.threshold!) + gauss(g.r) * 2 > 0;
+  const r = dist(o, at);
+  const b = norm(brg(o, at) + gauss(g.r) * 2);
+  const est = heard ? offset(o, b, r * (1 + gauss(g.r) * 0.2)) : null;
+  g.buoys.push({ id: g.seq++, x: at.x, y: at.y, life: 2400, deep, heard, hits: 0, est });
+  if (!heard) return;
+  // The splash puts the aircraft on that bearing: a contact a missile can be sent down.
+  const c = contactFor(g, by, 'Sierra');
+  const first = !c.held;
+  c.held = true; c.ever = true; c.lastSeen = g.t; c.bearing = b;
+  if (g.t - c.radarT > RADAR.sweep * 3) { c.est = { ...est!, t: g.t }; c.estErr = r * 0.25; }
+  if (first || g.t - g.splashT > 60) {
     g.splashT = g.t;
-    log(g, 'warn', `Sonar: small splashes, bearing ${fmtBrg(brg(g.own, at))}. Possible sonobuoys.`);
+    log(g, 'warn', `Sonar: sonobuoy splash, bearing ${fmtBrg(b)}, about ${fmtRng(r)}. Aircraft working there: ${contactLabel(c)}.`, first ? 'contact' : undefined);
   }
+}
+
+export const dipping = (v: Vessel) => v.ai?.mode === 'dip';
+
+/** Ka-27PL: fly to a spot, hover and dip the sonar, listen, move on. Attack a close contact. */
+function heloAI(g: Game, v: Vessel, dt: number) {
+  const ai = v.ai!, o = g.own;
+  ai.cool = Math.max(0, ai.cool - dt);
+  if (ai.mode === 'dip') {
+    v.ordSpd = 0;
+    ai.dipT! -= dt;
+    const se = excess(vesselSL(o), o, { x: v.x, y: v.y, hdg: 0, spd: 0, depthT: v.depthT, array: true }, DIP_THRESHOLD) + gauss(g.r) * 2;
+    ai.hits = se > 0 ? ai.hits! + dt : Math.max(0, ai.hits! - dt);
+    if (ai.hits! >= 15) {
+      ai.hits = 0;
+      const r = dist(o, v), e = Math.max(0.2, r * 0.25);
+      ai.datum = { x: o.x + gauss(g.r) * e, y: o.y + gauss(g.r) * e, t: g.t, deep: o.depthT > LAYER_AT, exact: r < 3 };
+      shareDatum(g, v.side, ai.datum);
+      if (ai.datum.exact && ai.torps! > 0 && ai.cool <= 0) ai.dipT = 0; // raise the dome and go in
+    }
+    if (ai.dipT! <= 0) {
+      v.depthT = 0;
+      const d = ai.datum;
+      if (d && g.t - d.t < 60 && d.exact && ai.torps! > 0) { ai.mode = 'prosecute'; ai.wp = { x: d.x, y: d.y }; }
+      else { ai.mode = 'search'; ai.wp = d && g.t - d.t < 600 ? offset(d, g.r() * 360, 3) : offset(ai.center!, g.r() * 360, 4 + g.r() * 12); }
+    }
+    return;
+  }
+  v.ordSpd = 120;
+  v.ordHdg = brg(v, ai.wp!);
+  if (dist(v, ai.wp!) > 1) return;
+  const d = ai.datum;
+  if (ai.mode === 'prosecute' && d && ai.torps! > 0) {
+    ai.torps!--; ai.cool = 600; g.stats.enemyFired++;
+    dropTorpedo(g, 'apr3', 'enemy', d, v.hdg, 'APR-3', null);
+    d.exact = false;
+    ai.mode = 'search'; ai.wp = offset(d, g.r() * 360, 4);
+    return;
+  }
+  ai.mode = 'dip'; ai.dipT = 180; ai.hits = 0;
+  v.spd = v.ordSpd = 0;
+  v.depthT = g.r() < 0.5 ? 2 : 1; // dome above or below the layer
 }
 
 /** Sonobuoys listen for us; a few seconds of holding contact gives the aircraft a datum. */
 function updateBuoys(g: Game, dt: number) {
   const o = g.own;
-  const il = g.vessels.find((v) => v.alive && v.cls.kind === 'air' && v.ai?.mode !== 'orbit');
+  const il = g.vessels.find((v) => v.alive && v.cls.key === 'il38');
   for (const b of g.buoys) {
     b.life -= dt;
     if (!il) continue;
@@ -857,7 +925,11 @@ function updateSignatures(g: Game) {
   const lib = LIBRARY[g.era];
   for (const c of g.contacts) {
     const v = vesselById(g, c.vid);
-    if (c.air) { c.matches = c.classified ? [{ key: c.classified, name: CLASSES[c.classified].name, pct: 100 }] : []; continue; }
+    if (c.air && !(dipping(v) && c.held)) {
+      c.sig = null;
+      c.matches = c.classified ? [{ key: c.classified, name: CLASSES[c.classified].name, pct: 100 }] : [];
+      continue;
+    }
     if (!c.held || !v.alive) continue;
     c.sig = signatureView(v.cls, c.seAvg, v.spd, () => gauss(g.r));
     c.matches = matchClasses(c.sig, lib, c.sighted);
@@ -975,7 +1047,7 @@ function waterfallRow(g: Game): WaterfallRow {
     }
   };
   for (const v of g.vessels) {
-    if (v === o || !v.alive || v.cls.kind === 'air') continue;
+    if (v === o || !v.alive || (v.cls.kind === 'air' && !dipping(v))) continue;
     const se = excess(vesselSL(v), v, ears, o.cls.threshold!);
     add(brg(o, v), clamp((se + 12) / 22, 0, 1) * (0.7 + 0.3 * g.r()), v.cls.kind === 'surface' ? 2.8 : 2.2);
   }
@@ -1025,3 +1097,15 @@ export function bearingRate(c: Contact): number | null {
 
 export const missileDepthOk = (g: Game) => g.own.depthT <= MISSILE_MAX_DEPTH;
 export const atPeriscopeDepth = (g: Game) => g.own.depthT < PD_MAX;
+
+/** The vessel behind a contact, if it can be seen through the periscope right now. */
+export function inPeriscope(g: Game, c: Contact | null): Vessel | null {
+  if (!c || !atPeriscopeDepth(g)) return null;
+  const v = vesselById(g, c.vid);
+  if (!v.alive) return null;
+  const r = dist(g.own, v);
+  if (v.cls.kind === 'surface') return r < VISUAL_RANGE ? v : null;
+  if (v.cls.kind === 'air') return r < AIR_VISUAL_RANGE && c.held ? v : null;
+  return null;
+}
+export { VISUAL_RANGE, AIR_VISUAL_RANGE };

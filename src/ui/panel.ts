@@ -1,5 +1,5 @@
 // Ship status, contact list, identification and weapons readouts, plus the log.
-import { ARRAY, DEPTH_FT, JATM_PER_CANISTER, WEAPONS, arrayActive, atPeriscopeDepth, bearingRate, contactById, contactLabel, isFriendlyClass, missileDepthOk, radarTracked, targetContact, vesselSL, type Game, type GameEvent } from '../sim/sim';
+import { ARRAY, DEPTH_FT, JATM_PER_CANISTER, WEAPONS, arrayActive, atPeriscopeDepth, bearingRate, contactById, contactLabel, isFriendlyClass, missileDepthOk, inPeriscope, radarTracked, targetContact, vesselSL, type Game, type GameEvent } from '../sim/sim';
 import { CLASSES } from '../sim/classes';
 import { angDiff, dist, fmtBrg, fmtRng } from '../sim/math';
 
@@ -43,10 +43,11 @@ function identHTML(g: Game) {
   if (!c) return { prop: 'Select a contact to see its signature.', matches: '' };
   const v = g.vessels.find((x) => x.id === c.vid)!;
   if (!v.alive) return { prop: `${contactLabel(c)} has been ${c.air ? 'shot down' : 'sunk'}.`, matches: '' };
-  if (c.air) {
-    const how = !c.held ? 'Air contact lost.' : radarTracked(g, c) ? 'Air contact · radar track. JATM or SM-6 can engage.' : c.est ? 'Air contact · seen through the periscope. Radar track needed to engage.' : 'Air contact · ESM bearing only. Radar track needed to engage.';
+  if (c.air && !c.sig) {
+    const how = !c.held ? 'Air contact lost.' : radarTracked(g, c) ? 'Air contact · radar track.' : c.est ? 'Air contact · rough position.' : 'Air contact · bearing only.';
+    const prop = `${how} JATM or SM-6 will fly down bearing ${c.bearing === null ? '—' : fmtBrg(c.bearing)}°.`;
     const m = c.classified ? `<li><span>${esc(contactLabel(c).split(' · ')[1])}</span><span class="pct">100%</span><span class="done">classified</span><span class="bar"><i style="width:100%"></i></span></li>` : '';
-    return { prop: how, matches: m };
+    return { prop, matches: m };
   }
   const sig = c.sig;
   let prop = !c.held ? 'Contact lost. Signature fading.' : !sig || !sig.lines.length ? 'Too faint to show any lines yet.' : `${sig.lines.length - (sig.prop ? 1 : 0)} tonal line${sig.lines.length - (sig.prop ? 1 : 0) === 1 ? '' : 's'}`;
@@ -99,9 +100,10 @@ export function updatePanel(g: Game) {
   dis('fireHarpoon', !ready(o.tubes) || !depthOk || !ship);
   dis('fireMst', !ready(o.vls) || !depthOk || !ship);
   dis('fireAsroc', !ready(o.vls) || !depthOk || !asrocRange);
-  dis('fireJatm', (!o.jatm && !ready(o.vls)) || !depthOk || !air);
-  dis('fireSm6', !ready(o.vls) || !depthOk || !air);
+  dis('fireJatm', (!o.jatm && !ready(o.vls)) || !depthOk);
+  dis('fireSm6', !ready(o.vls) || !depthOk);
   dis('radar', !o.radar && !atPeriscopeDepth(g));
+  dis('scopeBtn', !inPeriscope(g, sel));
   $('radar').classList.toggle('on-air', o.radar);
   setHTML($('radar'), `${o.radar ? 'Radar on' : 'Radar'} <kbd>R</kbd>`);
   const pick = sel?.air ? air : ship;
