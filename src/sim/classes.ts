@@ -84,3 +84,89 @@ export const LIBRARY: Record<'1941' | '2029', string[]> = {
   '1941': ['bismarck', 'hipper', 'county', 'admiral', 'kgv', 'merchant'],
   '2029': ['yasen', 'akula', 'virginia', 'ka27'],
 };
+
+/**
+ * Recognition-book entries shown in the solution window: approximate public figures,
+ * for the captain's reference. Max speed comes from the class card so it matches play.
+ */
+export interface Reference {
+  displacement: string;
+  armament: string[];
+  armor: string;
+  notes?: string;
+}
+
+export const REFERENCE: Record<string, Reference> = {
+  bismarck: {
+    displacement: '50,300 t full load',
+    armament: ['8 × 38 cm guns in four twin turrets', '12 × 15 cm secondary guns', '16 × 10.5 cm AA guns', '2 to 4 Arado Ar 196 floatplanes'],
+    armor: '320 mm belt, 360 mm turret faces, up to 120 mm deck',
+    notes: 'Two forward and two aft turrets, single large funnel amidships. Three shafts.',
+  },
+  hipper: {
+    displacement: '18,750 t full load',
+    armament: ['8 × 20.3 cm guns in four twin turrets', '12 × 10.5 cm AA guns', '12 × 53.3 cm torpedo tubes', '3 Arado Ar 196 floatplanes'],
+    armor: '80 mm belt, 30 mm deck',
+    notes: 'Looks like a smaller Bismarck at a distance. Raked funnel cap. Three shafts.',
+  },
+  county: {
+    displacement: '13,500 t full load',
+    armament: ['8 × 8 in guns in four twin turrets', '8 × 4 in AA guns', 'Type 284/286 search radar'],
+    armor: 'Belt up to 114 mm, boxed magazines',
+    notes: 'Three tall funnels. Friendly: these are the shadowing cruisers. Four shafts.',
+  },
+  admiral: {
+    displacement: '47,400 t full load',
+    armament: ['8 × 15 in guns in four twin turrets', '14 × 4 in AA guns', '4 × 21 in torpedo tubes'],
+    armor: '305 mm belt, thin deck (up to 76 mm)',
+    notes: 'Long, low battlecruiser with two funnels. Four shafts.',
+  },
+  kgv: {
+    displacement: '42,000 t full load',
+    armament: ['10 × 14 in guns (two quadruple, one twin turret)', '16 × 5.25 in dual-purpose guns'],
+    armor: '374 mm belt, up to 152 mm deck',
+    notes: 'Two widely spaced funnels, slab-sided superstructure. Four shafts.',
+  },
+  merchant: {
+    displacement: '5,000 to 10,000 GRT',
+    armament: ['Usually unarmed', 'Sometimes one 4 in gun aft'],
+    armor: 'None',
+    notes: 'Single funnel, cargo derricks fore and aft. Slow single screw.',
+  },
+  yasen: {
+    displacement: '13,800 t submerged',
+    armament: ['10 × 533 mm torpedo tubes (UGST torpedoes)', '8 vertical silos, 32 Kalibr, Oniks or Zircon missiles'],
+    armor: 'None. Double hull, low-magnetic steel',
+    notes: 'Very quiet. Single shaft, seven-bladed screw.',
+  },
+  akula: {
+    displacement: '12,770 t submerged',
+    armament: ['4 × 533 mm and 4 × 650 mm torpedo tubes', 'Kalibr cruise missiles from the tubes'],
+    armor: 'None. Double hull',
+    notes: 'Noisier than Yasen. Pod on the rudder fin holds the towed array.',
+  },
+  virginia: {
+    displacement: '10,200 t submerged',
+    armament: ['4 × 533 mm torpedo tubes (Mk 48, Harpoon)', '12 vertical tubes plus Virginia Payload Module'],
+    armor: 'None. Single hull',
+    notes: 'Friendly. Pump-jet propulsor.',
+  },
+  ka27: {
+    displacement: '12,000 kg max takeoff',
+    armament: ['VGS-3 dipping sonar', 'Sonobuoys', '1 APR-3 or lightweight torpedo, or depth charges'],
+    armor: 'None',
+    notes: 'Coaxial rotors. Heard on sonar only while its sonar is in the water.',
+  },
+  il38: {
+    displacement: '63,500 kg max takeoff',
+    armament: ['Sonobuoys', 'Torpedoes and depth charges', 'Novella search radar and ESM'],
+    armor: 'None',
+    notes: 'Four turboprops. Its radar warning receiver hears our mast radar.',
+  },
+  ar196: {
+    displacement: '3,700 kg max takeoff',
+    armament: ['2 × 20 mm cannon', '1 to 2 × 7.92 mm machine guns', '2 × 50 kg bombs'],
+    armor: 'None',
+    notes: 'Twin-float monoplane, catapulted from German heavy ships.',
+  },
+};

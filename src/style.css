@@ -206,18 +206,34 @@ button.on-air { background: #1d4a3a; border-color: #2f7a5e; color: #d4ffe9; }
 .sol-sonar { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 8px; min-height: 0; }
 .sol-sonar .wf-wrap, .sol-sonar .sig-wrap { display: flex; flex-direction: column; }
 .sol-sonar canvas { flex: 1 1 auto; height: auto; min-height: 0; image-rendering: pixelated; }
-.sol-body { display: grid; grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr); gap: 10px; min-height: 0; }
-.sol-feed { overflow: auto; min-height: 0; border: 1px solid var(--rule); }
-.sol-feed table { width: 100%; border-collapse: collapse; font: 12.5px var(--f-data); }
-.sol-feed th { position: sticky; top: 0; background: #10273b; color: var(--dim); font-weight: 400; text-align: left; padding: 4px 6px; }
-.sol-feed td { padding: 4px 6px; border-top: 1px solid rgba(31, 59, 84, 0.6); color: var(--contact); white-space: nowrap; }
-.sol-feed tr[data-id] { cursor: pointer; }
-.sol-feed tr.sel td { background: rgba(243, 176, 75, 0.12); }
-.sol-feed tr.friend td { color: var(--good); }
-.sol-feed tr.lost td, .sol-feed tr.sunk td { opacity: 0.5; }
-.sol-feed .empty { color: var(--dim); }
-.sol-detail { overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
-.sol-detail dd { color: var(--contact); }
-.sol-eye { display: grid; justify-items: center; gap: 4px; }
-.sol-eye canvas { width: min(100%, 220px); height: auto; aspect-ratio: 1; }
+.sol-body { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(260px, 1fr); gap: 10px; min-height: 0; }
+.sol-feed { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.sol-sensed { display: flex; flex-wrap: wrap; gap: 4px 6px; font: 12px var(--f-data); color: var(--contact); }
+.sol-sensed span { border: 1px solid var(--rule); background: #0a1b2b; padding: 1px 6px; }
+.sol-sensed .dim { color: var(--dim); border: 0; background: none; padding: 0; }
+.sol-table { overflow: auto; min-height: 0; flex: 1 1 auto; border: 1px solid var(--rule); }
+.sol-table table { width: 100%; border-collapse: collapse; font: 12.5px var(--f-data); }
+.sol-table th { position: sticky; top: 0; background: #10273b; color: var(--dim); font-weight: 400; text-align: left; padding: 4px 6px; }
+.sol-table td { padding: 4px 6px; border-top: 1px solid rgba(31, 59, 84, 0.6); color: var(--contact); white-space: nowrap; }
+.sol-table tr[data-key] { cursor: pointer; }
+.sol-table tr[data-key]:hover td { background: rgba(122, 167, 255, 0.08); }
+.sol-table tr.sel td { background: rgba(243, 176, 75, 0.16); }
+.sol-table tr.friend td { color: var(--good); }
+.sol-table .empty { color: var(--dim); white-space: normal; }
+.sol-detail { overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--rule); background: #071521; padding: 6px 8px; }
+.sol-detail .wlabel { margin-top: 2px; }
+.sol-detail canvas { width: 100%; height: auto; display: block; }
+#clsPic { aspect-ratio: 420 / 96; background: linear-gradient(#0d2236, #0a1b2b 82%, #08263a 82%); }
+#clsSig { aspect-ratio: 420 / 64; image-rendering: pixelated; }
+.cls-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font: 600 14px var(--f-data); color: var(--contact); }
+.cls-head small { color: var(--dim); font-weight: 400; }
+.cls-head button { flex: none; padding: 3px 10px; font-size: 12px; }
+#clsFacts { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 4px 0 0; font-size: 12.5px; }
+#clsFacts dt { color: var(--dim); }
+#clsFacts dd { margin: 0; color: var(--ink, #d6e4ef); }
 .sol-btn { width: 100%; margin: 6px 0 4px; background: #1d3f5e; border-color: var(--own); }
+#clsFacts dd { text-align: left; }
+.sol-table td:nth-child(n+4), .sol-table th:nth-child(n+4) { text-align: right; }
+@media (max-width: 1600px) { .sol-table table { font-size: 12px; } .sol-table td, .sol-table th { padding: 4px 5px; } }
+.sol-table td:first-child { white-space: normal; min-width: 9em; }
+@media (max-width: 1600px) { .sol-table td:nth-child(3), .sol-table th:nth-child(3) { display: none; } }

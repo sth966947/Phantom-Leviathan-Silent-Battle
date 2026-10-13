@@ -137,6 +137,21 @@ function drawSil(c: CanvasRenderingContext2D, sil: Sil, lenPx: number, foreshort
   }
 }
 
+/** Broadside recognition picture of a class, scaled to fit the canvas (ships to a common scale). */
+export function drawClassPicture(cv: HTMLCanvasElement, key: string) {
+  const sil = silOf(key);
+  const x = cv.getContext('2d')!;
+  x.clearRect(0, 0, cv.width, cv.height);
+  if (!sil) return;
+  x.save();
+  x.fillStyle = isFriendlyClass(key) ? '#6fd3a8' : '#c9dbe8';
+  const air = sil.kind === 'air';
+  x.translate(cv.width / 2, cv.height * (air ? 0.56 : 0.82));
+  const lenPx = (cv.width - 14) * (air ? 0.8 : sil.len / 262);
+  drawSil(x, sil, lenPx, 1, lenPx / sil.len);
+  x.restore();
+}
+
 // ---- The view ------------------------------------------------------------------------------
 const $ = (id: string) => document.getElementById(id)!;
 const NM = 1852;
@@ -265,12 +280,7 @@ export class Periscope {
       card.className = 'ref' + (c.classified === key ? ' chosen' : '');
       const cv = document.createElement('canvas');
       cv.width = 150; cv.height = 46;
-      const x = cv.getContext('2d')!;
-      const sil = silOf(key)!;
-      x.fillStyle = isFriendlyClass(key) ? '#6fd3a8' : '#c9dbe8';
-      x.translate(75, sil.kind === 'air' ? 26 : 38);
-      const lenPx = 136 * (sil.kind === 'air' ? 0.8 : sil.len / 262);
-      drawSil(x, sil, lenPx, 1, lenPx / sil.len);
+      drawClassPicture(cv, key);
       const name = document.createElement('span');
       name.textContent = cl.name + (m ? ` · crew ${m.pct}%` : '');
       card.append(cv, name);

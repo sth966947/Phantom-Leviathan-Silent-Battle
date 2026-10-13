@@ -27,7 +27,7 @@ const plot = new Plot();
 const waterfall = new Waterfall($('waterfall') as HTMLCanvasElement);
 const signature = new SignatureDisplay($('signature') as HTMLCanvasElement);
 const periscope = new Periscope($('scopeView') as HTMLCanvasElement, () => g);
-const solution = new Solution(periscope, (id) => orders.select(g, id));
+const solution = new Solution(() => g);
 function togglePeriscope() {
   const why = periscope.toggle();
   if (why) addLog(g, { t: g.t, kind: 'warn', text: why });
@@ -181,7 +181,6 @@ function frame(now: number) {
   g.events.length = 0;
   plot.draw(g, now);
   periscope.draw(g, now);
-  solution.draw(g, now);
   waterfall.draw(g);
   signature.draw(g);
   if (now - panelT > 150) {
