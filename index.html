@@ -14,7 +14,34 @@
     <div class="clock" id="clock">00:00:00</div>
   </header>
 
-  <div class="left">
+  <aside class="helm">
+    <section class="card own">
+      <h2>Own ship · USS Tang (SSN-805)</h2>
+      <dl>
+        <dt>Heading</dt><dd id="oHdg">000°</dd>
+        <dt>Speed</dt><dd id="oSpd">5 kt</dd>
+        <dt>Depth</dt><dd id="oDepth">150 ft, above layer</dd>
+        <dt>Radiated noise</dt><dd id="oNoise">quiet</dd>
+        <dt>Towed array</dt><dd id="oArray">tracking</dd>
+      </dl>
+      <div class="row" style="margin-top:8px">
+        <button id="left">◀ 10° <kbd>A</kbd></button>
+        <button id="right">10° ▶ <kbd>D</kbd></button>
+      </div>
+      <div class="row" id="speeds"></div>
+      <div class="row" id="depths"></div>
+    </section>
+    <section class="card">
+      <h2>Time compression</h2>
+      <div class="row" id="times"></div>
+    </section>
+    <section class="card logcard">
+      <h2>Control room log</h2>
+      <ul class="log" id="log"></ul>
+    </section>
+  </aside>
+
+  <div class="main">
     <div class="plot-wrap" id="plotWrap" aria-label="Tactical plot. Click a contact to select it, click open water to steer, scroll to zoom.">
       <div class="zoom">
         <button id="zoomIn" title="Zoom in">+</button>
@@ -42,7 +69,7 @@
     </div>
   </div>
 
-  <aside>
+  <aside class="combat">
     <section class="card contact">
       <h2>Contacts <kbd>Tab</kbd></h2>
       <ul class="contacts" id="contacts"><li class="empty">No contacts yet. Listen.</li></ul>
@@ -51,31 +78,12 @@
         <ul class="matches" id="matches"></ul>
       </div>
     </section>
-
-    <section class="card own">
-      <h2>Own ship · USS Tang (SSN-805)</h2>
-      <dl>
-        <dt>Heading</dt><dd id="oHdg">000°</dd>
-        <dt>Speed</dt><dd id="oSpd">5 kt</dd>
-        <dt>Depth</dt><dd id="oDepth">150 ft, above layer</dd>
-        <dt>Radiated noise</dt><dd id="oNoise">quiet</dd>
-        <dt>Towed array</dt><dd id="oArray">tracking</dd>
-      </dl>
-      <div class="row" style="margin-top:8px">
-        <button id="left">◀ 10° <kbd>A</kbd></button>
-        <button id="right">10° ▶ <kbd>D</kbd></button>
-      </div>
-      <div class="row" id="speeds"></div>
-      <div class="row" id="depths"></div>
-    </section>
-
     <section class="card">
       <h2>Weapons</h2>
       <dl>
         <dt>Torpedo tubes</dt><dd id="wTubes">—</dd>
         <dt>Vertical launch tubes</dt><dd id="wVls">—</dd>
         <dt>JATM canister</dt><dd id="wJatm">—</dd>
-        <dt>ADC Mk 5 countermeasures</dt><dd id="wDecoys">4</dd>
       </dl>
       <div class="wlabel">Torpedo tubes · ships and subs</div>
       <div class="row">
@@ -88,27 +96,23 @@
         <button class="fire" id="fireAsroc" title="Sub-launched ASROC: flies to the solution 1 to 15 nm out and drops a Mk 54 torpedo there. Submarines, or ships at a pinch.">ASROC <kbd>G</kbd></button>
       </div>
       <div class="row">
-        <button class="fire" id="fireJatm" title="AIM-260 JATM, seven rounds to a canister in one vertical tube. For slow sub-hunting aircraft. Needs a radar track.">JATM <kbd>J</kbd></button>
-        <button class="fire" id="fireSm6" title="SM-6, longer reach, for incoming missiles and fast jets; also kills aircraft. Needs a radar track.">SM-6 <kbd>M</kbd></button>
+        <button class="fire" id="fireJatm" title="AIM-260 JATM, seven rounds to a canister in one vertical tube. For slow sub-hunting aircraft. Fire and forget: flies down the selected air contact's bearing, or straight ahead.">JATM <kbd>J</kbd></button>
+        <button class="fire" id="fireSm6" title="SM-6, longer reach, for incoming missiles and fast jets; also kills aircraft. Fire and forget: flies down the selected air contact's bearing, or straight ahead.">SM-6 <kbd>M</kbd></button>
       </div>
-      <div class="wlabel">Sensors and defence</div>
-      <div class="row">
+      <p class="note" id="wNote"></p>
+    </section>
+    <section class="card sensors">
+      <h2>Sensors and defence</h2>
+      <dl>
+        <dt>Radar</dt><dd id="sRadar">off</dd>
+        <dt>ADC Mk 5 countermeasures</dt><dd id="wDecoys">4</dd>
+      </dl>
+      <div class="row" style="margin-top:8px">
         <button id="scopeBtn" title="Look at the selected contact through the periscope and compare it with the identification book. Periscope depth, ships within 8 nm, aircraft within 10 nm.">Periscope view <kbd>V</kbd></button>
         <button id="radar" title="Mast radar, periscope depth only. Fixes and classifies ships inside 15 nm almost at once, less well out to 24 nm; sees aircraft to 40 nm. Enemies with radar warning receivers hear it.">Radar <kbd>R</kbd></button>
         <button id="ping">Active ping <kbd>P</kbd></button>
         <button id="decoy">Countermeasure <kbd>C</kbd></button>
       </div>
-      <p class="note" id="wNote"></p>
-    </section>
-
-    <section class="card">
-      <h2>Time compression</h2>
-      <div class="row" id="times"></div>
-    </section>
-
-    <section class="card">
-      <h2>Control room log</h2>
-      <ul class="log" id="log"></ul>
     </section>
   </aside>
 </div>

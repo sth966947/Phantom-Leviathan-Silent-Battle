@@ -91,7 +91,7 @@ export function updatePanel(g: Game) {
   setText('wTubes', `${ready(o.tubes)} of ${o.tubes.length} ready${next(o.tubes)}`);
   setText('wVls', `${ready(o.vls)} of ${o.vls.length} ready${next(o.vls)}`);
   setText('wDecoys', String(o.decoys));
-  setText('wJatm', o.jatm ? `${o.jatm} of ${JATM_PER_CANISTER} rounds` : 'next shot loads a canister');
+  setText('wJatm', o.jatm ? `${o.jatm} of ${JATM_PER_CANISTER} left` : `fresh, ${JATM_PER_CANISTER} rounds`);
   const over = !!g.over, depthOk = missileDepthOk(g);
   const ship = targetContact(g, false), air = targetContact(g, true);
   const asrocRange = ship?.est ? (() => { const r = dist(o, ship.est!); return r >= WEAPONS.asroc.minRun! && r <= WEAPONS.asroc.maxRun; })() : false;
@@ -106,6 +106,7 @@ export function updatePanel(g: Game) {
   dis('scopeBtn', !inPeriscope(g, sel));
   $('radar').classList.toggle('on-air', o.radar);
   setHTML($('radar'), `${o.radar ? 'Radar on' : 'Radar'} <kbd>R</kbd>`);
+  setText('sRadar', o.radar ? 'TRANSMITTING' : atPeriscopeDepth(g) ? 'off · ready' : 'off · needs PD');
   const pick = sel?.air ? air : ship;
   const target = pick?.est ? `Target: ${contactLabel(pick)}${isFriendlyClass(pick.classified) ? ' (friendly!)' : ''}` : 'No target selected';
   setText('wNote', depthOk ? target : `${target} · missiles need 150 ft or shallower`);

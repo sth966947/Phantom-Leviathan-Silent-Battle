@@ -1,5 +1,6 @@
-/* Layout: a fire-control console. Tactical plot left, sonar waterfall under it,
-   ship's status and orders in a narrow panel right; stacks on phones. */
+/* Layout: a fire-control console. On a landscape desktop: helm, time and log on the left,
+   tactical plot and sonar in the middle, contacts, weapons and sensors on the right, all
+   inside one screen with no page scroll. Narrower windows stack; phones get one column. */
 :root {
   --sea: #071624;        /* page and plot water */
   --panel: #0d2133;      /* console panels */
@@ -22,9 +23,33 @@ body {
   font: 15px/1.4 var(--f-body);
 }
 .app {
-  display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 14px;
-  max-width: 1280px; margin: 0 auto; padding-block: 14px; padding-inline: 16px;
-  box-sizing: border-box;
+  display: grid; gap: 12px; margin: 0 auto; padding-block: 12px; padding-inline: 16px; box-sizing: border-box;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-areas: "head head" "main combat" "helm combat";
+  max-width: 1280px;
+}
+header { grid-area: head; }
+.main { grid-area: main; }
+.helm { grid-area: helm; }
+.combat { grid-area: combat; }
+@media (min-width: 1180px) and (orientation: landscape) {
+  .app {
+    grid-template-columns: 300px minmax(0, 1fr) 330px; grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas: "head head head" "helm main combat";
+    max-width: 1800px; height: 100vh; overflow: hidden;
+  }
+  .helm, .combat { min-height: 0; overflow: hidden; }
+  .logcard { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  .logcard .log { flex: 1 1 auto; max-height: none; }
+  .main .plot-wrap { max-width: min(100%, calc(100vh - 250px)); }
+  /* Weapons and sensors always stay in view; the contact card gives up space and scrolls inside. */
+  .combat > .contact { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+  .combat > section:not(.contact), .helm > section:not(.logcard) { flex: none; }
+  section.card { padding: 8px 10px; }
+  .card h2 { margin-bottom: 6px; }
+  .wlabel { margin: 6px 0 3px; }
+  button { padding: 6px 9px; }
+  .row + .row { margin-top: 5px; }
 }
 header {
   grid-column: 1 / -1; display: flex; align-items: baseline; justify-content: space-between;
@@ -35,7 +60,7 @@ h1 {
 }
 h1 span { color: var(--dim); font-weight: 500; }
 .clock { font: 600 15px var(--f-data); color: var(--ink); font-variant-numeric: tabular-nums; }
-.left { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.main { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; }
 .plot-wrap {
   position: relative; width: 100%; max-width: min(100%, calc(100vh - 260px)); min-width: min(100%, 320px);
   aspect-ratio: 1 / 1; align-self: center; border: 1px solid var(--rule);
@@ -62,6 +87,7 @@ canvas { display: block; width: 100%; height: 100%; }
   letter-spacing: 0.08em; text-transform: uppercase; pointer-events: none;
 }
 aside { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.sensors dd { color: var(--own); }
 section.card { background: var(--panel); border: 1px solid var(--rule); padding: 10px 12px; }
 .card h2 {
   font: 600 12px var(--f-display); letter-spacing: 0.14em; text-transform: uppercase;
@@ -115,7 +141,7 @@ kbd {
 .win h2 { color: var(--good); }
 .loss h2 { color: var(--threat); }
 @media (max-width: 860px) {
-  .app { grid-template-columns: minmax(0, 1fr); }
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "main" "combat" "helm"; }
   .plot-wrap { max-width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { .meter i { transition: none; } }
