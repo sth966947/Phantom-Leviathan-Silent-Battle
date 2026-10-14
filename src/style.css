@@ -291,3 +291,13 @@ button.on-air { background: #1d4a3a; border-color: #2f7a5e; color: #d4ffe9; }
 }
 .replaybar[hidden] { display: none; }
 .replaybar button { flex: none; padding: 4px 9px; }
+/* Type a depth and Go (or Enter). */
+.depth-row { display: grid; grid-template-columns: 1fr 1.25fr 1fr; }
+.depth-set { display: flex; gap: 4px; min-width: 0; }
+.depth-set input {
+  width: 0; flex: 1 1 auto; min-width: 0; background: var(--sea); color: var(--ink); border: 1px solid var(--rule);
+  font: 13px var(--f-data); padding: 4px 6px; text-align: center; -moz-appearance: textfield;
+}
+.depth-set input::-webkit-outer-spin-button, .depth-set input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.depth-set input:focus { outline: 1px solid var(--own); }
+.depth-set button { flex: none; }

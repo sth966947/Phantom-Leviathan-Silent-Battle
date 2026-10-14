@@ -58,6 +58,13 @@ const on = (id: string, fn: () => void) => $(id).addEventListener('click', fn);
 on('left', () => orders.turn(g, -10));
 on('shallower', () => orders.depthBy(g, -50));
 on('deeper', () => orders.depthBy(g, 50));
+$('depthSet').addEventListener('submit', (ev) => {
+  ev.preventDefault();
+  const box = $('depthFt') as HTMLInputElement;
+  if (box.value !== '') orders.depthTo(g, Number(box.value));
+  box.value = '';
+  box.blur();
+});
 on('right', () => orders.turn(g, 10));
 on('fireMk48', () => orders.fire(g, 'mk48'));
 on('fireHarpoon', () => orders.fire(g, 'harpoon'));
@@ -109,6 +116,7 @@ function acceptTop() {
 
 document.addEventListener('keydown', (ev) => {
   if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  if ((ev.target as HTMLElement).closest?.('input, select, textarea')) return; // typing a depth, not giving orders
   if (!running) { if (ev.key === 'Enter' && overShown) start(scenario); return; }
   const idx = SPEEDS.findIndex(([v]) => v >= g.own.ordSpd);
   const faster = () => orders.speed(g, SPEEDS[Math.min(SPEEDS.length - 1, idx + 1)][0]);

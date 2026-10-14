@@ -288,6 +288,12 @@ export const orders = {
     log(g, 'info', d === 0 ? 'Making periscope depth, 60 feet. Periscope and masts will be up.'
       : `Making depth ${ft} feet${d > LAYER_AT ? (g.own.depthT > LAYER_AT ? ', below the layer' : ', going below the layer') : ', above the layer'}.`);
   },
+  /** Make a depth in feet, between periscope depth and test depth. */
+  depthTo(g: Game, feet: number) {
+    if (!Number.isFinite(feet)) return;
+    const ft = clamp(Math.round(feet), MIN_FT, MAX_FT);
+    orders.depth(g, ft <= MIN_FT ? 0 : depthT(ft));
+  },
   /** Change the ordered depth by a number of feet, in 50-foot steps, between periscope depth and test depth. */
   depthBy(g: Game, deltaFt: number) {
     const now = Math.round(depthFeet(g.own.ordDepth) / 50) * 50;

@@ -30,9 +30,10 @@
       </div>
       <div class="row" id="speeds"></div>
       <div class="row" id="depths"></div>
-      <div class="row">
-        <button id="shallower" title="Come up 50 feet.">▲ 50 ft <kbd>[</kbd></button>
-        <button id="deeper" title="Go down 50 feet, as deep as 800 feet.">▼ 50 ft <kbd>]</kbd></button>
+      <div class="row depth-row">
+        <button id="shallower" title="Come up 50 feet.">▲ 50 <kbd>[</kbd></button>
+        <form class="depth-set" id="depthSet" novalidate><input id="depthFt" type="number" min="60" max="800" step="any" inputmode="numeric" placeholder="ft" aria-label="Depth in feet, 60 to 800"><button type="submit">Go</button></form>
+        <button id="deeper" title="Go down 50 feet, as deep as 800 feet.">▼ 50 <kbd>]</kbd></button>
       </div>
     </section>
     <section class="card logcard">
