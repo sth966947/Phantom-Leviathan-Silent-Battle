@@ -42,6 +42,10 @@
   </aside>
 
   <div class="main">
+    <div class="depthview" id="depthView" hidden>
+      <div class="sol-head"><span>Sea conditions · <span id="depthRead" class="depth-read"></span></span><button id="depthClose">Close <kbd>X</kbd></button></div>
+      <canvas id="depthCanvas" aria-label="Side view of the sea around Tang: thermal layer, contact depths and aircraft altitudes"></canvas>
+    </div>
     <div class="solution" id="solution" hidden>
       <div class="sol-head"><span id="solTitle">Solution</span><button id="solClose">Close <kbd>B</kbd></button></div>
       <div class="sol-sonar">
@@ -79,6 +83,7 @@
       </div>
     </div>
     <div class="plot-wrap" id="plotWrap" aria-label="Tactical plot. Click a contact to select it, click open water to steer, scroll to zoom.">
+      <button class="depth-btn" id="depthBtn" title="Side-on view of the sea: the thermal layer, ships on the surface, submarine depths and aircraft altitudes.">Depth view <kbd>X</kbd></button>
       <div class="zoom">
         <button id="zoomIn" title="Zoom in">+</button>
         <button id="zoomOut" title="Zoom out">−</button>

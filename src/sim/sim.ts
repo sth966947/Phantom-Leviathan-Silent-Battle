@@ -153,6 +153,12 @@ const AIR_VISUAL_RANGE = 10;    // nm, aircraft against the sky
 export const RADAR = { classify: 15, horizon: 25, airLow: 15, airHigh: 100, sweep: 4, esm: 100 };
 /** Helicopters stay down on the water; fixed-wing aircraft come down only to attack. */
 export const flyingLow = (v: Vessel) => v.cls.kind === 'air' && (v.cls.key === 'ka27' || v.ai?.mode === 'prosecute');
+/** Feet below the surface for a depth setting: periscope depth 60 ft, 150 ft, 700 ft. */
+export const depthFeet = (depthT: number) => (depthT <= 1 ? 60 + 90 * depthT : 150 + 550 * (depthT - 1));
+export const LAYER_FT = depthFeet(LAYER_AT);
+/** Typical cruising height in feet. Low fliers stay down where radar sees them only close in. */
+const CRUISE_FT: Record<string, number> = { il38: 8000, ar196: 1500, kate: 10000, mavis: 6000, jake: 2500, fw200: 3000 };
+export const altitudeFt = (v: Vessel) => (flyingLow(v) ? (v.cls.key === 'ka27' ? 300 : 600) : CRUISE_FT[v.cls.key] ?? 8000);
 const PD_MAX = 0.3; // depthT at or above which masts are out of the water
 
 // ---- Acoustics ---------------------------------------------------------------------

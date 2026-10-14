@@ -10,6 +10,7 @@ import { addLog, updatePanel } from './ui/panel';
 import { play, unlockAudio } from './ui/audio';
 import { Periscope } from './ui/periscope';
 import { Solution } from './ui/solution';
+import { DepthView } from './ui/depth';
 
 const $ = (id: string) => document.getElementById(id)!;
 const esc = (t: string) => t.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]!));
@@ -31,6 +32,7 @@ const waterfall = new Waterfall($('waterfall') as HTMLCanvasElement);
 const signature = new SignatureDisplay($('signature') as HTMLCanvasElement);
 const periscope = new Periscope($('scopeView') as HTMLCanvasElement, () => g);
 const solution = new Solution(() => g);
+const depthView = new DepthView($('depthCanvas') as HTMLCanvasElement, () => g);
 function togglePeriscope() {
   const why = periscope.toggle();
   if (why) addLog(g, { t: g.t, kind: 'warn', text: why });
@@ -61,7 +63,8 @@ on('fireSm6', () => orders.fire(g, 'sm6'));
 on('radar', () => orders.radar(g));
 on('fireTlam', () => orders.strike(g, Number(($('tlamSite') as HTMLSelectElement).value)));
 on('scopeBtn', togglePeriscope);
-on('solBtn', () => solution.toggle());
+on('solBtn', () => { depthView.close(); solution.toggle(); });
+on('depthBtn', () => { solution.close(); depthView.toggle(); });
 on('ping', () => orders.ping(g));
 on('decoy', () => orders.decoy(g));
 on('zoomIn', () => { plot.zoom = Math.max(0, plot.zoom - 1); });
@@ -114,7 +117,7 @@ document.addEventListener('keydown', (ev) => {
     l: () => orders.layer(g),
     f: () => orders.fire(g, 'mk48'), h: () => orders.fire(g, 'harpoon'), t: () => orders.fire(g, 'mst'),
     g: () => orders.fire(g, 'asroc'), y: () => orders.strike(g, Number(($('tlamSite') as HTMLSelectElement).value)), j: () => orders.fire(g, 'jatm'), m: () => orders.fire(g, 'sm6'),
-    r: () => orders.radar(g), v: togglePeriscope, b: () => solution.toggle(), escape: () => { if (periscope.open) periscope.close(); else solution.close(); },
+    r: () => orders.radar(g), v: togglePeriscope, b: () => { depthView.close(); solution.toggle(); }, x: () => { solution.close(); depthView.toggle(); }, escape: () => { if (periscope.open) periscope.close(); else if (depthView.open) depthView.close(); else solution.close(); },
     p: () => orders.ping(g), c: () => orders.decoy(g),
     tab: () => orders.cycleContact(g), k: acceptTop,
     ' ': () => { timeScale = timeScale ? 0 : 30; },
@@ -139,6 +142,7 @@ function newGame(key: ScenarioKey) {
   $('tlamSite').innerHTML = g.sites.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join('');
   periscope.close();
   solution.close();
+  depthView.close();
   overShown = false;
   acc = 0;
   addLog(g, {
@@ -229,6 +233,7 @@ function frame(now: number) {
   periscope.draw(g, now);
   waterfall.draw(g);
   signature.draw(g);
+  depthView.draw(g);
   if (now - panelT > 150) {
     panelT = now;
     updatePanel(g);
