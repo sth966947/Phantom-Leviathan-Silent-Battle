@@ -224,6 +224,7 @@ let picked: MissionKey = CAMPAIGN.find((k) => unlocked(k) && !results()[k]?.win)
 
 function showCampaign(key: MissionKey = picked) {
   picked = key;
+  const keep = document.getElementById('campList')?.scrollTop ?? 0; // the list is redrawn below
   const brief = $('brief');
   brief.className = 'brief';
   brief.innerHTML = campaignHTML;
@@ -237,6 +238,8 @@ function showCampaign(key: MissionKey = picked) {
   $('campList').innerHTML = CAMPAIGN.map((k, i) => item(k, String(i + 1))).join('')
     + '<li class="sep">Before the vortex · optional</li>' + PREQUELS.map((k) => item(k, '·')).join('')
     + '<li class="sep">Present day</li>' + item('duel', '—');
+  if (keep) $('campList').scrollTop = keep;
+  else $('campList').querySelector('li.sel')?.scrollIntoView({ block: 'nearest' });
   $('campList').addEventListener('click', (ev) => {
     const b = (ev.target as HTMLElement).closest<HTMLButtonElement>('button[data-m]');
     if (b && !b.disabled) showCampaign(b.dataset.m as MissionKey);
