@@ -2,7 +2,7 @@ import 'pixi.js/unsafe-eval'; // no eval(), so the game runs under strict conten
 import './style.css';
 import { WEAPONS, contactById, create, inPeriscope, orders, tick, type Depth, type Game, type ScenarioKey, type WeaponKey } from './sim/sim';
 import { CAMPAIGN, MISSIONS, PREQUELS, type MissionKey } from './sim/missions';
-import { carryFor, changedFor, interlude, record, results, unlocked } from './campaign';
+import { carryFor, changedFor, interlude, record, resetCampaign, results, unlocked } from './campaign';
 import { Plot, SPANS } from './render/plot';
 import { Waterfall } from './ui/waterfall';
 import { SignatureDisplay } from './ui/signature';
@@ -250,6 +250,19 @@ function showCampaign(key: MissionKey = picked) {
     ${changed.length ? `<p class="changed">History has changed: ${esc(changed.length > 1 ? `${changed.slice(0, -1).join(', ')} and ${changed[changed.length - 1]}` : changed[0])} ${changed.length > 1 ? 'were' : 'was'} sunk by Tang in an earlier mission and won't be here.</p>` : ''}
     <button id="begin">Begin mission</button>`;
   $('begin').addEventListener('click', () => start(key));
+  // Two clicks, so a stray one can't wipe the campaign.
+  const restart = $('restartCamp') as HTMLButtonElement;
+  restart.hidden = !Object.keys(done).length;
+  restart.addEventListener('click', () => {
+    if (!restart.classList.contains('confirm')) {
+      restart.classList.add('confirm');
+      restart.textContent = 'Erase all results? Click again';
+      setTimeout(() => { restart.classList.remove('confirm'); restart.textContent = 'Restart campaign'; }, 4000);
+      return;
+    }
+    resetCampaign();
+    showCampaign(CAMPAIGN[0]);
+  });
   $('overlay').hidden = false;
   running = false;
 }
