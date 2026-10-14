@@ -76,6 +76,8 @@ export interface Contact {
   held: boolean; ever: boolean; lastSeen: number; se: number; seAvg: number;
   bearing: number | null; q: number; bias: number; air: boolean; radarT: number; radarHits: number;
   est: (Vec & { t: number }) | null; estErr: number; legHdg: number;
+  /** Course and speed from the solution, once it is good enough to judge them; and where the estimate has been. */
+  motion: { crs: number; spd: number } | null; trail: Vec[];
   history: { t: number; b: number }[]; cavitating: boolean;
   sig: SignatureView | null; matches: Match[]; classified: string | null; sighted: string | null; spotted: boolean;
 }
@@ -406,6 +408,24 @@ export const orders = {
 
 /** Contacts are named for the sensor that found them: Sierra (sonar), Victor (eyes), Romeo (radar), Echo (ESM). */
 type Sensor = 'Sierra' | 'Victor' | 'Romeo' | 'Echo';
+/** Quality from which the crew will call a contact's course and speed. */
+export const MOTION_Q = 0.6;
+/**
+ * Target motion: with a good enough solution, the crew calls the contact's course and speed.
+ * The error shrinks as the solution firms up, with the same lean as the range error.
+ */
+function updateMotion(g: Game) {
+  for (const c of g.contacts) {
+    const v = g.vessels.find((x) => x.id === c.vid);
+    if (!v?.alive || !c.held || !c.est) continue;
+    if (c.q >= MOTION_Q) {
+      const e = 1 - c.q;
+      c.motion = { crs: norm(v.hdg + c.bias * 60 * e), spd: Math.max(0, v.spd * (1 + c.bias * 0.8 * e)) };
+    }
+    if (g.t % 30 === 0) { c.trail.push({ x: c.est.x, y: c.est.y }); if (c.trail.length > 10) c.trail.shift(); }
+  }
+}
+
 function contactFor(g: Game, v: Vessel, sensor: Sensor = 'Sierra'): Contact {
   let c = g.contacts.find((x) => x.vid === v.id);
   if (!c) {
@@ -413,7 +433,7 @@ function contactFor(g: Game, v: Vessel, sensor: Sensor = 'Sierra'): Contact {
     c = {
       id: g.seq++, vid: v.id, name: `${sensor} ${n}`, held: false, ever: false, lastSeen: -1e9, se: -99, seAvg: -10,
       bearing: null, q: 0, bias: 0, air: v.cls.kind === 'air', radarT: -1e9, radarHits: 0,
-      est: null, estErr: 0, legHdg: 0, history: [], cavitating: false,
+      est: null, estErr: 0, legHdg: 0, motion: null, trail: [], history: [], cavitating: false,
       sig: null, matches: [], classified: null, sighted: null, spotted: false,
     };
     g.contacts.push(c);
@@ -1285,6 +1305,7 @@ export function tick(g: Game, dt = 1) {
   g.wfTimer -= dt;
   if (g.wfTimer <= 0) { g.wfTimer = 3; g.waterfall = waterfallRow(g); updateSignatures(g); }
   depthCharges(g);
+  updateMotion(g);
   g.script?.(g);
   checkGoal(g);
 }
