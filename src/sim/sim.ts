@@ -9,7 +9,8 @@ import { MISSIONS, type Carry, type MissionKey } from './missions';
 import { matchClasses, signatureView, type Match, type SignatureView } from './signature';
 
 export type Side = 'us' | 'allied' | 'enemy';
-export type Depth = 0 | 1 | 2;
+/** Depth setting: 0 periscope depth (60 ft), 1 is 150 ft, 2 is 700 ft, and anything between or below. */
+export type Depth = number;
 export type ScenarioKey = MissionKey;
 export type EventKind = 'info' | 'contact' | 'danger' | 'good' | 'warn';
 export type Sound = 'ping' | 'ping-echo' | 'contact' | 'launch' | 'missile' | 'alarm' | 'boom';
@@ -158,6 +159,9 @@ export const flyingLow = (v: Vessel) => v.cls.kind === 'air' && (v.cls.key === '
 /** Feet below the surface for a depth setting: periscope depth 60 ft, 150 ft, 700 ft. */
 export const depthFeet = (depthT: number) => (depthT <= 1 ? 60 + 90 * depthT : 150 + 550 * (depthT - 1));
 export const LAYER_FT = depthFeet(LAYER_AT);
+/** The depth setting for a depth in feet. */
+export const depthT = (ft: number) => (ft <= 150 ? (ft - 60) / 90 : 1 + (ft - 150) / 550);
+export const MIN_FT = 60, MAX_FT = 800;
 /** Typical cruising height in feet. Low fliers stay down where radar sees them only close in. */
 const CRUISE_FT: Record<string, number> = { il38: 8000, ar196: 1500, kate: 10000, mavis: 6000, jake: 2500, fw200: 3000 };
 export const altitudeFt = (v: Vessel) => (flyingLow(v) ? (v.cls.key === 'ka27' ? 300 : 600) : CRUISE_FT[v.cls.key] ?? 8000);
@@ -278,11 +282,15 @@ export const orders = {
   depth(g: Game, d: Depth) {
     if (g.own.ordDepth === d) return;
     g.own.ordDepth = d;
-    log(g, 'info', [
-      'Making periscope depth, 60 feet. Periscope and masts will be up.',
-      'Making depth 150 feet, above the layer.',
-      'Making depth 700 feet, going below the layer.',
-    ][d]);
+    const ft = Math.round(depthFeet(d));
+    log(g, 'info', d === 0 ? 'Making periscope depth, 60 feet. Periscope and masts will be up.'
+      : `Making depth ${ft} feet${d > LAYER_AT ? (g.own.depthT > LAYER_AT ? ', below the layer' : ', going below the layer') : ', above the layer'}.`);
+  },
+  /** Change the ordered depth by a number of feet, in 50-foot steps, between periscope depth and test depth. */
+  depthBy(g: Game, deltaFt: number) {
+    const now = Math.round(depthFeet(g.own.ordDepth) / 50) * 50;
+    const ft = clamp(now + deltaFt, MIN_FT, MAX_FT);
+    orders.depth(g, ft <= MIN_FT ? 0 : depthT(ft));
   },
   layer(g: Game) { orders.depth(g, g.own.ordDepth === 2 ? 1 : 2); },
   select(g: Game, contactId: number | null) { g.selected = contactId; },

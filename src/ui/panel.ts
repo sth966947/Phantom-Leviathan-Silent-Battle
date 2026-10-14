@@ -1,5 +1,5 @@
 // Ship status, contact list, identification and weapons readouts, plus the log.
-import { ARRAY, DEPTH_FT, JATM_PER_CANISTER, WEAPONS, arrayActive, atPeriscopeDepth, bearingRate, contactById, contactLabel, isFriendlyClass, missileDepthOk, inPeriscope, radarTracked, targetContact, vesselSL, type Game, type GameEvent } from '../sim/sim';
+import { ARRAY, depthFeet, JATM_PER_CANISTER, WEAPONS, arrayActive, atPeriscopeDepth, bearingRate, contactById, contactLabel, isFriendlyClass, missileDepthOk, inPeriscope, radarTracked, targetContact, vesselSL, type Game, type GameEvent } from '../sim/sim';
 import { CLASSES } from '../sim/classes';
 import { angDiff, dist, fmtBrg, fmtRng } from '../sim/math';
 
@@ -74,7 +74,7 @@ export function updatePanel(g: Game) {
   setText('oHdg', `${fmtBrg(o.hdg)}°${turning ? ` → ${fmtBrg(o.ordHdg)}°` : ''}`);
   setText('oSpd', `${o.spd.toFixed(1)} kt${Math.abs(o.ordSpd - o.spd) > 0.3 ? ` → ${o.ordSpd}` : ''}`);
   const ft = Math.round(o.depthT <= 1 ? 60 + o.depthT * 90 : 150 + (o.depthT - 1) * 550);
-  setText('oDepth', `${ft} ft${o.depthT < 0.3 ? ', periscope up' : o.depthT > 1.5 ? ', below layer' : ', above layer'}${Math.abs(o.depthT - o.ordDepth) > 0.05 ? ` → ${DEPTH_FT[o.ordDepth]}` : ''}`);
+  setText('oDepth', `${ft} ft${o.depthT < 0.3 ? ', periscope up' : o.depthT > 1.5 ? ', below layer' : ', above layer'}${Math.abs(o.depthT - o.ordDepth) > 0.05 ? ` → ${Math.round(depthFeet(o.ordDepth))} ft` : ''}`);
   const sl = vesselSL(o) - o.cls.slBase;
   setText('oNoise', sl < 10 ? 'quiet' : sl < 20 ? 'moderate' : sl < 35 ? 'loud' : 'very loud');
   setText('oArray', o.radar ? 'radar transmitting' : arrayActive(g) ? 'tracking' : o.spd > ARRAY.maxSpd ? 'flow noise, too fast' : `settling ${Math.ceil(o.arrayStableAt - g.t)}s`);

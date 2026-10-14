@@ -30,10 +30,10 @@
       </div>
       <div class="row" id="speeds"></div>
       <div class="row" id="depths"></div>
-    </section>
-    <section class="card">
-      <h2>Time compression</h2>
-      <div class="row" id="times"></div>
+      <div class="row">
+        <button id="shallower" title="Come up 50 feet.">▲ 50 ft <kbd>[</kbd></button>
+        <button id="deeper" title="Go down 50 feet, as deep as 800 feet.">▼ 50 ft <kbd>]</kbd></button>
+      </div>
     </section>
     <section class="card logcard">
       <h2>Control room log</h2>
@@ -42,6 +42,7 @@
   </aside>
 
   <div class="main">
+    <div class="stage">
     <div class="depthview" id="depthView" hidden>
       <div class="sol-head"><span>Sea conditions · <span id="depthRead" class="depth-read"></span></span><button id="depthClose">Close <kbd>X</kbd></button></div>
       <canvas id="depthCanvas" aria-label="Side view of the sea around Tang: thermal layer, contact depths and aircraft altitudes"></canvas>
@@ -96,6 +97,11 @@
         <div class="scope-ref" id="scopeRef" aria-label="Identification book"></div>
       </div>
     </div>
+    </div>
+    <section class="card timebar">
+      <h2>Time compression</h2>
+      <div class="row" id="times"></div>
+    </section>
   </div>
 
   <aside class="combat">

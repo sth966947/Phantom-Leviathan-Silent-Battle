@@ -41,7 +41,7 @@ header { grid-area: head; }
   .helm, .combat { min-height: 0; overflow: hidden; }
   .logcard { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
   .logcard .log { flex: 1 1 auto; max-height: none; }
-  .main .plot-wrap { max-width: min(100%, calc(100vh - 80px)); }
+  .main .plot-wrap { max-width: min(100%, calc(100vh - 136px)); }
   /* Weapons and sensors always stay in view; the contact card gives up space and scrolls inside. */
   .combat > .contact { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
   .combat > section:not(.contact), .helm > section:not(.logcard) { flex: none; }
@@ -62,12 +62,17 @@ h1 span { color: var(--dim); font-weight: 500; }
 .clock { font: 600 15px var(--f-data); color: var(--ink); font-variant-numeric: tabular-nums; }
 .main { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; position: relative; }
 .plot-wrap {
-  position: relative; width: 100%; max-width: min(100%, calc(100vh - 110px)); min-width: min(100%, 320px);
+  position: relative; width: 100%; max-width: min(100%, calc(100vh - 166px)); min-width: min(100%, 320px);
   aspect-ratio: 1 / 1; align-self: center; border: 1px solid var(--rule);
   background: radial-gradient(circle at 50% 50%, #0b2236 0%, var(--sea) 70%);
   cursor: crosshair; overflow: hidden;
 }
 .plot-wrap canvas { position: absolute; inset: 0; }
+/* Time compression sits under the plot, as one compact bar. */
+.timebar { align-self: center; width: 100%; max-width: min(100%, 560px); display: flex; align-items: center; gap: 12px; flex: none; box-sizing: border-box; }
+.timebar h2 { margin: 0 !important; white-space: nowrap; }
+.timebar .row { flex: 1; flex-wrap: nowrap; }
+.timebar .row button { flex: 1; }
 canvas { display: block; width: 100%; height: 100%; }
 .plot-hint {
   position: absolute; left: 10px; bottom: 8px; font: 12px var(--f-data); color: var(--dim);
@@ -276,3 +281,5 @@ button.on-air { background: #1d4a3a; border-color: #2f7a5e; color: #d4ffe9; }
 .camp-detail button { flex: none; height: auto; }
 #tlamRow select { flex: 1 1 auto; min-width: 0; background: #0a1b2b; color: var(--ink); border: 1px solid var(--rule); font: 12px var(--f-body); padding: 4px; }
 #tlamRow button { flex: none; }
+/* The plot and the windows that cover it; the time bar stays below, uncovered. */
+.stage { position: relative; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; justify-content: center; }

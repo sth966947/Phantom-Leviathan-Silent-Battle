@@ -53,6 +53,8 @@ buttonRow($('depths'), DEPTHS, (_, l) => l, (v) => orders.depth(g, v as Depth));
 buttonRow($('times'), TIMES, (_, l) => l, (v) => { timeScale = v; });
 const on = (id: string, fn: () => void) => $(id).addEventListener('click', fn);
 on('left', () => orders.turn(g, -10));
+on('shallower', () => orders.depthBy(g, -50));
+on('deeper', () => orders.depthBy(g, 50));
 on('right', () => orders.turn(g, 10));
 on('fireMk48', () => orders.fire(g, 'mk48'));
 on('fireHarpoon', () => orders.fire(g, 'harpoon'));
@@ -112,8 +114,9 @@ document.addEventListener('keydown', (ev) => {
     a: () => orders.turn(g, -10), arrowleft: () => orders.turn(g, -10),
     d: () => orders.turn(g, 10), arrowright: () => orders.turn(g, 10),
     w: faster, arrowup: faster, s: slower, arrowdown: slower,
-    q: () => orders.depth(g, Math.max(0, g.own.ordDepth - 1) as Depth),
-    e: () => orders.depth(g, Math.min(2, g.own.ordDepth + 1) as Depth),
+    q: () => { const up = [...DEPTHS].reverse().find(([v]) => v < g.own.ordDepth - 0.01); if (up) orders.depth(g, up[0]); },
+    e: () => { const dn = DEPTHS.find(([v]) => v > g.own.ordDepth + 0.01); if (dn) orders.depth(g, dn[0]); },
+    '[': () => orders.depthBy(g, -50), ']': () => orders.depthBy(g, 50),
     l: () => orders.layer(g),
     f: () => orders.fire(g, 'mk48'), h: () => orders.fire(g, 'harpoon'), t: () => orders.fire(g, 'mst'),
     g: () => orders.fire(g, 'asroc'), y: () => orders.strike(g, Number(($('tlamSite') as HTMLSelectElement).value)), j: () => orders.fire(g, 'jatm'), m: () => orders.fire(g, 'sm6'),
