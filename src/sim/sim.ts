@@ -9,7 +9,8 @@ import { MISSIONS, type Carry, type MissionKey } from './missions';
 import { matchClasses, signatureView, type Match, type SignatureView } from './signature';
 
 export type Side = 'us' | 'allied' | 'enemy';
-export type Depth = 0 | 1 | 2;
+/** Depth setting: 0 periscope depth (60 ft), 1 is 150 ft, 2 is 700 ft, and anything between or below. */
+export type Depth = number;
 export type ScenarioKey = MissionKey;
 export type EventKind = 'info' | 'contact' | 'danger' | 'good' | 'warn';
 export type Sound = 'ping' | 'ping-echo' | 'contact' | 'launch' | 'missile' | 'alarm' | 'boom';
@@ -52,6 +53,8 @@ export interface Vessel extends Vec {
 
 export interface OwnBoat extends Vessel {
   tubes: number[]; vls: number[]; decoys: number; arrayStableAt: number;
+  /** The towed array streams with the boat, or is worked across the layer from it. */
+  arraySide: ArraySide;
   /** Rounds left in the JATM canister in the current vertical tube (7 per canister). */
   jatm: number; radar: boolean;
 }
@@ -76,6 +79,8 @@ export interface Contact {
   held: boolean; ever: boolean; lastSeen: number; se: number; seAvg: number;
   bearing: number | null; q: number; bias: number; air: boolean; radarT: number; radarHits: number;
   est: (Vec & { t: number }) | null; estErr: number; legHdg: number;
+  /** Course and speed from the solution, once it is good enough to judge them; and where the estimate has been. */
+  motion: { crs: number; spd: number } | null; trail: Vec[];
   history: { t: number; b: number }[]; cavitating: boolean;
   sig: SignatureView | null; matches: Match[]; classified: string | null; sighted: string | null; spotted: boolean;
 }
@@ -103,6 +108,8 @@ export interface Game {
   sites: (Vec & { id: number; name: string; hits: number })[];
   t: number; r: () => number; seq: number;
   over: { win: boolean; t: number; reason: string } | null;
+  /** A replay of a finished mission: the plot shows every ship where it really is. */
+  replay?: boolean;
   own: OwnBoat; vessels: Vessel[]; contacts: Contact[]; selected: number | null;
   weapons: Weapon[]; decoys: Decoy[]; buoys: Buoy[]; splashT: number; heard: Set<number>; sweeps: { t: number }[];
   events: GameEvent[]; waterfall: WaterfallRow | null; wfTimer: number;
@@ -153,6 +160,15 @@ const AIR_VISUAL_RANGE = 10;    // nm, aircraft against the sky
 export const RADAR = { classify: 15, horizon: 25, airLow: 15, airHigh: 100, sweep: 4, esm: 100 };
 /** Helicopters stay down on the water; fixed-wing aircraft come down only to attack. */
 export const flyingLow = (v: Vessel) => v.cls.kind === 'air' && (v.cls.key === 'ka27' || v.ai?.mode === 'prosecute');
+/** Feet below the surface for a depth setting: periscope depth 60 ft, 150 ft, 700 ft. */
+export const depthFeet = (depthT: number) => (depthT <= 1 ? 60 + 90 * depthT : 150 + 550 * (depthT - 1));
+export const LAYER_FT = depthFeet(LAYER_AT);
+/** The depth setting for a depth in feet. */
+export const depthT = (ft: number) => (ft <= 150 ? (ft - 60) / 90 : 1 + (ft - 150) / 550);
+export const MIN_FT = 60, MAX_FT = 800;
+/** Typical cruising height in feet. Low fliers stay down where radar sees them only close in. */
+const CRUISE_FT: Record<string, number> = { il38: 8000, ar196: 1500, kate: 10000, mavis: 6000, jake: 2500, fw200: 3000 };
+export const altitudeFt = (v: Vessel) => (flyingLow(v) ? (v.cls.key === 'ka27' ? 300 : 600) : CRUISE_FT[v.cls.key] ?? 8000);
 const PD_MAX = 0.3; // depthT at or above which masts are out of the water
 
 // ---- Acoustics ---------------------------------------------------------------------
@@ -172,17 +188,23 @@ export const inBaffles = (lis: { hdg: number }, bearing: number) => Math.abs(ang
 /** Towed array works when slow and straight; it removes the stern blind spot and adds gain. */
 export const arrayActive = (g: Game) => g.own.spd <= ARRAY.maxSpd && g.t >= g.own.arrayStableAt;
 
-type Listener = Vec & { hdg: number; spd: number; depthT: number; array?: boolean };
+type Listener = Vec & { hdg: number; spd: number; depthT: number; array?: boolean; arrayDepthT?: number };
 
 /** Passive sonar equation, simplified. Positive means detectable. */
 export function excess(sl: number, src: Vec & { depthT?: number; deep?: boolean }, lis: Listener, threshold: number): number {
   const r = dist(src, lis);
-  const b = brg(lis, src);
-  if (!lis.array && inBaffles(lis, b)) return -99;
-  const layer = deepOf(src) !== deepOf(lis) ? LAYER_LOSS : 0;
-  return sl - 20 * Math.log10(Math.max(r, 0.05)) - selfNoise(lis.spd) - layer - threshold + (lis.array ? ARRAY.gain : 0);
+  const base = sl - 20 * Math.log10(Math.max(r, 0.05)) - selfNoise(lis.spd) - threshold;
+  // Hull sonar: deaf astern, and it hears across the layer badly.
+  const hull = inBaffles(lis, brg(lis, src)) ? -99 : base - (deepOf(src) !== deepOf(lis) ? LAYER_LOSS : 0);
+  if (!lis.array) return hull;
+  // Towed array: no baffles, some gain, and it listens from its own side of the layer.
+  const arr = base + ARRAY.gain - (deepOf(src) !== deepOf({ depthT: lis.arrayDepthT ?? lis.depthT }) ? LAYER_LOSS : 0);
+  return Math.max(hull, arr);
 }
-const ownEars = (g: Game): Listener => ({ x: g.own.x, y: g.own.y, hdg: g.own.hdg, spd: g.own.spd, depthT: g.own.depthT, array: arrayActive(g) });
+/** Where the towed array streams: with the boat, or across the layer from it. */
+export type ArraySide = 'with' | 'above' | 'below';
+export const arrayDepthT = (o: OwnBoat) => (o.arraySide === 'above' ? Math.min(o.depthT, 1) : o.arraySide === 'below' ? Math.max(o.depthT, 2) : o.depthT);
+const ownEars = (g: Game): Listener => ({ x: g.own.x, y: g.own.y, hdg: g.own.hdg, spd: g.own.spd, depthT: g.own.depthT, array: arrayActive(g), arrayDepthT: arrayDepthT(g.own) });
 
 // ---- Setup ---------------------------------------------------------------------------
 export function makeVessel(g: Game, cls: string, name: string, side: Side, p: Vec, hdg: number, spd: number, depth: Depth): Vessel {
@@ -217,7 +239,7 @@ export function create(scenario: ScenarioKey = 'bismarck', seed?: number, carry:
   } as unknown as Game;
 
   const ownV = makeVessel(g, 'virginia', 'USS Tang (SSN-805)', 'us', { x: 0, y: 0 }, 0, 5, 1);
-  g.own = Object.assign(ownV, { tubes: [0, 0, 0, 0], vls: Array(12).fill(0), decoys: 4, arrayStableAt: 0, jatm: 0, radar: false });
+  g.own = Object.assign(ownV, { tubes: [0, 0, 0, 0], vls: Array(12).fill(0), decoys: 4, arrayStableAt: 0, arraySide: 'with' as ArraySide, jatm: 0, radar: false });
   g.vessels.push(g.own);
   m.build(g, r, carry);
   return g;
@@ -228,7 +250,7 @@ const vesselById = (g: Game, id: number) => g.vessels.find((v) => v.id === id)!;
 export const contactById = (g: Game, id: number | null) => (id === null ? null : g.contacts.find((c) => c.id === id) ?? null);
 /** What the player calls a contact: its accepted class if classified, else its sonar designation. */
 export const contactLabel = (c: Contact) => (c.classified ? `${c.name} · ${CLASSES[c.classified].name}` : c.name);
-export const isFriendlyClass = (key: string | null) => !!key && (CLASSES[key].nation === 'UK' || CLASSES[key].nation === 'US');
+export const isFriendlyClass = (key: string | null) => !!key && ['UK', 'US', 'Netherlands'].includes(CLASSES[key].nation);
 
 // ---- Movement -------------------------------------------------------------------------
 function moveVessel(v: Vessel, dt: number) {
@@ -268,13 +290,40 @@ export const orders = {
   turn(g: Game, delta: number) { g.own.ordHdg = norm(Math.round(g.own.ordHdg + delta)); },
   speed(g: Game, kts: number) { g.own.ordSpd = clamp(kts, 0, g.own.cls.maxSpd); },
   depth(g: Game, d: Depth) {
+    if (g.own.arraySide !== 'with') { g.own.arraySide = 'with'; g.own.arrayStableAt = g.t + ARRAY.settle; log(g, 'info', 'Towed array streaming with the boat again.'); }
     if (g.own.ordDepth === d) return;
     g.own.ordDepth = d;
-    log(g, 'info', [
-      'Making periscope depth, 60 feet. Periscope and masts will be up.',
-      'Making depth 150 feet, above the layer.',
-      'Making depth 700 feet, going below the layer.',
-    ][d]);
+    const ft = Math.round(depthFeet(d));
+    log(g, 'info', d === 0 ? 'Making periscope depth, 60 feet. Periscope and masts will be up.'
+      : `Making depth ${ft} feet${d > LAYER_AT ? (g.own.depthT > LAYER_AT ? ', below the layer' : ', going below the layer') : ', above the layer'}.`);
+  },
+  /**
+   * Straddle the layer: the boat on one side, the towed array worked across to the other, so
+   * the array hears what the hull can't. 'above' puts the boat below the layer and the array
+   * above it; 'below' the other way round.
+   */
+  straddle(g: Game, array: 'above' | 'below') {
+    const o = g.own;
+    if (o.arraySide === array) return;
+    o.arraySide = 'with'; // quietly: the order below sets the depth, then the array goes across
+    orders.depth(g, depthT(array === 'above' ? 550 : 300));
+    o.arraySide = array;
+    o.arrayStableAt = g.t + ARRAY.settle;
+    log(g, 'info', array === 'above'
+      ? 'Making depth 550 feet, below the layer. Towed array is being worked up above the layer.'
+      : 'Making depth 300 feet, above the layer. Towed array is being let out deep, below the layer.');
+  },
+  /** Make a depth in feet, between periscope depth and test depth. */
+  depthTo(g: Game, feet: number) {
+    if (!Number.isFinite(feet)) return;
+    const ft = clamp(Math.round(feet), MIN_FT, MAX_FT);
+    orders.depth(g, ft <= MIN_FT ? 0 : depthT(ft));
+  },
+  /** Change the ordered depth by a number of feet, in 50-foot steps, between periscope depth and test depth. */
+  depthBy(g: Game, deltaFt: number) {
+    const now = Math.round(depthFeet(g.own.ordDepth) / 50) * 50;
+    const ft = clamp(now + deltaFt, MIN_FT, MAX_FT);
+    orders.depth(g, ft <= MIN_FT ? 0 : depthT(ft));
   },
   layer(g: Game) { orders.depth(g, g.own.ordDepth === 2 ? 1 : 2); },
   select(g: Game, contactId: number | null) { g.selected = contactId; },
@@ -400,6 +449,24 @@ export const orders = {
 
 /** Contacts are named for the sensor that found them: Sierra (sonar), Victor (eyes), Romeo (radar), Echo (ESM). */
 type Sensor = 'Sierra' | 'Victor' | 'Romeo' | 'Echo';
+/** Quality from which the crew will call a contact's course and speed. */
+export const MOTION_Q = 0.6;
+/**
+ * Target motion: with a good enough solution, the crew calls the contact's course and speed.
+ * The error shrinks as the solution firms up, with the same lean as the range error.
+ */
+function updateMotion(g: Game) {
+  for (const c of g.contacts) {
+    const v = g.vessels.find((x) => x.id === c.vid);
+    if (!v?.alive || !c.held || !c.est) continue;
+    if (c.q >= MOTION_Q) {
+      const e = 1 - c.q;
+      c.motion = { crs: norm(v.hdg + c.bias * 60 * e), spd: Math.max(0, v.spd * (1 + c.bias * 0.8 * e)) };
+    }
+    if (g.t % 30 === 0) { c.trail.push({ x: c.est.x, y: c.est.y }); if (c.trail.length > 10) c.trail.shift(); }
+  }
+}
+
 function contactFor(g: Game, v: Vessel, sensor: Sensor = 'Sierra'): Contact {
   let c = g.contacts.find((x) => x.vid === v.id);
   if (!c) {
@@ -407,7 +474,7 @@ function contactFor(g: Game, v: Vessel, sensor: Sensor = 'Sierra'): Contact {
     c = {
       id: g.seq++, vid: v.id, name: `${sensor} ${n}`, held: false, ever: false, lastSeen: -1e9, se: -99, seAvg: -10,
       bearing: null, q: 0, bias: 0, air: v.cls.kind === 'air', radarT: -1e9, radarHits: 0,
-      est: null, estErr: 0, legHdg: 0, history: [], cavitating: false,
+      est: null, estErr: 0, legHdg: 0, motion: null, trail: [], history: [], cavitating: false,
       sig: null, matches: [], classified: null, sighted: null, spotted: false,
     };
     g.contacts.push(c);
@@ -1279,6 +1346,7 @@ export function tick(g: Game, dt = 1) {
   g.wfTimer -= dt;
   if (g.wfTimer <= 0) { g.wfTimer = 3; g.waterfall = waterfallRow(g); updateSignatures(g); }
   depthCharges(g);
+  updateMotion(g);
   g.script?.(g);
   checkGoal(g);
 }

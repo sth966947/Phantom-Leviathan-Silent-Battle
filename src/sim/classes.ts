@@ -6,7 +6,7 @@
 // propeller blade-rate line (blades x shaft rate), which shifts with speed.
 
 export type Kind = 'sub' | 'surface' | 'air';
-export type Nation = 'US' | 'UK' | 'Germany' | 'Russia' | 'Japan';
+export type Nation = 'US' | 'UK' | 'Germany' | 'Russia' | 'Japan' | 'Netherlands' | 'Italy';
 
 export interface ClassCard {
   key: string;
@@ -187,6 +187,108 @@ export const CLASSES: Record<string, ClassCard> = {
     key: 'liberty', name: 'Liberty ship', type: 'merchant', nation: 'US', kind: 'surface',
     slBase: 84, maxSpd: 11, threshold: null, hp: 3, tonals: [26, 52, 78, 12], blades: 4, shaftHzPerKt: 0.2,
   },
+  maru: {
+    key: 'maru', name: 'Maru transport', type: 'transport', nation: 'Japan', kind: 'surface',
+    slBase: 83, maxSpd: 12, threshold: null, hp: 3, tonals: [55, 27, 110, 83], blades: 4, shaftHzPerKt: 0.21,
+  },
+  frachter: {
+    key: 'frachter', name: 'German freighter', type: 'merchant', nation: 'Germany', kind: 'surface',
+    slBase: 84, maxSpd: 11, threshold: null, hp: 3, tonals: [50, 25, 100, 75], blades: 4, shaftHzPerKt: 0.19,
+  },
+  // ---- 1942 additions: Java Sea, Coral Sea, Solomons and the Arctic ----
+  // Japanese cruisers keep the 55 Hz line, Allied European ships 50 Hz, US ships 60 Hz.
+  renown: {
+    key: 'renown', name: 'Renown (Renown, Repulse)', type: 'battlecruiser', nation: 'UK', kind: 'surface',
+    slBase: 82, maxSpd: 31, threshold: null, hp: 10, tonals: [50, 17, 124, 37, 184], blades: 3, shaftHzPerKt: 0.14,
+  },
+  g4m: {
+    key: 'g4m', name: 'Mitsubishi G4M "Betty"', type: 'land-based bomber', nation: 'Japan', kind: 'air',
+    slBase: 0, maxSpd: 230, threshold: null, hp: 1, tonals: [], blades: 0, shaftHzPerKt: 0,
+  },
+  ryujo: {
+    key: 'ryujo', name: 'Light carrier (Ryūjō, Shōhō, Zuihō)', type: 'light aircraft carrier', nation: 'Japan', kind: 'surface',
+    slBase: 79, maxSpd: 28, threshold: null, hp: 6, tonals: [53, 30, 140, 70], blades: 3, shaftHzPerKt: 0.17,
+  },
+  myoko: {
+    key: 'myoko', name: 'Myōkō (Nachi, Haguro, Ashigara)', type: 'heavy cruiser', nation: 'Japan', kind: 'surface',
+    slBase: 79, maxSpd: 34, threshold: null, hp: 7, tonals: [55, 23, 110, 80, 166], blades: 3, shaftHzPerKt: 0.17,
+  },
+  aoba: {
+    key: 'aoba', name: 'Aoba / Furutaka (Aoba, Kinugasa, Furutaka, Kako)', type: 'heavy cruiser', nation: 'Japan', kind: 'surface',
+    slBase: 78, maxSpd: 33, threshold: null, hp: 6, tonals: [55, 25, 98, 72], blades: 3, shaftHzPerKt: 0.18,
+  },
+  sendai: {
+    key: 'sendai', name: '5,500-ton light cruiser (Jintsū, Nagara, Tama, Abukuma)', type: 'light cruiser', nation: 'Japan', kind: 'surface',
+    slBase: 79, maxSpd: 35, threshold: null, hp: 5, tonals: [55, 32, 128, 90, 174], blades: 3, shaftHzPerKt: 0.19,
+  },
+  mogami: {
+    key: 'mogami', name: 'Mogami (Mogami, Mikuma)', type: 'heavy cruiser', nation: 'Japan', kind: 'surface',
+    slBase: 79, maxSpd: 35, threshold: null, hp: 7, tonals: [55, 20, 116, 68, 158], blades: 3, shaftHzPerKt: 0.17,
+  },
+  scharnhorst: {
+    key: 'scharnhorst', name: 'Scharnhorst (Scharnhorst, Gneisenau)', type: 'battleship', nation: 'Germany', kind: 'surface',
+    slBase: 81, maxSpd: 31, threshold: null, hp: 11, tonals: [42, 18, 112, 61, 168], blades: 3, shaftHzPerKt: 0.15,
+  },
+  usca: {
+    key: 'usca', name: 'US heavy cruiser (Northampton, Houston, New Orleans, Astoria, Quincy, Vincennes, Minneapolis, Salt Lake City)', type: 'heavy cruiser', nation: 'US', kind: 'surface',
+    slBase: 79, maxSpd: 32, threshold: null, hp: 7, tonals: [60, 23, 114, 79, 162], blades: 3, shaftHzPerKt: 0.17,
+  },
+  brooklyn: {
+    key: 'brooklyn', name: 'Brooklyn (Honolulu, Helena)', type: 'light cruiser', nation: 'US', kind: 'surface',
+    slBase: 79, maxSpd: 32, threshold: null, hp: 6, tonals: [60, 31, 126, 88, 182], blades: 3, shaftHzPerKt: 0.18,
+  },
+  // Turbo-electric drive: a loud, clean motor line at 15 Hz under the 60 Hz generator.
+  lexington: {
+    key: 'lexington', name: 'Lexington (Lexington, Saratoga)', type: 'aircraft carrier', nation: 'US', kind: 'surface',
+    slBase: 83, maxSpd: 33, threshold: null, hp: 10, tonals: [60, 15, 120, 180, 94], blades: 3, shaftHzPerKt: 0.14,
+  },
+  deruyter: {
+    key: 'deruyter', name: 'Dutch light cruiser (De Ruyter, Java)', type: 'light cruiser', nation: 'Netherlands', kind: 'surface',
+    slBase: 79, maxSpd: 32, threshold: null, hp: 5, tonals: [50, 26, 106, 66], blades: 3, shaftHzPerKt: 0.18,
+  },
+  town: {
+    key: 'town', name: 'Town (Belfast, Sheffield)', type: 'light cruiser', nation: 'UK', kind: 'surface',
+    slBase: 79, maxSpd: 32, threshold: null, hp: 6, tonals: [50, 29, 118, 86, 166], blades: 3, shaftHzPerKt: 0.17,
+  },
+  // ---- 1939 to 1941: River Plate, Narvik, Matapan and the Mediterranean ----
+  // Italian ships share a 39 Hz generator line. The Deutschlands run on diesels: firing-rate
+  // lines instead of turbine whine, unlike anything else in the book.
+  deutschland: {
+    key: 'deutschland', name: 'Deutschland (Admiral Graf Spee, Admiral Scheer)', type: 'heavy cruiser', nation: 'Germany', kind: 'surface',
+    slBase: 82, maxSpd: 28, threshold: null, hp: 8, tonals: [28, 56, 7, 84, 112], blades: 3, shaftHzPerKt: 0.16,
+  },
+  zerstorer: {
+    key: 'zerstorer', name: 'Zerstörer 1934/1936 (Z-class destroyers)', type: 'destroyer', nation: 'Germany', kind: 'surface',
+    slBase: 81, maxSpd: 38, threshold: null, hp: 3, tonals: [42, 34, 146, 100], blades: 3, shaftHzPerKt: 0.22,
+  },
+  cavour: {
+    key: 'cavour', name: 'Conte di Cavour (Giulio Cesare, Conte di Cavour)', type: 'battleship', nation: 'Italy', kind: 'surface',
+    slBase: 81, maxSpd: 28, threshold: null, hp: 11, tonals: [39, 16, 104, 58, 172], blades: 2, shaftHzPerKt: 0.16,
+  },
+  littorio: {
+    key: 'littorio', name: 'Littorio (Vittorio Veneto, Littorio)', type: 'battleship', nation: 'Italy', kind: 'surface',
+    slBase: 82, maxSpd: 30, threshold: null, hp: 13, tonals: [39, 14, 98, 66, 188], blades: 3, shaftHzPerKt: 0.14,
+  },
+  zara: {
+    key: 'zara', name: 'Zara (Zara, Fiume, Pola)', type: 'heavy cruiser', nation: 'Italy', kind: 'surface',
+    slBase: 79, maxSpd: 32, threshold: null, hp: 7, tonals: [39, 21, 108, 74, 160], blades: 3, shaftHzPerKt: 0.17,
+  },
+  soldati: {
+    key: 'soldati', name: 'Soldati (Italian destroyers)', type: 'destroyer', nation: 'Italy', kind: 'surface',
+    slBase: 81, maxSpd: 38, threshold: null, hp: 3, tonals: [39, 35, 152, 104], blades: 3, shaftHzPerKt: 0.22,
+  },
+  qe: {
+    key: 'qe', name: 'Queen Elizabeth (Warspite)', type: 'battleship', nation: 'UK', kind: 'surface',
+    slBase: 81, maxSpd: 24, threshold: null, hp: 12, tonals: [50, 14, 100, 46, 176], blades: 3, shaftHzPerKt: 0.15,
+  },
+  leander: {
+    key: 'leander', name: 'Leander (Ajax, Achilles, Perth)', type: 'light cruiser', nation: 'UK', kind: 'surface',
+    slBase: 79, maxSpd: 32, threshold: null, hp: 5, tonals: [50, 24, 132, 78], blades: 3, shaftHzPerKt: 0.18,
+  },
+  hclass: {
+    key: 'hclass', name: 'British fleet destroyer (Hardy, Hotspur, Cossack)', type: 'destroyer', nation: 'UK', kind: 'surface',
+    slBase: 80, maxSpd: 36, threshold: null, hp: 3, tonals: [50, 36, 148, 102], blades: 3, shaftHzPerKt: 0.22,
+  },
 };
 
 /** Which classes the signature library offers for each scenario's era. */
@@ -294,114 +396,133 @@ export const REFERENCE: Record<string, Reference> = {
     notes: 'Twin-float monoplane, catapulted from German heavy ships.',
   },
   akagi: {
+    photo: { file: 'akagi.jpg', credit: 'Akagi at anchor, late 1930s. NHHC photo NH 73058 (Japanese photograph, donated by Kazutoshi Hando) · Public domain · Naval History and Heritage Command' },
     displacement: '42,500 t full load',
     armament: ['6 × 20 cm guns in casemates', '12 × 12 cm AA guns in twin mounts', '28 × 25 mm AA guns', 'About 66 aircraft'],
     armor: '152 mm belt, 79 mm deck',
     notes: 'Converted battlecruiser hull. Small island on the port side, big funnel curving down to starboard below the flight deck. Four shafts.',
   },
   kaga: {
+    photo: { file: 'kaga.jpg', credit: 'Kaga underway, after reconstruction. NHHC photo NH 73060 (Japanese photograph, donated by Kazutoshi Hando) · Public domain · Naval History and Heritage Command' },
     displacement: '42,500 t full load',
     armament: ['10 × 20 cm guns in casemates', '16 × 12.7 cm AA guns in twin mounts', '22 × 25 mm AA guns', 'About 72 aircraft'],
     armor: '152 mm belt, 38 mm deck',
     notes: 'Converted battleship hull, slower than Akagi. Small starboard island, downturned funnel to starboard. Four shafts.',
   },
   soryu: {
+    photo: { file: 'soryu.jpg', credit: 'Hiryu underway. NHHC photo NH 73063 (Japanese photograph, donated by Kazutoshi Hando) · Public domain · Naval History and Heritage Command' },
     displacement: '19,800 t full load (Hiryū 20,250 t)',
     armament: ['12 × 12.7 cm AA guns in twin mounts', '28 to 31 × 25 mm AA guns', 'About 63 aircraft'],
     armor: 'Light: 41 mm belt over machinery, 55 mm over magazines',
     notes: 'Light, fast fleet carrier. Small island (port side on Hiryū), two small funnels curving down to starboard. Four shafts.',
   },
   shokaku: {
+    photo: { file: 'shokaku.jpg', credit: 'Shokaku underway. NHHC photo NH 73066 (Japanese photograph, donated by Kazutoshi Hando) · Public domain · Naval History and Heritage Command' },
     displacement: '32,100 t full load',
     armament: ['16 × 12.7 cm AA guns in twin mounts', '36 to 70 × 25 mm AA guns', 'About 72 aircraft'],
     armor: '46 to 215 mm belt over machinery and magazines, 65 to 170 mm deck',
     notes: 'Best Japanese carriers of 1941. Starboard island forward of two downturned funnels. Four shafts.',
   },
   taiho: {
+    photo: { file: 'taiho.jpg', credit: 'Taiho, May 1944. Japanese photograph, via Wikimedia Commons · Public domain (Japanese photograph taken before 1946)' },
     displacement: '37,300 t full load',
     armament: ['12 × 10 cm AA guns in twin mounts', '51 × 25 mm AA guns', 'About 65 aircraft'],
     armor: '75 mm armored flight deck, up to 165 mm belt',
     notes: 'Enclosed hurricane bow and a big island with a raked funnel built in, like Shinano. Four shafts.',
   },
   shinano: {
+    photo: { file: 'shinano.jpg', credit: 'Shinano on sea trials, 11 November 1944. Photo: Hiroshi Arakawa, via Wikimedia Commons · Public domain (Japanese photograph taken before 1946)' },
     displacement: '71,900 t full load',
     armament: ['16 × 12.7 cm AA guns in twin mounts', '137 × 25 mm AA guns', '336 AA rockets', 'About 47 aircraft'],
     armor: '75 mm flight deck, 160 to 200 mm belt, 190 mm deck over magazines',
     notes: 'Third Yamato hull completed as a support carrier. Largest carrier of the war. Large island with raked funnel. Four shafts.',
   },
   kongo: {
+    photo: { file: 'kongo.jpg', credit: 'Kirishima at anchor. NHHC photo NH 73076 (Japanese photograph, donated by Kazutoshi Hando) · Public domain · Naval History and Heritage Command' },
     displacement: '37,200 t full load',
     armament: ['8 × 35.6 cm guns in four twin turrets', '14 × 15.2 cm secondary guns', '8 × 12.7 cm AA guns', '3 floatplanes'],
     armor: '203 mm belt, up to 120 mm deck',
     notes: 'Rebuilt battlecruisers, the fastest Japanese battleships. Tall pagoda foremast and two funnels. Four shafts.',
   },
   yamato: {
+    photo: { file: 'yamato.jpg', credit: 'Yamato on sea trials, October 1941. NHHC photo NH 73092 (Japanese photograph) · Public domain · Naval History and Heritage Command' },
     displacement: '72,800 t full load',
     armament: ['9 × 46 cm guns in three triple turrets', '6 to 12 × 15.5 cm secondary guns', '12 to 24 × 12.7 cm AA guns', 'Up to 7 floatplanes'],
     armor: '410 mm belt, 650 mm turret faces, 200 to 230 mm deck',
     notes: 'Largest battleships ever built. Compact tower bridge and one huge raked funnel. Four shafts.',
   },
   takao: {
+    photo: { file: 'takao.jpg', credit: 'Chokai (Takao class). NHHC photo NH 73023 (Japanese photograph, donated by Kazutoshi Hando), cropped · Public domain · Naval History and Heritage Command' },
     displacement: '15,800 t full load',
     armament: ['10 × 20.3 cm guns in five twin turrets', '4 × 12 cm AA guns', '16 × 61 cm torpedo tubes (Type 93)', '3 floatplanes'],
     armor: '102 mm belt, 35 mm deck',
     notes: 'Massive bridge block, trunked forward funnel and a tall raked aft funnel. Three turrets forward. Four shafts.',
   },
   agano: {
+    photo: { file: 'agano.jpg', credit: 'Yahagi (Agano class) off Sasebo, December 1943. Imperial Japanese Navy photo, via Wikimedia Commons · Public domain (Japanese photograph taken before 1946)' },
     displacement: '8,500 t full load',
     armament: ['6 × 15.2 cm guns in three twin turrets', '4 × 8 cm AA guns', '8 × 61 cm torpedo tubes (Type 93)', '2 floatplanes'],
     armor: '60 mm belt, 20 mm deck',
     notes: 'Destroyer-flotilla leader. Single large raked funnel. Four shafts.',
   },
   kagero: {
+    photo: { file: 'kagero.jpg', credit: 'Yukikaze (Kagero class). NHHC photo NH 73052 (Japanese photograph, donated by Kazutoshi Hando) · Public domain · Naval History and Heritage Command' },
     displacement: '2,500 t full load',
     armament: ['6 × 12.7 cm guns in three twin mounts', '8 × 61 cm torpedo tubes (Type 93), with reloads', 'Depth charges'],
     armor: 'None',
     notes: 'Two funnels, one twin mount forward and two aft. Two shafts.',
   },
   isub: {
+    photo: { file: 'isub.jpg', credit: 'I-16 (Type C1 submarine), 1940. Japanese photograph, via Wikimedia Commons · Public domain (Japanese photograph taken before 1946)' },
     displacement: '3,560 t submerged',
     armament: ['8 × 53.3 cm bow torpedo tubes, 20 torpedoes', '1 × 14 cm deck gun', 'Carried a Type A midget submarine on deck at Pearl Harbor'],
     armor: 'None',
     notes: 'Large ocean-going boat. Noisy and slow submerged, with poor hydrophones. Two shafts.',
   },
   midget: {
+    photo: { file: 'midget.jpg', credit: 'Type A midget submarine HA-19 aground on Oahu, December 1941. U.S. Navy photo, via Wikimedia Commons · Public domain (U.S. Navy photograph)' },
     displacement: '46 t submerged',
     armament: ['2 × 45 cm torpedo tubes (bow, one above the other)'],
     armor: 'None',
     notes: 'Two-man battery boat launched from a mother submarine. Fast for a short dash, then nearly spent. Contra-rotating screws.',
   },
   picket: {
+    photo: { file: 'picket.jpg', credit: 'Guard boat No. 23 Nitto Maru sinking after being shelled by USS Nashville, 18 April 1942 (Doolittle Raid). U.S. Navy photo, via Wikimedia Commons, cropped · Public domain (U.S. Navy photograph)' },
     displacement: 'About 70 to 100 GRT',
     armament: ['Machine guns, sometimes a small gun', 'Radio to report sightings'],
     armor: 'None',
     notes: 'Requisitioned fishing trawler on the picket line, like Nittō Maru that reported the Doolittle force. Single screw.',
   },
   kate: {
+    photo: { file: 'kate.jpg', credit: 'Nakajima B5N "Kate" in flight. San Diego Air and Space Museum archive, via Wikimedia Commons · Public domain (per Wikimedia Commons)' },
     displacement: '4,100 kg max takeoff',
     armament: ['1 × Type 91 aerial torpedo or 800 kg of bombs', '1 × 7.7 mm rear machine gun'],
     armor: 'None',
     notes: 'Three-seat carrier torpedo bomber with a long greenhouse canopy. Also flew ASW patrols.',
   },
   mavis: {
+    photo: { file: 'mavis.jpg', credit: 'Kawanishi H6K "Mavis" flying boat from above. San Diego Air and Space Museum archive, via Wikimedia Commons, cropped · No known copyright restrictions (Flickr Commons)' },
     displacement: '17,000 kg max takeoff',
     armament: ['Up to 2 torpedoes or 1,000 kg of bombs', '1 × 20 mm cannon and 4 × 7.7 mm machine guns'],
     armor: 'None',
     notes: 'Four-engine parasol-wing flying boat with strut-braced wing. Long-range ocean patrol.',
   },
   jake: {
+    photo: { file: 'jake.jpg', credit: 'Aichi E13A1 "Jake" floatplane, 1942. Via Wikimedia Commons · Public domain (Japanese photograph taken before 1946)' },
     displacement: '3,600 kg max takeoff',
     armament: ['1 × 250 kg bomb or depth charges', '1 × 7.7 mm rear machine gun'],
     armor: 'None',
     notes: 'Three-seat twin-float reconnaissance floatplane, catapulted from cruisers and battleships.',
   },
   tirpitz: {
+    photo: { file: 'tirpitz.jpg', credit: 'Tirpitz seen from astern, 1941. NHHC photo NH 59672 · Public domain (per NHHC)' },
     displacement: '52,600 t full load',
     armament: ['8 × 38 cm guns in four twin turrets', '12 × 15 cm secondary guns', '16 × 10.5 cm AA guns', '8 × 53.3 cm torpedo tubes', '4 Arado Ar 196 floatplanes'],
     armor: '320 mm belt, 360 mm turret faces, up to 120 mm deck',
     notes: "Bismarck's sister, nearly identical at sea. Added torpedo tubes amidships. Three shafts.",
   },
   typevii: {
+    photo: { file: 'typevii.jpg', credit: 'Type VII U-boat in the Atlantic, March 1941. Photo: Tolle, via Narodowe Archiwum Cyfrowe (Poland) and Wikimedia Commons · Public domain (per Wikimedia Commons)' },
     displacement: '871 t submerged',
     armament: ['4 bow and 1 stern 53.3 cm torpedo tubes, 14 torpedoes', '1 × 8.8 cm deck gun'],
     armor: 'None',
@@ -414,24 +535,28 @@ export const REFERENCE: Record<string, Reference> = {
     notes: 'Four-engine converted airliner. Shadowed convoys and homed U-boats onto them.',
   },
   yorktown: {
+    photo: { file: 'yorktown.jpg', credit: 'USS Hornet (CV-8), Yorktown class, late 1941. NHHC photo NH 81313 · Public domain (U.S. Navy photograph)' },
     displacement: '25,500 t full load',
     armament: ['8 × 5 in/38 dual-purpose guns', '16 × 1.1 in AA guns, later 20 mm and 40 mm', 'About 90 aircraft'],
     armor: '64 to 102 mm belt, 38 mm deck',
     notes: 'Friendly. Large starboard island with tripod mast and a big flat-sided funnel. Four shafts.',
   },
   fletcher: {
+    photo: { file: 'fletcher.jpg', credit: 'USS Johnston (DD-557), Fletcher class, 27 October 1943. NHHC photo NH 63495 · Public domain · Naval History and Heritage Command' },
     displacement: '2,900 t full load',
     armament: ['5 × 5 in/38 guns in single mounts', '10 × 21 in torpedo tubes', '40 mm and 20 mm AA guns', 'Depth charges'],
     armor: 'Light splinter protection',
     notes: 'Friendly. Flush deck, two funnels, two gun mounts forward and three aft. Two shafts.',
   },
   wickes: {
+    photo: { file: 'wickes.jpg', credit: 'USS Ward (DD-139), 26 February 1919. NHHC photo NH 63240 · Public domain · Naval History and Heritage Command' },
     displacement: '1,250 t full load',
     armament: ['4 × 4 in/50 guns', '12 × 21 in torpedo tubes', 'Depth charges'],
     armor: 'None',
     notes: 'Friendly. World War I "four-piper": flush deck and four thin funnels. USS Ward fired the first shot at Pearl Harbor. Two shafts.',
   },
   atlanta: {
+    photo: { file: 'atlanta.jpg', credit: 'USS Atlanta (CL-51) at high speed, circa November 1941. NHHC photo NH 57455 · Public domain · Naval History and Heritage Command' },
     displacement: '8,300 t full load',
     armament: ['16 × 5 in/38 guns in eight twin mounts', '8 × 21 in torpedo tubes', '1.1 in and 20 mm AA guns'],
     armor: '95 mm belt, 32 mm deck',
@@ -444,9 +569,162 @@ export const REFERENCE: Record<string, Reference> = {
     notes: 'Friendly. Whale-catcher design: short, round-bottomed, single funnel and mast. Reciprocating engine, single screw.',
   },
   liberty: {
+    photo: { file: 'liberty.jpg', credit: 'Liberty ship SS George Dewey, 6 September 1943. U.S. Navy photo 80-G-84349 via NHHC · Public domain · Naval History and Heritage Command' },
     displacement: '14,250 t full load (7,176 GRT)',
     armament: ['1 × 4 in or 5 in gun aft', '1 × 3 in gun forward', '20 mm AA guns'],
     armor: 'None',
     notes: 'Mass-produced wartime freighter. Midships bridge and single funnel, three cargo masts. Triple-expansion engine, single screw.',
+  },
+  maru: {
+    displacement: '4,000 to 9,000 GRT',
+    armament: ['Often one or two old field guns', 'Machine guns'],
+    armor: 'None',
+    notes: 'Requisitioned freighter or liner carrying troops and supplies. Japanese merchant names end in Maru. Bridge and funnel amidships, derricks fore and aft.',
+  },
+  frachter: {
+    displacement: '5,000 to 8,000 GRT',
+    armament: ['Usually unarmed'],
+    armor: 'None',
+    notes: 'German cargo steamer. Single funnel amidships, cargo masts fore and aft. Single screw.',
+  },
+  renown: {
+    displacement: '37,400 t full load',
+    armament: ['6 × 15 in guns in three twin turrets', '20 × 4 in guns (Renown, twin DP mounts) or 9 × 4 in in triple mounts (Repulse)', '2-pounder pom-poms', '8 × 21 in torpedo tubes', '4 floatplanes'],
+    armor: '152 to 229 mm belt, 76 to 127 mm deck (Renown after rebuild)',
+    notes: 'Long, lean battlecruisers: two turrets forward, one aft, two funnels. Renown rebuilt with a tower bridge, Repulse kept a tripod. Four shafts.',
+  },
+  g4m: {
+    displacement: '12,900 kg max takeoff',
+    armament: ['1 × Type 91 aerial torpedo or 800 kg of bombs', '1 × 20 mm tail cannon', '4 × 7.7 mm machine guns'],
+    armor: 'None, and unprotected fuel tanks',
+    notes: 'Twin-engine land-based bomber with a fat cigar fuselage, glazed nose and tail gun cone. Sank Prince of Wales and Repulse.',
+  },
+  ryujo: {
+    photo: { file: 'ryujo.jpg', credit: 'Ryujo underway. NHHC photo NH 73072 (Japanese photograph, donated by Kazutoshi Hando) · Public domain (Japanese photograph taken before 1946; donation of Kazutoshi Hando to NHHC)' },
+    displacement: '12,500 t (Ryūjō) to 14,200 t (Shōhō) full load',
+    armament: ['8 × 12.7 cm AA guns', '25 mm AA guns', '30 to 37 aircraft'],
+    armor: 'Minimal',
+    notes: 'Small flush-deck carriers with no island: bridge under the forward lip of the flight deck, small funnels curving down on the starboard side. Ryūjō has a tall, top-heavy double hangar. Two shafts.',
+  },
+  myoko: {
+    photo: { file: 'myoko.jpg', credit: 'Haguro (Myoko class) underway. NHHC photo NH 73016 (Japanese photograph, donated by Kazutoshi Hando) · Public domain (Japanese photograph taken before 1946; donation of Kazutoshi Hando to NHHC)' },
+    displacement: '15,900 t full load',
+    armament: ['10 × 20.3 cm guns in five twin turrets', '8 × 12.7 cm AA guns', '16 × 61 cm torpedo tubes (Type 93)', '2 to 3 floatplanes'],
+    armor: '102 mm belt, 35 mm deck',
+    notes: 'Three turrets forward in a pyramid, two aft. Wide trunked forward funnel and a tall aft funnel. Smaller bridge than Takao. Four shafts.',
+  },
+  aoba: {
+    photo: { file: 'aoba.jpg', credit: 'Japanese cruiser Aoba soon after completion, 1927. NHHC photo NH 97727 (from the collection of RAdm Samuel Eliot Morison) · Public domain (per NHHC)' },
+    displacement: '10,800 t (Furutaka) to 11,700 t (Aoba) full load',
+    armament: ['6 × 20.3 cm guns in three twin turrets', '4 × 12 cm AA guns', '8 × 61 cm torpedo tubes', '1 to 2 floatplanes'],
+    armor: '76 mm belt, 32 to 35 mm deck',
+    notes: 'Smallest Japanese heavy cruisers: two turrets forward, one aft, two funnels with the forward one wide and trunked. Low sweeping sheer line. Four shafts.',
+  },
+  sendai: {
+    photo: { file: 'sendai.jpg', credit: 'Tama (5,500-ton light cruiser) in northern camouflage. NHHC photo NH 73040 (Japanese photograph, donated by Kazutoshi Hando) · Public domain (Japanese photograph taken before 1946; donation of Kazutoshi Hando to NHHC)' },
+    displacement: '7,100 t full load',
+    armament: ['7 × 14 cm guns in single mounts', '2 × 8 cm or 12.7 cm AA guns', '8 × 61 cm torpedo tubes', '1 floatplane'],
+    armor: '64 mm belt, 29 mm deck',
+    notes: 'Destroyer-squadron flagships: tall thin funnels (three, four on Sendai/Jintsū), tripod foremast, scattered single guns. Four shafts.',
+  },
+  mogami: {
+    photo: { file: 'mogami.jpg', credit: 'Suzuya (Mogami class) at speed, aerial view. NHHC photo NH 73034 (Japanese photograph, donated by Kazutoshi Hando), cropped · Public domain (Japanese photograph taken before 1946; donation of Kazutoshi Hando to NHHC)' },
+    displacement: '15,000 t full load',
+    armament: ['10 × 20.3 cm guns in five twin turrets (rebuilt from 15 × 15.5 cm)', '8 × 12.7 cm AA guns', '12 × 61 cm torpedo tubes (Type 93)', '3 floatplanes'],
+    armor: '100 mm belt, 35 to 60 mm deck',
+    notes: 'Three turrets forward, two aft, and one big trunked funnel. Compact bridge, long open quarterdeck. Four shafts.',
+  },
+  scharnhorst: {
+    displacement: '38,100 t full load',
+    armament: ['9 × 28 cm guns in three triple turrets', '12 × 15 cm secondary guns', '14 × 10.5 cm AA guns', '6 × 53.3 cm torpedo tubes (from 1942)', '3 to 4 Arado Ar 196 floatplanes'],
+    armor: '350 mm belt, 360 mm turret faces, up to 105 mm deck',
+    notes: 'Fast, low battleships with a raked "Atlantic" bow. Two triple turrets forward, one aft, single capped funnel. Three shafts.',
+  },
+  usca: {
+    photo: { file: 'usca.jpg', credit: 'USS Houston (CA-30) at sea, 1930s. NHHC photo NH 81592 · Public domain (U.S. Navy photograph)' },
+    displacement: '11,500 to 12,500 t full load',
+    armament: ['9 × 8 in guns in three triple turrets', '8 × 5 in/25 AA guns', '1.1 in and 20 mm AA guns', '4 floatplanes'],
+    armor: '76 to 127 mm belt, 25 to 57 mm deck',
+    notes: 'Friendly. Treaty cruisers: two triple turrets forward, one aft, two funnels and tripod masts, hangar amidships. Four shafts.',
+  },
+  brooklyn: {
+    photo: { file: 'brooklyn.jpg', credit: 'USS Honolulu (CL-48), Brooklyn class, underway 9 February 1939. NHHC photo NH 53562 · Public domain (U.S. Navy photograph)' },
+    displacement: '12,700 t full load',
+    armament: ['15 × 6 in guns in five triple turrets', '8 × 5 in/25 AA guns', '1.1 in, 40 mm and 20 mm AA guns', '4 floatplanes (stern hangar)'],
+    armor: '127 mm belt, 52 mm deck',
+    notes: 'Friendly. Three triple turrets forward, two aft, two close-set funnels and a high square transom stern. Four shafts.',
+  },
+  lexington: {
+    photo: { file: 'lexington.jpg', credit: 'USS Lexington (CV-2) off Panama, 25 March 1928. NHHC photo NH 64500, cropped · Public domain (U.S. Navy photograph)' },
+    displacement: '48,500 t full load',
+    armament: ['12 × 5 in/25 AA guns', '8 in twin turrets (removed early 1942)', '1.1 in and 20 mm AA guns', 'About 78 aircraft'],
+    armor: '127 to 178 mm belt, 25 to 51 mm deck',
+    notes: 'Friendly. Converted battlecruisers, long and big: small island and a huge flat-sided funnel on the starboard side. Turbo-electric drive, four shafts.',
+  },
+  deruyter: {
+    displacement: '7,550 t (De Ruyter) to 8,200 t (Java) full load',
+    armament: ['De Ruyter: 7 × 15 cm guns in three twin and one single turret', 'Java: 10 × 15 cm guns in single mounts', '4 to 6 × 40 mm AA guns', '2 floatplanes'],
+    armor: '50 to 75 mm belt, 25 to 30 mm deck',
+    notes: 'Friendly (ABDA). De Ruyter has a tall tower bridge and one big funnel; Java has two funnels and a tripod. Lost in the Java Sea, February 1942. Three shafts.',
+  },
+  town: {
+    displacement: '11,500 to 14,000 t full load',
+    armament: ['12 × 6 in guns in four triple turrets', '8 × 4 in twin AA mounts', '2-pounder pom-poms', '6 × 21 in torpedo tubes', '2 to 3 Walrus amphibians'],
+    armor: '114 mm belt, 32 to 76 mm deck',
+    notes: 'Friendly. Two triple turrets forward and two aft, two widely spaced raked funnels with the hangars between bridge and fore funnel, tripod masts. Four shafts.',
+  },
+  deutschland: {
+    displacement: '16,000 t full load',
+    armament: ['6 × 28 cm guns in two triple turrets', '8 × 15 cm secondary guns', '6 × 10.5 cm AA guns', '8 × 53.3 cm torpedo tubes', '2 Arado Ar 196 floatplanes'],
+    armor: '60 to 80 mm belt, 40 to 45 mm deck',
+    notes: '"Pocket battleships": one triple turret forward, one aft, a tall tower bridge and a single funnel. Diesel-driven, very long range. Two shafts.',
+  },
+  zerstorer: {
+    displacement: '3,200 to 3,400 t full load',
+    armament: ['5 × 12.7 cm guns in single mounts', '8 × 53.3 cm torpedo tubes', '3.7 cm and 2 cm AA guns', 'Depth charges, up to 60 mines'],
+    armor: 'None',
+    notes: 'Big German destroyers: two raked, capped funnels, two guns forward and three aft. Wet forecastle. Two shafts.',
+  },
+  cavour: {
+    displacement: '29,000 t full load',
+    armament: ['10 × 32 cm guns (two triple and two twin turrets)', '12 × 12 cm secondary guns', '8 × 10 cm AA guns'],
+    armor: '250 mm belt, 280 mm turret faces, up to 135 mm deck',
+    notes: 'World War I battleships rebuilt in the 1930s: triple turrets low fore and aft with twins superfiring, two funnels, tower bridge. Two shafts.',
+  },
+  littorio: {
+    displacement: '45,000 t full load',
+    armament: ['9 × 38.1 cm guns in three triple turrets', '12 × 15.2 cm secondary guns', '12 × 9 cm AA guns', '3 floatplanes'],
+    armor: '350 mm belt, 350 mm turret faces, up to 162 mm deck',
+    notes: 'Modern, handsome battleships: two triple turrets forward, one aft, two close-set funnels and a tall tower bridge. High raised stern with catapult. Four shafts.',
+  },
+  zara: {
+    displacement: '14,300 t full load',
+    armament: ['8 × 20.3 cm guns in four twin turrets', '16 × 10 cm AA guns', '2 floatplanes'],
+    armor: '150 mm belt, 70 mm deck',
+    notes: 'The best-armored treaty cruisers: two turrets forward, two aft, two funnels and a tower bridge. Zara, Fiume and Pola were all lost at Matapan. Two shafts.',
+  },
+  soldati: {
+    displacement: '2,450 t full load',
+    armament: ['4 × 120 mm guns in two twin mounts (some with a fifth gun amidships)', '6 × 53.3 cm torpedo tubes', '20 mm AA guns', 'Depth charges'],
+    armor: 'None',
+    notes: 'Fast Italian destroyers: single large funnel, one twin mount forward and one aft. Two shafts.',
+  },
+  qe: {
+    displacement: '36,500 t full load',
+    armament: ['8 × 15 in guns in four twin turrets', '8 × 6 in secondary guns', '8 × 4 in AA guns', '2-pounder pom-poms', '4 Walrus amphibians'],
+    armor: '330 mm belt, 330 mm turret faces, up to 127 mm deck',
+    notes: "Friendly. Rebuilt World War I battleship: two turrets forward, two aft, single funnel and a tall 'Queen Anne's castle' bridge. Four shafts.",
+  },
+  leander: {
+    displacement: '9,200 t full load',
+    armament: ['8 × 6 in guns in four twin turrets', '8 × 4 in AA guns', '8 × 21 in torpedo tubes', '1 floatplane'],
+    armor: '76 mm belt, 51 mm deck',
+    notes: 'Friendly. Two turrets forward, two aft and one big trunked funnel (Perth, of the modified Amphion type, has two). Four shafts.',
+  },
+  hclass: {
+    displacement: '1,900 t (H class) to 2,500 t (Tribal) full load',
+    armament: ['4 × 4.7 in guns (8 in twin mounts on Tribals)', '8 × 21 in torpedo tubes (4 on Tribals)', 'Pom-poms and machine guns', 'Depth charges'],
+    armor: 'None',
+    notes: 'Friendly. Two raked funnels, two gun mounts forward and two aft. Hardy and Hotspur fought at Narvik; Cossack boarded the Altmark. Two shafts.',
   },
 };

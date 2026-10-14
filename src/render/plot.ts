@@ -93,7 +93,7 @@ export class Plot {
     if (!W) return;
     this.span += (SPANS[this.zoom] - this.span) * 0.15; // smooth zoom
     const k = Math.min(W, H) / this.span;
-    const own = g.own, over = !!g.over;
+    const own = g.own, over = !!g.over || !!g.replay;
     const cx = W / 2, cy = H / 2, ctr = { x: cx, y: cy };
     const scr = (p: Vec): P => ({ x: cx + (p.x - own.x) * k, y: cy - (p.y - own.y) * k });
     const ray = (b: number, len: number): P => ({ x: cx + Math.sin((b * Math.PI) / 180) * len, y: cy - Math.cos((b * Math.PI) / 180) * len });
@@ -178,10 +178,27 @@ export class Plot {
         d.moveTo(n.x, n.y).lineTo(f.x, f.y).stroke({ width: 7, color: col, alpha: 0.22 * alpha, cap: 'round' });
       }
       const s = sel ? 8 : 6;
-      const shape = c.air ? [e.x - s, e.y + s * 0.6, e.x, e.y - s, e.x + s, e.y + s * 0.6] : [e.x, e.y - s, e.x + s, e.y, e.x, e.y + s, e.x - s, e.y];
-      d.poly(shape).stroke({ width: 2, color: col, alpha: c.held && sel ? pulse : alpha });
+      const m = v.alive ? c.motion : null;
+      if (m) {
+        // A solution good enough to call course and speed: where the estimate has been, a pointer
+        // along the course, and a leader showing the run at the estimated speed: six minutes for
+        // ships and submarines, one minute for aircraft.
+        c.trail.forEach((p, i) => { const q = scr(p); d.circle(q.x, q.y, 1.6).fill({ color: col, alpha: alpha * (0.12 + 0.5 * (i / c.trail.length)) }); });
+        const lead = scr(offset(c.est, m.crs, m.spd / (c.air ? 60 : 10)));
+        if (m.spd > 0.5) d.moveTo(e.x, e.y).lineTo(lead.x, lead.y).stroke({ width: 1.5, color: col, alpha: alpha * 0.8 });
+        const f = ray(m.crs, 1), fx = f.x - cx, fy = f.y - cy; // unit vector along the course on screen
+        const ps = s + 2;
+        const tip = { x: e.x + fx * ps, y: e.y + fy * ps };
+        const l = { x: e.x - fx * ps * 0.7 - fy * ps * 0.75, y: e.y - fy * ps * 0.7 + fx * ps * 0.75 };
+        const r2 = { x: e.x - fx * ps * 0.7 + fy * ps * 0.75, y: e.y - fy * ps * 0.7 - fx * ps * 0.75 };
+        const notch = { x: e.x - fx * ps * 0.25, y: e.y - fy * ps * 0.25 };
+        d.poly([tip.x, tip.y, l.x, l.y, notch.x, notch.y, r2.x, r2.y]).fill({ color: col, alpha: alpha * 0.35 }).stroke({ width: 2, color: col, alpha: c.held && sel ? pulse : alpha });
+      } else {
+        const shape = c.air ? [e.x - s, e.y + s * 0.6, e.x, e.y - s, e.x + s, e.y + s * 0.6] : [e.x, e.y - s, e.x + s, e.y, e.x, e.y + s, e.x - s, e.y];
+        d.poly(shape).stroke({ width: 2, color: col, alpha: c.held && sel ? pulse : alpha });
+      }
       if (sel && c.held) d.circle(e.x, e.y, 12 + 5 * (1 - pulse)).stroke({ width: 1, color: col, alpha: 0.3 * pulse });
-      this.label(tag(c) + (v.alive ? '' : c.air ? ' (down)' : ' (sunk)'), e.x + 11, e.y - 9, col);
+      this.label(tag(c) + (v.alive ? (m ? ` · ${Math.round(m.spd)} kt` : '') : c.air ? ' (down)' : ' (sunk)'), e.x + 11, e.y - 9, col);
       this.markers.push({ id: c.id, x: e.x, y: e.y });
     }
 

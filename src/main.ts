@@ -1,7 +1,7 @@
 import 'pixi.js/unsafe-eval'; // no eval(), so the game runs under strict content security policies
 import './style.css';
 import { WEAPONS, contactById, create, inPeriscope, orders, tick, type Depth, type Game, type ScenarioKey, type WeaponKey } from './sim/sim';
-import { CAMPAIGN, MISSIONS, type MissionKey } from './sim/missions';
+import { CAMPAIGN, MISSIONS, PREQUELS, type MissionKey } from './sim/missions';
 import { carryFor, changedFor, interlude, record, results, unlocked } from './campaign';
 import { Plot, SPANS } from './render/plot';
 import { Waterfall } from './ui/waterfall';
@@ -10,6 +10,8 @@ import { addLog, updatePanel } from './ui/panel';
 import { play, unlockAudio } from './ui/audio';
 import { Periscope } from './ui/periscope';
 import { Solution } from './ui/solution';
+import { DepthView } from './ui/depth';
+import { Player, noteSelection, record as recordOrders, recording } from './replay';
 
 const $ = (id: string) => document.getElementById(id)!;
 const esc = (t: string) => t.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]!));
@@ -25,12 +27,15 @@ let running = false;
 let acc = 0;
 let last = performance.now();
 let overShown = false;
+let replay: Player | null = null;
+let liveGame: Game | null = null; // the finished mission, kept while its replay plays
 
 const plot = new Plot();
 const waterfall = new Waterfall($('waterfall') as HTMLCanvasElement);
 const signature = new SignatureDisplay($('signature') as HTMLCanvasElement);
 const periscope = new Periscope($('scopeView') as HTMLCanvasElement, () => g);
 const solution = new Solution(() => g);
+const depthView = new DepthView($('depthCanvas') as HTMLCanvasElement, () => g);
 function togglePeriscope() {
   const why = periscope.toggle();
   if (why) addLog(g, { t: g.t, kind: 'warn', text: why });
@@ -51,6 +56,17 @@ buttonRow($('depths'), DEPTHS, (_, l) => l, (v) => orders.depth(g, v as Depth));
 buttonRow($('times'), TIMES, (_, l) => l, (v) => { timeScale = v; });
 const on = (id: string, fn: () => void) => $(id).addEventListener('click', fn);
 on('left', () => orders.turn(g, -10));
+on('shallower', () => orders.depthBy(g, -50));
+on('arrayUp', () => orders.straddle(g, 'above'));
+on('arrayDown', () => orders.straddle(g, 'below'));
+on('deeper', () => orders.depthBy(g, 50));
+$('depthSet').addEventListener('submit', (ev) => {
+  ev.preventDefault();
+  const box = $('depthFt') as HTMLInputElement;
+  if (box.value !== '') orders.depthTo(g, Number(box.value));
+  box.value = '';
+  box.blur();
+});
 on('right', () => orders.turn(g, 10));
 on('fireMk48', () => orders.fire(g, 'mk48'));
 on('fireHarpoon', () => orders.fire(g, 'harpoon'));
@@ -61,7 +77,8 @@ on('fireSm6', () => orders.fire(g, 'sm6'));
 on('radar', () => orders.radar(g));
 on('fireTlam', () => orders.strike(g, Number(($('tlamSite') as HTMLSelectElement).value)));
 on('scopeBtn', togglePeriscope);
-on('solBtn', () => solution.toggle());
+on('solBtn', () => { depthView.close(); solution.toggle(); });
+on('depthBtn', () => { solution.close(); depthView.toggle(); });
 on('ping', () => orders.ping(g));
 on('decoy', () => orders.decoy(g));
 on('zoomIn', () => { plot.zoom = Math.max(0, plot.zoom - 1); });
@@ -101,6 +118,7 @@ function acceptTop() {
 
 document.addEventListener('keydown', (ev) => {
   if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  if ((ev.target as HTMLElement).closest?.('input, select, textarea')) return; // typing a depth, not giving orders
   if (!running) { if (ev.key === 'Enter' && overShown) start(scenario); return; }
   const idx = SPEEDS.findIndex(([v]) => v >= g.own.ordSpd);
   const faster = () => orders.speed(g, SPEEDS[Math.min(SPEEDS.length - 1, idx + 1)][0]);
@@ -109,12 +127,14 @@ document.addEventListener('keydown', (ev) => {
     a: () => orders.turn(g, -10), arrowleft: () => orders.turn(g, -10),
     d: () => orders.turn(g, 10), arrowright: () => orders.turn(g, 10),
     w: faster, arrowup: faster, s: slower, arrowdown: slower,
-    q: () => orders.depth(g, Math.max(0, g.own.ordDepth - 1) as Depth),
-    e: () => orders.depth(g, Math.min(2, g.own.ordDepth + 1) as Depth),
+    q: () => { const up = [...DEPTHS].reverse().find(([v]) => v < g.own.ordDepth - 0.01); if (up) orders.depth(g, up[0]); },
+    e: () => { const dn = DEPTHS.find(([v]) => v > g.own.ordDepth + 0.01); if (dn) orders.depth(g, dn[0]); },
+    '[': () => orders.depthBy(g, -50), ']': () => orders.depthBy(g, 50),
+    u: () => orders.straddle(g, 'above'), n: () => orders.straddle(g, 'below'),
     l: () => orders.layer(g),
     f: () => orders.fire(g, 'mk48'), h: () => orders.fire(g, 'harpoon'), t: () => orders.fire(g, 'mst'),
     g: () => orders.fire(g, 'asroc'), y: () => orders.strike(g, Number(($('tlamSite') as HTMLSelectElement).value)), j: () => orders.fire(g, 'jatm'), m: () => orders.fire(g, 'sm6'),
-    r: () => orders.radar(g), v: togglePeriscope, b: () => solution.toggle(), escape: () => { if (periscope.open) periscope.close(); else solution.close(); },
+    r: () => orders.radar(g), v: togglePeriscope, b: () => { depthView.close(); solution.toggle(); }, x: () => { solution.close(); depthView.toggle(); }, escape: () => { if (replay && liveGame && !periscope.open && !depthView.open && !solution.open) exitReplay(); else if (periscope.open) periscope.close(); else if (depthView.open) depthView.close(); else solution.close(); },
     p: () => orders.ping(g), c: () => orders.decoy(g),
     tab: () => orders.cycleContact(g), k: acceptTop,
     ' ': () => { timeScale = timeScale ? 0 : 30; },
@@ -129,7 +149,25 @@ document.addEventListener('keydown', (ev) => {
 function newGame(key: ScenarioKey) {
   scenario = key;
   const m = MISSIONS[key];
-  g = create(key, undefined, carryFor(key));
+  const seed = Date.now() & 0x7fffffff;
+  const carry = carryFor(key);
+  g = create(key, seed, carry);
+  recordOrders(g, key, seed, carry);
+  replay = null;
+  liveGame = null;
+  $('replayBar').hidden = true;
+  setUp(key);
+  addLog(g, {
+    t: 0, kind: 'info', text: key === 'bismarck'
+      ? 'The vortex has closed behind us. No GPS, no satellites, Morse on the radio. Radio intercepts put Bismarck in the Denmark Strait. 150 feet, ahead one-third, towed array streamed.'
+      : key === 'duel' ? 'On station in the Bear Gap. Ahead one-third, 150 feet. Towed array streamed, passive watch set.'
+        : `${m.title}: ${m.place}, ${m.date}. 150 feet, ahead one-third, towed array streamed.`,
+  });
+}
+
+/** Resets the screens for the game in `g`. */
+function setUp(key: ScenarioKey) {
+  const m = MISSIONS[key];
   $('log').innerHTML = '';
   $('place').textContent = `· ${m.place}, ${m.date.split(',')[0]}`;
   waterfall.clear();
@@ -139,15 +177,38 @@ function newGame(key: ScenarioKey) {
   $('tlamSite').innerHTML = g.sites.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join('');
   periscope.close();
   solution.close();
+  depthView.close();
   overShown = false;
   acc = 0;
-  addLog(g, {
-    t: 0, kind: 'info', text: key === 'bismarck'
-      ? 'The vortex has closed behind us. No GPS, no satellites, Morse on the radio. Radio intercepts put Bismarck in the Denmark Strait. 150 feet, ahead one-third, towed array streamed.'
-      : key === 'duel' ? 'On station in the Bear Gap. Ahead one-third, 150 feet. Towed array streamed, passive watch set.'
-        : `${m.title}: ${m.place}, ${m.date}. 150 feet, ahead one-third, towed array streamed.`,
-  });
 }
+
+// ---- Replay -------------------------------------------------------------------------
+function startReplay() {
+  const r = recording();
+  if (!r) return;
+  liveGame ??= g;
+  g = create(r.key, r.seed, r.carry);
+  replay = new Player(g, r);
+  setUp(r.key);
+  addLog(g, { t: 0, kind: 'info', text: 'Replay: the mission again from the start, with every ship shown where it really was. Use time compression to speed it up or slow it down.' });
+  $('replayText').textContent = 'Replay';
+  $('replayBar').hidden = false;
+  $('overlay').hidden = true;
+  timeScale = 30;
+  running = true;
+  last = performance.now();
+}
+function exitReplay() {
+  if (!liveGame) return;
+  g = liveGame;
+  liveGame = null;
+  replay = null;
+  $('replayBar').hidden = true;
+  $('overlay').hidden = false; // the results, as they were
+  running = false;
+}
+on('replayRestart', startReplay);
+on('replayExit', exitReplay);
 
 function start(key: ScenarioKey) {
   unlockAudio();
@@ -173,7 +234,9 @@ function showCampaign(key: MissionKey = picked) {
     const mark = r?.win ? '<span class="ok">✓</span>' : r ? '<span class="no">✗</span>' : '';
     return `<li class="${k === key ? 'sel' : ''} ${open ? '' : 'locked'}"><button data-m="${k}" ${open ? '' : 'disabled'}><span class="n">${n}</span><span class="t">${esc(MISSIONS[k].title)}<small>${esc(MISSIONS[k].date.split(',')[0])}</small></span>${mark}</button></li>`;
   };
-  $('campList').innerHTML = CAMPAIGN.map((k, i) => item(k, String(i + 1))).join('') + '<li class="sep">Present day</li>' + item('duel', '—');
+  $('campList').innerHTML = CAMPAIGN.map((k, i) => item(k, String(i + 1))).join('')
+    + '<li class="sep">Before the vortex · optional</li>' + PREQUELS.map((k) => item(k, '·')).join('')
+    + '<li class="sep">Present day</li>' + item('duel', '—');
   $('campList').addEventListener('click', (ev) => {
     const b = (ev.target as HTMLElement).closest<HTMLButtonElement>('button[data-m]');
     if (b && !b.disabled) showCampaign(b.dataset.m as MissionKey);
@@ -206,8 +269,9 @@ function showResult() {
     <p class="sub">${esc(MISSIONS[key].title)} · ${Math.round(o.t / 60)} min · ${fired} fired · ${g.stats.hits} hits${g.stats.blueOnBlue ? ` · ${g.stats.blueOnBlue} on friendly ships` : ''}</p>
     <p>${esc(o.reason)}${res.sunk.length ? ` Sunk: ${esc(res.sunk.join(', '))}.` : ''}${res.aircraft ? ` Aircraft shot down: ${res.aircraft}.` : ''} The plot now shows where every ship really was.</p>
     ${story.length ? `<div class="interlude"><div class="wlabel">The war, as it now stands</div>${story.map((p) => `<p>${esc(p)}</p>`).join('')}</div>` : ''}
-    <div class="row">${next ? `<button id="next">Next: ${esc(MISSIONS[next].title)}</button>` : ''}<button id="again">Play again</button><button id="menu">Campaign</button></div>`;
+    <div class="row">${next ? `<button id="next">Next: ${esc(MISSIONS[next].title)}</button>` : ''}<button id="watch">Watch replay</button><button id="again">Play again</button><button id="menu">Campaign</button></div>`;
   $('next')?.addEventListener('click', () => showCampaign(next!));
+  $('watch').addEventListener('click', startReplay);
   $('again').addEventListener('click', () => start(scenario));
   $('menu').addEventListener('click', () => showCampaign(i >= 0 ? key : picked));
   $('overlay').hidden = false;
@@ -221,7 +285,10 @@ function frame(now: number) {
   last = now;
   if (running && !g.over) {
     acc += dt * timeScale;
-    for (let n = 0; acc >= 1 && n < 400 && !g.over; n++) { tick(g, 1); acc -= 1; }
+    for (let n = 0; acc >= 1 && n < 400 && !g.over; n++) {
+      if (replay) replay.apply(); else noteSelection(g);
+      tick(g, 1); acc -= 1;
+    }
   }
   for (const ev of g.events) { addLog(g, ev); if (ev.sound) play(ev.sound); }
   g.events.length = 0;
@@ -229,15 +296,22 @@ function frame(now: number) {
   periscope.draw(g, now);
   waterfall.draw(g);
   signature.draw(g);
+  depthView.draw(g);
   if (now - panelT > 150) {
     panelT = now;
     updatePanel(g);
     solution.update(g);
     for (const b of $('speeds').children as HTMLCollectionOf<HTMLElement>) b.classList.toggle('on', +b.dataset.v! === g.own.ordSpd);
     for (const b of $('depths').children as HTMLCollectionOf<HTMLElement>) b.classList.toggle('on', +b.dataset.v! === g.own.ordDepth);
+    $('arrayUp').classList.toggle('on', g.own.arraySide === 'above');
+    $('arrayDown').classList.toggle('on', g.own.arraySide === 'below');
     for (const b of $('times').children as HTMLCollectionOf<HTMLElement>) b.classList.toggle('on', +b.dataset.v! === timeScale);
   }
-  if (g.over && !overShown) { overShown = true; updatePanel(g); setTimeout(showResult, 2500); }
+  if (g.over && !overShown) {
+    overShown = true; updatePanel(g);
+    if (replay) $('replayText').textContent = 'Replay finished';
+    else setTimeout(showResult, 2500);
+  }
   requestAnimationFrame(frame);
 }
 

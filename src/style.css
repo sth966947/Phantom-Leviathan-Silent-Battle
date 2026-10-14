@@ -41,7 +41,7 @@ header { grid-area: head; }
   .helm, .combat { min-height: 0; overflow: hidden; }
   .logcard { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
   .logcard .log { flex: 1 1 auto; max-height: none; }
-  .main .plot-wrap { max-width: min(100%, calc(100vh - 80px)); }
+  .main .plot-wrap { max-width: min(100%, calc(100vh - 136px)); }
   /* Weapons and sensors always stay in view; the contact card gives up space and scrolls inside. */
   .combat > .contact { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
   .combat > section:not(.contact), .helm > section:not(.logcard) { flex: none; }
@@ -62,17 +62,31 @@ h1 span { color: var(--dim); font-weight: 500; }
 .clock { font: 600 15px var(--f-data); color: var(--ink); font-variant-numeric: tabular-nums; }
 .main { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; position: relative; }
 .plot-wrap {
-  position: relative; width: 100%; max-width: min(100%, calc(100vh - 110px)); min-width: min(100%, 320px);
+  position: relative; width: 100%; max-width: min(100%, calc(100vh - 166px)); min-width: min(100%, 320px);
   aspect-ratio: 1 / 1; align-self: center; border: 1px solid var(--rule);
   background: radial-gradient(circle at 50% 50%, #0b2236 0%, var(--sea) 70%);
   cursor: crosshair; overflow: hidden;
 }
 .plot-wrap canvas { position: absolute; inset: 0; }
+/* Time compression sits under the plot, as one compact bar. */
+.timebar { align-self: center; width: 100%; max-width: min(100%, 560px); display: flex; align-items: center; gap: 12px; flex: none; box-sizing: border-box; }
+.timebar h2 { margin: 0 !important; white-space: nowrap; }
+.timebar .row { flex: 1; flex-wrap: nowrap; }
+.timebar .row button { flex: 1; }
 canvas { display: block; width: 100%; height: 100%; }
 .plot-hint {
   position: absolute; left: 10px; bottom: 8px; font: 12px var(--f-data); color: var(--dim);
   pointer-events: none; z-index: 1;
 }
+.depth-btn { position: absolute; left: 8px; top: 8px; z-index: 1; }
+/* Depth view: covers the plot column while open, like the solution window. */
+.depthview {
+  position: absolute; inset: 0; z-index: 3; background: var(--panel); border: 1px solid var(--rule);
+  display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 8px; padding: 8px 10px; box-sizing: border-box; overflow: hidden;
+}
+.depthview[hidden] { display: none; }
+.depthview canvas { width: 100%; height: 100%; min-height: 0; display: block; cursor: pointer; }
+.depth-read { color: var(--dim); font-weight: 400; }
 .zoom { position: absolute; right: 8px; top: 8px; display: flex; gap: 4px; z-index: 1; }
 .wf-wrap, .sig-wrap { border: 1px solid var(--rule); background: #020a12; position: relative; min-width: 0; }
 .sig-wrap canvas { height: 120px; image-rendering: pixelated; }
@@ -267,3 +281,24 @@ button.on-air { background: #1d4a3a; border-color: #2f7a5e; color: #d4ffe9; }
 .camp-detail button { flex: none; height: auto; }
 #tlamRow select { flex: 1 1 auto; min-width: 0; background: #0a1b2b; color: var(--ink); border: 1px solid var(--rule); font: 12px var(--f-body); padding: 4px; }
 #tlamRow button { flex: none; }
+/* The plot and the windows that cover it; the time bar stays below, uncovered. */
+.stage { position: relative; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; justify-content: center; }
+/* Replay: a bar across the top of the plot while a finished mission plays back. */
+.replaybar {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 2; display: flex; align-items: center; gap: 8px;
+  background: rgba(13, 33, 51, 0.92); border: 1px solid var(--contact); padding: 5px 6px 5px 12px; font: 600 12.5px var(--f-data); color: var(--contact);
+  letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap;
+}
+.replaybar[hidden] { display: none; }
+.replaybar button { flex: none; padding: 4px 9px; }
+/* Type a depth and Go (or Enter). */
+.depth-row { display: grid; grid-template-columns: 1fr 1.25fr 1fr; }
+.depth-set { display: flex; gap: 4px; min-width: 0; }
+.depth-set input {
+  width: 0; flex: 1 1 auto; min-width: 0; background: var(--sea); color: var(--ink); border: 1px solid var(--rule);
+  font: 13px var(--f-data); padding: 4px 6px; text-align: center; -moz-appearance: textfield;
+}
+.depth-set input::-webkit-outer-spin-button, .depth-set input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.depth-set input:focus { outline: 1px solid var(--own); }
+.depth-set button { flex: none; }
+.straddle button { flex: 1 1 0; font-size: 12.5px; }

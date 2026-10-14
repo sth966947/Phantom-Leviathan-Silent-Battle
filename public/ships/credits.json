@@ -70,5 +70,197 @@
     "credit": "Arado Ar 196A-2 taxiing, 1940. Photo: unknown author, via Wikimedia Commons",
     "license": "Public domain",
     "source_url": "https://commons.wikimedia.org/wiki/File:Arado_Ar_196A-2_taxiing_1940.jpg"
+  },
+  "akagi": {
+    "file": "akagi.jpg",
+    "credit": "Akagi at anchor, late 1930s. NHHC photo NH 73058 (Japanese photograph, donated by Kazutoshi Hando)",
+    "license": "Public domain (Japanese photograph taken before 1946; donation of Kazutoshi Hando to NHHC)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-73000/NH-73058.html"
+  },
+  "kaga": {
+    "file": "kaga.jpg",
+    "credit": "Kaga underway, after reconstruction. NHHC photo NH 73060 (Japanese photograph, donated by Kazutoshi Hando)",
+    "license": "Public domain (Japanese photograph taken before 1946; donation of Kazutoshi Hando to NHHC)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-73000/NH-73060.html"
+  },
+  "soryu": {
+    "file": "soryu.jpg",
+    "credit": "Hiryu underway. NHHC photo NH 73063 (Japanese photograph, donated by Kazutoshi Hando)",
+    "license": "Public domain (Japanese photograph taken before 1946; donation of Kazutoshi Hando to NHHC)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-73000/NH-73063.html"
+  },
+  "shokaku": {
+    "file": "shokaku.jpg",
+    "credit": "Shokaku underway. NHHC photo NH 73066 (Japanese photograph, donated by Kazutoshi Hando)",
+    "license": "Public domain (Japanese photograph taken before 1946; donation of Kazutoshi Hando to NHHC)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-73000/NH-73066.html"
+  },
+  "kongo": {
+    "file": "kongo.jpg",
+    "credit": "Kirishima at anchor. NHHC photo NH 73076 (Japanese photograph, donated by Kazutoshi Hando)",
+    "license": "Public domain (Japanese photograph taken before 1946; donation of Kazutoshi Hando to NHHC)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-73000/NH-73076.html"
+  },
+  "yamato": {
+    "file": "yamato.jpg",
+    "credit": "Yamato on sea trials, October 1941. NHHC photo NH 73092 (Japanese photograph)",
+    "license": "Public domain (Japanese photograph taken before 1946; donation of Kazutoshi Hando to NHHC)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-73000/NH-73092.html"
+  },
+  "takao": {
+    "file": "takao.jpg",
+    "credit": "Chokai (Takao class). NHHC photo NH 73023 (Japanese photograph, donated by Kazutoshi Hando), cropped",
+    "license": "Public domain (Japanese photograph taken before 1946; donation of Kazutoshi Hando to NHHC)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-73000/NH-73023.html"
+  },
+  "kagero": {
+    "file": "kagero.jpg",
+    "credit": "Yukikaze (Kagero class). NHHC photo NH 73052 (Japanese photograph, donated by Kazutoshi Hando)",
+    "license": "Public domain (Japanese photograph taken before 1946; donation of Kazutoshi Hando to NHHC)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-73000/NH-73052.html"
+  },
+  "fletcher": {
+    "file": "fletcher.jpg",
+    "credit": "USS Johnston (DD-557), Fletcher class, 27 October 1943. NHHC photo NH 63495",
+    "license": "Public domain (U.S. Navy photograph)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-63000/NH-63495.html"
+  },
+  "wickes": {
+    "file": "wickes.jpg",
+    "credit": "USS Ward (DD-139), 26 February 1919. NHHC photo NH 63240",
+    "license": "Public domain (U.S. Navy photograph)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-63000/NH-63240.html"
+  },
+  "atlanta": {
+    "file": "atlanta.jpg",
+    "credit": "USS Atlanta (CL-51) at high speed, circa November 1941. NHHC photo NH 57455",
+    "license": "Public domain (U.S. Navy photograph)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-57000/NH-57455.html"
+  },
+  "liberty": {
+    "file": "liberty.jpg",
+    "credit": "Liberty ship SS George Dewey, 6 September 1943. U.S. Navy photo 80-G-84349 via NHHC",
+    "license": "Public domain (U.S. Navy photograph)",
+    "source_url": "https://www.history.navy.mil/bin/imageDownload?image=/content/dam/nhhc/our-collections/photography/images/80-G-84000/80-G-84349&rendition=cq5dam.web.1280.1280.jpeg"
+  },
+  "taiho": {
+    "file": "taiho.jpg",
+    "credit": "Taiho, May 1944. Japanese photograph, via Wikimedia Commons",
+    "license": "Public domain (Japanese photograph taken before 1946)",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Japanese_aircraft_carrier_Taihou.jpg"
+  },
+  "shinano": {
+    "file": "shinano.jpg",
+    "credit": "Shinano on sea trials, 11 November 1944. Photo: Hiroshi Arakawa, via Wikimedia Commons",
+    "license": "Public domain (Japanese photograph taken before 1946)",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Japanese_aircraft_carrier_Shinano.jpg"
+  },
+  "agano": {
+    "file": "agano.jpg",
+    "credit": "Yahagi (Agano class) off Sasebo, December 1943. Imperial Japanese Navy photo, via Wikimedia Commons",
+    "license": "Public domain (Japanese photograph taken before 1946)",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Japanese_light_cruiser_Yahagi_underway_off_Sasebo%2C_Japan%2C_in_December_1943.jpg"
+  },
+  "isub": {
+    "file": "isub.jpg",
+    "credit": "I-16 (Type C1 submarine), 1940. Japanese photograph, via Wikimedia Commons",
+    "license": "Public domain (Japanese photograph taken before 1946)",
+    "source_url": "https://commons.wikimedia.org/wiki/File:IJN_submarine_I-16_in_1940.JPG"
+  },
+  "midget": {
+    "file": "midget.jpg",
+    "credit": "Type A midget submarine HA-19 aground on Oahu, December 1941. U.S. Navy photo, via Wikimedia Commons",
+    "license": "Public domain (U.S. Navy photograph)",
+    "source_url": "https://commons.wikimedia.org/wiki/File:HA-19_Japanese_midget_submarine_grounded_on_an_Oahu_Beach%2C_December_1941.jpg"
+  },
+  "picket": {
+    "file": "picket.jpg",
+    "credit": "Guard boat No. 23 Nitto Maru sinking after being shelled by USS Nashville, 18 April 1942 (Doolittle Raid). U.S. Navy photo, via Wikimedia Commons, cropped",
+    "license": "Public domain (U.S. Navy photograph)",
+    "source_url": "https://commons.wikimedia.org/wiki/File:No.23-NittoMaru-1942.jpg"
+  },
+  "kate": {
+    "file": "kate.jpg",
+    "credit": "Nakajima B5N \"Kate\" in flight. San Diego Air and Space Museum archive, via Wikimedia Commons",
+    "license": "Public domain (per Wikimedia Commons)",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Nakajima_B5N.jpg"
+  },
+  "jake": {
+    "file": "jake.jpg",
+    "credit": "Aichi E13A1 \"Jake\" floatplane, 1942. Via Wikimedia Commons",
+    "license": "Public domain (Japanese photograph taken before 1946)",
+    "source_url": "https://commons.wikimedia.org/wiki/File:E13A-3_Jake.jpg"
+  },
+  "mavis": {
+    "file": "mavis.jpg",
+    "credit": "Kawanishi H6K \"Mavis\" flying boat from above. San Diego Air and Space Museum archive, via Wikimedia Commons, cropped",
+    "license": "No known copyright restrictions (Flickr Commons)",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Kawanishi%2C_H6K%2C_Mavis.jpg"
+  },
+  "typevii": {
+    "file": "typevii.jpg",
+    "credit": "Type VII U-boat in the Atlantic, March 1941. Photo: Tolle, via Narodowe Archiwum Cyfrowe (Poland) and Wikimedia Commons",
+    "license": "Public domain (per Wikimedia Commons)",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Niemiecki_okr%C4%99t_podwodny_%28U-Boot_typu_VII%29_na_Atlantyku_%282-2544%29.jpg"
+  },
+  "tirpitz": {
+    "file": "tirpitz.jpg",
+    "credit": "Tirpitz seen from astern, 1941. NHHC photo NH 59672",
+    "license": "Public domain (per NHHC)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-59000/NH-59672.html"
+  },
+  "myoko": {
+    "file": "myoko.jpg",
+    "credit": "Haguro (Myoko class) underway. NHHC photo NH 73016 (Japanese photograph, donated by Kazutoshi Hando)",
+    "license": "Public domain (Japanese photograph taken before 1946; donation of Kazutoshi Hando to NHHC)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-73000/NH-73016.html"
+  },
+  "ryujo": {
+    "file": "ryujo.jpg",
+    "credit": "Ryujo underway. NHHC photo NH 73072 (Japanese photograph, donated by Kazutoshi Hando)",
+    "license": "Public domain (Japanese photograph taken before 1946; donation of Kazutoshi Hando to NHHC)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-73000/NH-73072.html"
+  },
+  "sendai": {
+    "file": "sendai.jpg",
+    "credit": "Tama (5,500-ton light cruiser) in northern camouflage. NHHC photo NH 73040 (Japanese photograph, donated by Kazutoshi Hando)",
+    "license": "Public domain (Japanese photograph taken before 1946; donation of Kazutoshi Hando to NHHC)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-73000/NH-73040.html"
+  },
+  "mogami": {
+    "file": "mogami.jpg",
+    "credit": "Suzuya (Mogami class) at speed, aerial view. NHHC photo NH 73034 (Japanese photograph, donated by Kazutoshi Hando), cropped",
+    "license": "Public domain (Japanese photograph taken before 1946; donation of Kazutoshi Hando to NHHC)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-73000/NH-73034.html"
+  },
+  "brooklyn": {
+    "file": "brooklyn.jpg",
+    "credit": "USS Honolulu (CL-48), Brooklyn class, underway 9 February 1939. NHHC photo NH 53562",
+    "license": "Public domain (U.S. Navy photograph)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-53000/NH-53562.html"
+  },
+  "lexington": {
+    "file": "lexington.jpg",
+    "credit": "USS Lexington (CV-2) off Panama, 25 March 1928. NHHC photo NH 64500, cropped",
+    "license": "Public domain (U.S. Navy photograph)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-64000/NH-64500.html"
+  },
+  "yorktown": {
+    "file": "yorktown.jpg",
+    "credit": "USS Hornet (CV-8), Yorktown class, late 1941. NHHC photo NH 81313",
+    "license": "Public domain (U.S. Navy photograph)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-81000/NH-81313.html"
+  },
+  "usca": {
+    "file": "usca.jpg",
+    "credit": "USS Houston (CA-30) at sea, 1930s. NHHC photo NH 81592",
+    "license": "Public domain (U.S. Navy photograph)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-81000/NH-81592.html"
+  },
+  "aoba": {
+    "file": "aoba.jpg",
+    "credit": "Japanese cruiser Aoba soon after completion, 1927. NHHC photo NH 97727 (from the collection of RAdm Samuel Eliot Morison)",
+    "license": "Public domain (per NHHC)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-97000/NH-97727.html"
   }
 }

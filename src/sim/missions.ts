@@ -6,8 +6,10 @@ import { brg, dist, norm, offset, type Vec } from './math';
 import { end, fireStraight, log, makeAI, makeVessel, shellfire, type AI, type Game, type Goal, type Side, type Vessel } from './sim';
 
 export type MissionKey =
-  | 'bismarck' | 'midgets' | 'kidobutai' | 'doolittle' | 'midway' | 'pq17'
-  | 'guadalcanal' | 'ons5' | 'philsea' | 'leyte' | 'shinano' | 'tengo' | 'duel';
+  | 'bismarck' | 'midgets' | 'kidobutai' | 'forcez' | 'javasea' | 'sunda' | 'doolittle' | 'coralsea' | 'midway' | 'pq17'
+  | 'savo' | 'eastsol' | 'santacruz' | 'guadalcanal' | 'tassafaronga' | 'komandorski' | 'ons5' | 'northcape'
+  | 'philsea' | 'leyte' | 'shinano' | 'tengo'
+  | 'riverplate' | 'narvik' | 'calabria' | 'taranto' | 'matapan' | 'duel';
 
 /** What earlier missions changed: the names of enemy ships Tang has already sunk. */
 export interface Carry { sunk: string[] }
@@ -19,7 +21,10 @@ export interface Mission {
 }
 
 /** The WWII campaign, in date order. */
-export const CAMPAIGN: MissionKey[] = ['bismarck', 'midgets', 'kidobutai', 'doolittle', 'midway', 'pq17', 'guadalcanal', 'ons5', 'philsea', 'leyte', 'shinano', 'tengo'];
+export const CAMPAIGN: MissionKey[] = ['bismarck', 'midgets', 'kidobutai', 'forcez', 'javasea', 'sunda', 'doolittle', 'coralsea', 'midway', 'pq17',
+  'savo', 'eastsol', 'santacruz', 'guadalcanal', 'tassafaronga', 'komandorski', 'ons5', 'northcape', 'philsea', 'leyte', 'shinano', 'tengo'];
+/** Before the vortex: optional stand-alone battles from 1939 to early 1941, open from the start and outside the story. */
+export const PREQUELS: MissionKey[] = ['riverplate', 'narvik', 'calabria', 'taranto', 'matapan'];
 
 // ---- Building blocks ---------------------------------------------------------------------------
 function add(g: Game, cls: string, name: string, side: Side, p: Vec, hdg: number, spd: number, ai?: Partial<AI>, depth: 0 | 1 | 2 = 0): Vessel {
@@ -55,6 +60,68 @@ function launchStrike(g: Game, carriers: Vessel[], target: Vec, wave: string) {
 const at = (g: Game, t: number, key: string, fn: () => void) => { if (g.t >= t && !g.flags[key]) { g.flags[key] = 1; fn(); } };
 
 const JP_DD = ['Kagerō', 'Shiranui', 'Isokaze', 'Hamakaze', 'Tanikaze', 'Urakaze', 'Arare', 'Kasumi', 'Yukikaze', 'Amatsukaze'];
+
+/** Hits from bombs or aircraft torpedoes: like gunfire, but the aircraft is already gone. */
+function bombed(g: Game, at: Vessel, by: string) {
+  if (!at.alive) return;
+  at.hp -= 1;
+  g.blasts.push({ x: at.x, y: at.y, t: g.t, missile: false });
+  if (at.hp > 0) return;
+  at.alive = false;
+  g.sunk.push({ name: at.name, cls: at.cls.key, side: at.side, by: 'enemy' });
+  log(g, at.side === 'enemy' ? 'good' : 'danger', `${at.name} has been hit by ${by} and is sinking.`, 'boom');
+}
+
+/** Strike flights sent at ships. Each homes on its ship and, if it gets there, scores hits. */
+interface Raid { flight: Vessel; target: Vessel; done: boolean }
+function raid(g: Game, raids: Raid[], from: Vec, targets: Vessel[], cls: string, names: string[], cruise = 170) {
+  const live = targets.filter((t) => t.alive);
+  if (!live.length) return;
+  names.forEach((n, i) => {
+    const target = live[i % live.length];
+    const p = offset(from, brg(from, target) + 90, (i - (names.length - 1) / 2) * 2);
+    const flight = add(g, cls, n, 'enemy', p, brg(p, target), cruise, { mode: 'strike', goal: { x: target.x, y: target.y }, cruise });
+    flight.track = [];
+    raids.push({ flight, target, done: false });
+  });
+  log(g, 'warn', `Radar and radio intercepts: ${names.length} enemy strike flights inbound, bearing ${Math.round(brg(g.own, from)).toString().padStart(3, '0')}. Radar at periscope depth sees them high up out to 100 nm; SM-6 and JATM can bring them down.`);
+}
+/** Run every tick: keep each flight homing on its ship; when one arrives, it drops `hits` with chance `p` each. */
+function pressRaids(g: Game, raids: Raid[], hits: number, p: number, by: string) {
+  for (const rd of raids) {
+    if (rd.done) continue;
+    if (rd.flight.alive && rd.target.alive) rd.flight.ai!.goal = { x: rd.target.x, y: rd.target.y };
+    if (!rd.flight.gone) { if (!rd.flight.alive) rd.done = true; continue; }
+    rd.done = true;
+    log(g, 'danger', `${rd.flight.name} is attacking ${rd.target.name}!`, 'alarm');
+    for (let i = 0; i < hits; i++) if (g.r() < p) bombed(g, rd.target, by);
+  }
+}
+
+/**
+ * A gunnery and torpedo fight between two forces: every 20 s, ships within range trade fire.
+ * `b` is usually the Allied side, scaled down so Tang still has the fight to win.
+ */
+const GUN: Record<string, number> = { battleship: 0.22, battlecruiser: 0.2, 'heavy cruiser': 0.13, 'light cruiser': 0.1, destroyer: 0.07 };
+function melee(g: Game, a: Vessel[], b: Vessel[], range = 6, torpsA = false, torpsB = false, scaleA = 1, scaleB = 0.5) {
+  if (g.t % 20) return;
+  for (const x of a) for (const y of b) {
+    if (!x.alive || !y.alive) continue;
+    const d = dist(x, y);
+    if (d > range) continue;
+    const near = 1 - d / (range * 1.4);
+    shellfire(g, x, y, (GUN[x.cls.type] ?? 0.06) * near * scaleA);
+    shellfire(g, y, x, (GUN[y.cls.type] ?? 0.06) * near * scaleB);
+    for (const [s, t, ok] of [[x, y, torpsA], [y, x, torpsB]] as const) {
+      if (!ok || !/destroyer|cruiser/.test(s.cls.type) || d > 4 || g.flags[`tt${s.id}`]) continue;
+      g.flags[`tt${s.id}`] = 1;
+      fireStraight(g, s, offset(t, t.hdg, (t.spd * d) / 40));
+    }
+  }
+}
+/** Ships at anchor or stopped: they stay put until something sets them moving. */
+const moored = (g: Game, cls: string, name: string, side: Side, p: Vec, hdg: number) => add(g, cls, name, side, p, hdg, 0, { mode: 'transit', baseCourse: hdg, cruise: 0, legT: 1e9 });
+const go = (course: number, cruise: number, legT = 900): Partial<AI> => ({ mode: 'transit', baseCourse: course, cruise, legT });
 
 // ---- Missions ---------------------------------------------------------------------------------
 export const MISSIONS: Record<MissionKey, Mission> = {
@@ -400,6 +467,370 @@ export const MISSIONS: Record<MissionKey, Mission> = {
       const okinawa = offset(lead, course, 70);
       setGoal(g, { targets: [flag.id], need: 1, win: `${flag.name} has gone down. The last sortie of the Imperial Navy is over.`, timeout: `${flag.name} is still afloat as the day ends.` });
       g.script = (gg) => { if (flag.alive && dist(flag, okinawa) < 10) end(gg, false, `${flag.name} reached Okinawa and beached herself as a fortress.`); };
+    },
+  },
+
+  forcez: {
+    key: 'forcez', title: 'Force Z', era: '1941', place: 'Off Kuantan, South China Sea', date: '10 Dec 1941, 1030',
+    library: ['kgv', 'renown', 'hclass', 'g4m', 'isub'],
+    brief: 'Three days after Pearl Harbor, Admiral Phillips has taken Prince of Wales and Repulse north from Singapore with four destroyers and no air cover. At 1100 history has eighty-five Japanese bombers from Saigon finding them, and by 1320 both capital ships are gone. Tang is with Force Z. Keep the bombers off them: at periscope depth, radar sees them high up out to 100 nm, and SM-6 and JATM bring them down. A Japanese submarine is shadowing the force.',
+    build(g, r) {
+      g.startClock = clock(10, 30);
+      g.timeLimit = 1.6 * 3600;
+      const course = 180;
+      g.own.hdg = g.own.ordHdg = course;
+      const lead = offset(g.own, 90, 3);
+      const pow = add(g, 'kgv', 'HMS Prince of Wales', 'allied', lead, course, 24, go(course, 24));
+      const rep = screen(g, pow, 'renown', ['HMS Repulse'], [[180, 1.5]])[0];
+      screen(g, pow, 'hclass', ['HMS Electra', 'HMS Express', 'HMAS Vampire', 'HMS Tenedos'], [[0, 2.5], [60, 2.5], [300, 2.5], [180, 3.5]]);
+      add(g, 'isub', 'I-58', 'enemy', offset(lead, 20, 9 + r() * 3), 180, 4, { mode: 'patrol', legT: 400 }, 1);
+      const saigon = offset(lead, 330 + (r() * 2 - 1) * 15, 90);
+      const raids: Raid[] = [];
+      const names = (air: string, n: number, from: number) => Array.from({ length: n }, (_, i) => `${air} chūtai ${from + i}`);
+      setGoal(g, { protect: [pow.id, rep.id], maxLosses: 0, surviveWin: true, need: 99, lossText: 'Force Z has lost a capital ship.', win: 'The last bombers have turned for Saigon. Prince of Wales and Repulse are still afloat.', timeout: '' });
+      g.script = (gg) => {
+        at(gg, 240, 'w1', () => raid(gg, raids, saigon, [rep, pow], 'g4m', names('Mihoro', 4, 1)));
+        at(gg, 1500, 'w2', () => raid(gg, raids, saigon, [pow, rep], 'g4m', names('Genzan', 5, 1)));
+        at(gg, 2700, 'w3', () => raid(gg, raids, saigon, [rep, pow], 'g4m', names('Kanoya', 5, 1)));
+        at(gg, 3900, 'w4', () => raid(gg, raids, saigon, [pow, rep], 'g4m', names('Mihoro', 4, 5)));
+        pressRaids(gg, raids, 3, 0.65, 'bombs and aircraft torpedoes');
+      };
+    },
+  },
+
+  javasea: {
+    key: 'javasea', title: 'Java Sea', era: '1941', place: 'North of Surabaya', date: '27 Feb 1942, 1600',
+    library: ['myoko', 'sendai', 'kagero', 'maru', 'deruyter', 'county', 'usca', 'leander', 'hclass', 'wickes'],
+    brief: 'Rear Admiral Karel Doorman\'s scratch ABDA squadron, Dutch, British, Australian and American ships that have never trained together, is going out to stop the invasion convoy bound for Java. Covering it are the heavy cruisers Nachi and Haguro, the light cruisers Jintsū and Naka, and destroyers carrying the Long Lance torpedo. History has Doorman dead and his squadron destroyed by midnight. Sink Nachi and Haguro and the convoy turns back. Classify before you shoot: half the ships out here are on your side.',
+    build(g, r, carry) {
+      g.startClock = clock(16);
+      g.timeLimit = 2.5 * 3600;
+      const course = 180;
+      g.own.hdg = g.own.ordHdg = 0;
+      const jp0 = offset(g.own, 0, 12 + r() * 3);
+      const nachi = add(g, 'myoko', alive(carry, 'Nachi') ? 'Nachi' : 'Ashigara', 'enemy', jp0, course, 24, go(course, 24, 700));
+      const cruisers = [nachi, ...screen(g, nachi, 'myoko', [alive(carry, 'Haguro') ? 'Haguro' : 'Myōkō'], [[180, 1.2]])];
+      const lights = screen(g, nachi, 'sendai', ['Jintsū', 'Naka'], [[45, 5], [315, 5]]);
+      const dd = screen(g, nachi, 'kagero', ['Yukikaze', 'Tokitsukaze', 'Amatsukaze', 'Hatsukaze', 'Asagumo', 'Minegumo'], [[30, 6], [60, 6], [300, 6], [330, 6], [90, 4], [270, 4]]);
+      const convoy = offset(jp0, 0, 25);
+      for (let i = 0; i < 6; i++) add(g, 'maru', `${['Tokushima', 'Nichiran', 'Kotobuki', 'Kofuku', 'Tsuruga', 'Shinsei'][i]} Maru`, 'enemy', offset(convoy, i * 60, 2), course, 8, go(course, 8, 1e9));
+      const ab0 = offset(g.own, 180, 6);
+      const dr = add(g, 'deruyter', 'HNLMS De Ruyter', 'allied', ab0, 0, 24, go(0, 24, 800));
+      const abda = [dr,
+        ...screen(g, dr, 'county', ['HMS Exeter'], [[180, 1]]), ...screen(g, dr, 'usca', ['USS Houston'], [[180, 2]]),
+        ...screen(g, dr, 'leander', ['HMAS Perth'], [[180, 3]]), ...screen(g, dr, 'deruyter', ['HNLMS Java'], [[180, 4]]),
+        ...screen(g, dr, 'hclass', ['HMS Electra', 'HMS Encounter', 'HMS Jupiter'], [[20, 3], [340, 3], [0, 4]]),
+        ...screen(g, dr, 'wickes', ['USS John D. Edwards', 'USS Paul Jones', 'USS Alden', 'USS John D. Ford'], [[200, 5], [160, 5], [210, 6], [150, 6]]),
+      ];
+      setGoal(g, { targets: ids(cruisers), need: cruisers.length, protect: ids(abda), maxLosses: 5, win: 'Both Japanese heavy cruisers are gone. The invasion convoy is turning north, and Doorman\'s squadron lives to fight again.', timeout: 'The invasion convoy is still coming. Java falls in a week.', lossText: 'Doorman\'s squadron has been destroyed.' });
+      const jp = [...cruisers, ...lights, ...dd];
+      g.script = (gg) => melee(gg, jp, abda, 7, true, false);
+    },
+  },
+
+  sunda: {
+    key: 'sunda', title: 'Sunda Strait', era: '1941', place: 'Bantam Bay, Java', date: '28 Feb 1942, 2300', night: true,
+    library: ['mogami', 'sendai', 'kagero', 'maru', 'usca', 'leander'],
+    brief: 'The survivors of the Java Sea, USS Houston and HMAS Perth, are trying to slip out through the Sunda Strait in the dark. In Bantam Bay they run into the western invasion force: transports landing troops, with the heavy cruisers Mogami and Mikuma, the light cruiser Natori and a crowd of destroyers. History has both Allied cruisers sunk before 0130, fighting to the end. Sink Mogami and Mikuma, and keep at least one of the two alive.',
+    build(g, r, carry) {
+      g.startClock = clock(23);
+      g.timeLimit = 2.5 * 3600;
+      g.own.hdg = g.own.ordHdg = 270;
+      const bay = offset(g.own, 270, 8);
+      for (let i = 0; i < 8; i++) moored(g, 'maru', `${['Sakura', 'Tatsuno', 'Horai', 'Ryujo', 'Kuretake', 'Toyama', 'Hokuroku', 'Shinshu'][i]} Maru`, 'enemy', offset(bay, 150 + i * 15, 3 + (i % 3)), 90);
+      const cv = ['Mogami', 'Mikuma'].filter((n) => alive(carry, n));
+      const cn = cv.length ? cv : ['Kumano', 'Suzuya'];
+      const mog = add(g, 'mogami', cn[0], 'enemy', offset(bay, 330, 10 + r() * 3), 135, 20, go(135, 10, 400));
+      const cruisers = [mog, ...(cn[1] ? screen(g, mog, 'mogami', [cn[1]], [[180, 1.5]]) : [])];
+      const jp = [...cruisers, ...[add(g, 'sendai', 'Natori', 'enemy', offset(bay, 60, 5), 240, 20, go(240, 20, 500))],
+        ...['Fubuki', 'Shirayuki', 'Hatsuyuki', 'Murakumo', 'Shirakumo', 'Harukaze', 'Hatakaze', 'Asakaze'].map((n, i) => add(g, 'kagero', n, 'enemy', offset(bay, i * 45, 4 + (i % 2) * 2), (i * 45 + 90) % 360, 18, { mode: 'hunt', home: 'transit' }))];
+      const hou = add(g, 'usca', 'USS Houston', 'allied', offset(g.own, 0, 2), 270, 26, go(270, 26, 700));
+      const per = screen(g, hou, 'leander', ['HMAS Perth'], [[0, 1]])[0];
+      setGoal(g, { targets: ids(cruisers), need: cruisers.length, protect: [hou.id, per.id], maxLosses: 1, win: 'Mogami and Mikuma are sinking in Bantam Bay, and the Allied cruisers are clear into the Indian Ocean.', timeout: 'The Japanese cruisers are still afloat at dawn.', lossText: 'Houston and Perth are both gone, as in 1942.' });
+      g.script = (gg) => melee(gg, jp, [hou, per], 6, true, false, 0.22);
+    },
+  },
+
+  coralsea: {
+    key: 'coralsea', title: 'Coral Sea', era: '1941', place: 'Coral Sea', date: '8 May 1942, 0830',
+    library: ['shokaku', 'ryujo', 'aoba', 'kagero', 'lexington', 'yorktown', 'kate'],
+    brief: 'The first carrier battle in history: neither fleet will ever see the other. Yesterday US aircraft sank the light carrier Shōhō. This morning Shōkaku and Zuikaku are launching everything at Lexington and Yorktown, and history loses Lexington by evening. Tang is inside the Japanese screen. Sink the big carriers, and shoot down what you can of their strikes.',
+    build(g, r, carry) {
+      g.startClock = clock(8, 30);
+      g.timeLimit = 3 * 3600;
+      const course = 150;
+      g.own.hdg = g.own.ordHdg = 330;
+      const lead = offset(g.own, 330, 14 + r() * 3);
+      const big = ['Shōkaku', 'Zuikaku'].filter((n) => alive(carry, n));
+      const guide = add(g, 'aoba', 'Myōkō', 'enemy', lead, course, 24, go(course, 24, 600));
+      const carriers = big.length ? big.map((n, i) => screen(g, guide, 'shokaku', [n], [[i ? 60 : 300, 4]])[0]) : screen(g, guide, 'ryujo', ['Shōhō'], [[0, 4]]);
+      screen(g, guide, 'aoba', ['Haguro'], [[180, 4]]);
+      screen(g, guide, 'kagero', ['Ariake', 'Yūgure', 'Shiratsuyu', 'Shigure', 'Ushio', 'Akebono'], RING);
+      const tf17 = offset(lead, course, 160);
+      const lex = add(g, 'lexington', 'USS Lexington', 'allied', tf17, 0, 20, go(0, 20, 900));
+      const yor = screen(g, lex, 'yorktown', ['USS Yorktown'], [[90, 4]])[0];
+      const raids: Raid[] = [];
+      setGoal(g, { targets: ids(carriers), need: carriers.length, protect: [lex.id, yor.id], maxLosses: 1, win: 'The Japanese carriers are gone. Port Moresby is safe, and neither will be at Midway.', timeout: 'The Japanese carriers withdrew north.', lossText: 'Lexington and Yorktown are both lost.' });
+      g.script = (gg) => {
+        at(gg, 300, 'r1', () => raid(gg, raids, carriers[0], [lex, yor], 'kate', carriers.flatMap((c) => [`${c.name} strike A`, `${c.name} strike B`]), 150));
+        at(gg, 3600, 'r2', () => raid(gg, raids, carriers[0], [yor, lex], 'kate', carriers.filter((c) => c.alive).map((c) => `${c.name} second strike`), 150));
+        pressRaids(gg, raids, 3, 0.5, 'Japanese torpedo planes');
+      };
+    },
+  },
+
+  savo: {
+    key: 'savo', title: 'Savo Island', era: '1941', place: 'Savo Sound, Guadalcanal', date: '9 Aug 1942, 0130', night: true,
+    library: ['takao', 'aoba', 'sendai', 'kagero', 'usca', 'county', 'fletcher'],
+    brief: 'Two days after the Marines landed on Guadalcanal, Admiral Mikawa is coming down the Slot with seven cruisers to hit the transports. The Allied cruisers are split into two groups either side of Savo Island, half asleep, and the picket destroyers will miss him. History has four Allied cruisers sunk in thirty minutes. Get between Mikawa and the cruisers and sink at least three of his ships before he gets to them.',
+    build(g, r, carry) {
+      g.startClock = clock(1, 30);
+      g.timeLimit = 2 * 3600;
+      const course = 135;
+      g.own.hdg = g.own.ordHdg = 315;
+      const lead = offset(g.own, 315, 9 + r() * 3);
+      const chokai = add(g, 'takao', alive(carry, 'Chōkai') ? 'Chōkai' : 'Maya', 'enemy', lead, course, 26, go(course, 26, 1e9));
+      const col = [chokai, ...screen(g, chokai, 'aoba', ['Aoba', 'Kako', 'Kinugasa', 'Furutaka'], [[180, 0.8], [180, 1.6], [180, 2.4], [180, 3.2]]),
+        ...screen(g, chokai, 'sendai', ['Tenryū', 'Yūbari'], [[200, 2], [200, 3]]), ...screen(g, chokai, 'kagero', ['Yūnagi'], [[180, 4.5]])];
+      const south = offset(g.own, 160, 7);
+      const can = add(g, 'county', 'HMAS Canberra', 'allied', south, 315, 12, go(315, 12, 1800));
+      const north = offset(g.own, 90, 8);
+      const vin = add(g, 'usca', 'USS Vincennes', 'allied', north, 45, 10, go(45, 10, 1800));
+      const allies = [can, ...screen(g, can, 'usca', ['USS Chicago'], [[180, 0.8]]), ...screen(g, can, 'fletcher', ['USS Bagley', 'USS Patterson'], [[30, 1.5], [330, 1.5]]),
+        vin, ...screen(g, vin, 'usca', ['USS Quincy', 'USS Astoria'], [[180, 0.8], [180, 1.6]]), ...screen(g, vin, 'fletcher', ['USS Helm', 'USS Wilson'], [[30, 1.5], [330, 1.5]])];
+      const cruisers = allies.filter((v) => v.cls.type.includes('cruiser'));
+      const transports = offset(g.own, course, 20);
+      setGoal(g, { targets: ids(col.filter((v) => v.cls.type.includes('cruiser'))), need: 3, protect: ids(cruisers), maxLosses: 2, win: 'Mikawa has lost half his cruisers and is running back up the Slot. The transports off Lunga Point unload in peace.', timeout: 'Mikawa withdrew up the Slot at dawn.', lossText: 'The Allied cruiser force has been wrecked, as in history.' });
+      g.script = (gg) => {
+        if (chokai.alive && dist(chokai, transports) < 6) end(gg, false, 'Mikawa\'s cruisers are among the transports off Lunga Point.');
+        melee(gg, col, allies, 6, true, false);
+      };
+    },
+  },
+
+  eastsol: {
+    key: 'eastsol', title: 'Eastern Solomons', era: '1941', place: 'North of Malaita', date: '24 Aug 1942, 1300',
+    library: ['ryujo', 'takao', 'sendai', 'kagero', 'maru', 'g4m'],
+    brief: 'The Japanese are running a reinforcement convoy to Guadalcanal: Rear Admiral Tanaka in the light cruiser Jintsū with three transports, while the light carrier Ryūjō sails ahead as bait for the US carriers. Tang is between them. Sink Ryūjō and two of the transports, and the troops never land.',
+    build(g, r, carry) {
+      g.startClock = clock(13);
+      g.timeLimit = 3 * 3600;
+      const course = 160;
+      g.own.hdg = g.own.ordHdg = 340;
+      const bait = offset(g.own, 325, 13 + r() * 3);
+      const ryu = add(g, 'ryujo', 'Ryūjō', 'enemy', bait, course, 22, go(course, 22, 700));
+      screen(g, ryu, 'takao', ['Tone'], [[90, 2]]);
+      screen(g, ryu, 'kagero', ['Amatsukaze', 'Tokitsukaze'], [[0, 2], [180, 2]]);
+      const cvy = offset(g.own, 340 + (r() * 2 - 1) * 8, 14 + r() * 3);
+      const jin = add(g, 'sendai', alive(carry, 'Jintsū') ? 'Jintsū' : 'Naka', 'enemy', cvy, course, 9, go(course, 9, 1e9));
+      const transports = screen(g, jin, 'maru', ['Kinryu Maru', 'Boston Maru', 'Daifuku Maru'], [[180, 1.5], [200, 3], [160, 3]]);
+      screen(g, jin, 'kagero', ['Kagerō', 'Isokaze', 'Kawakaze', 'Suzukaze', 'Umikaze'], [[0, 2], [60, 2.5], [300, 2.5], [120, 3.5], [240, 3.5]]);
+      const lunga = offset(cvy, course, 25);
+      setGoal(g, { targets: [ryu.id, ...ids(transports)], need: 3, win: 'Ryūjō is gone and Tanaka\'s convoy is scattered. The troops will not land.', timeout: 'Tanaka\'s convoy got through to Guadalcanal.' });
+      g.script = (gg) => { if (transports.some((t) => t.alive && dist(t, lunga) < 4)) end(gg, false, 'The transports reached Guadalcanal and landed their troops.'); };
+    },
+  },
+
+  santacruz: {
+    key: 'santacruz', title: 'Santa Cruz Islands', era: '1941', place: 'North of the Santa Cruz Islands', date: '26 Oct 1942, 0700',
+    library: ['shokaku', 'ryujo', 'kongo', 'takao', 'kagero', 'yorktown', 'kate'],
+    brief: 'The fourth carrier battle of the war. Nagumo has his carriers north of the Santa Cruz Islands to cover the Army\'s great offensive on Guadalcanal, and Hornet and Enterprise are coming for him. History loses Hornet this afternoon, and leaves the US Navy with one damaged carrier in the whole Pacific. Sink two of the Japanese carriers, and don\'t let Hornet go down.',
+    build(g, r, carry) {
+      g.startClock = clock(7);
+      g.timeLimit = 3 * 3600;
+      const course = 150;
+      g.own.hdg = g.own.ordHdg = 330;
+      const lead = offset(g.own, 330, 14 + r() * 3);
+      const guide = add(g, 'takao', 'Kumano', 'enemy', lead, course, 22, go(course, 22, 600));
+      const big = ['Shōkaku', 'Zuikaku'].filter((n) => alive(carry, n)).map((n, i) => screen(g, guide, 'shokaku', [n], [[i ? 60 : 300, 4]])[0]);
+      const light = screen(g, guide, 'ryujo', ['Zuihō', 'Jun\'yō'], [[0, 5], [180, 5]]);
+      const carriers = [...big, ...light];
+      screen(g, guide, 'kongo', ['Kongō', 'Haruna'].filter((n) => alive(carry, n)), [[120, 6], [240, 6]]);
+      screen(g, guide, 'kagero', JP_DD.slice(0, 8), RING);
+      const hor = add(g, 'yorktown', 'USS Hornet', 'allied', offset(lead, course, 170), 330, 25, go(330, 25, 900));
+      const ent = screen(g, hor, 'yorktown', ['USS Enterprise'], [[90, 10]])[0];
+      const raids: Raid[] = [];
+      setGoal(g, { targets: ids(carriers), need: Math.min(2, carriers.length), protect: [hor.id], maxLosses: 0, win: 'Two Japanese carriers are gone and Hornet is still flying aircraft. The Army\'s offensive on Guadalcanal has no air cover.', timeout: 'Nagumo\'s carriers withdrew north.', lossText: 'Hornet is sinking, as in history.' });
+      g.script = (gg) => {
+        at(gg, 400, 'r1', () => raid(gg, raids, carriers.find((c) => c.alive) ?? guide, [hor, ent], 'kate', carriers.filter((c) => c.alive).map((c) => `${c.name} first strike`), 150));
+        at(gg, 3000, 'r2', () => raid(gg, raids, carriers.find((c) => c.alive) ?? guide, [hor, ent], 'kate', carriers.filter((c) => c.alive).map((c) => `${c.name} second strike`), 150));
+        pressRaids(gg, raids, 3, 0.45, 'Japanese dive bombers and torpedo planes');
+      };
+    },
+  },
+
+  tassafaronga: {
+    key: 'tassafaronga', title: 'Tassafaronga', era: '1941', place: 'Off Tassafaronga, Guadalcanal', date: '30 Nov 1942, 2300', night: true,
+    library: ['kagero', 'usca', 'brooklyn', 'fletcher'],
+    brief: 'Tanaka is back with eight destroyers and drums of supplies for the garrison. Rear Admiral Wright has five cruisers and six destroyers, radar, and the first shot. In history the Long Lances answer that shot and four US cruisers are torn open; Northampton sinks. Sink four of Tanaka\'s destroyers before they can fire, and don\'t lose more than one cruiser.',
+    build(g, r) {
+      g.startClock = clock(23);
+      g.timeLimit = 2 * 3600;
+      const course = 135;
+      g.own.hdg = g.own.ordHdg = 315;
+      const lead = offset(g.own, 300, 9 + r() * 3);
+      const nag = add(g, 'kagero', 'Naganami', 'enemy', lead, course, 20, go(course, 20, 1e9));
+      const jp = [nag, ...screen(g, nag, 'kagero', ['Makinami', 'Takanami', 'Kagerō', 'Oyashio', 'Kuroshio', 'Kawakaze', 'Suzukaze'], [[180, 0.6], [90, 1.5], [180, 1.2], [180, 1.8], [180, 2.4], [180, 3], [180, 3.6]])];
+      const us0 = offset(g.own, 150, 7.5);
+      const min = add(g, 'usca', 'USS Minneapolis', 'allied', us0, 315, 20, go(315, 20, 1e9));
+      const cruisers = [min, ...screen(g, min, 'usca', ['USS New Orleans', 'USS Pensacola'], [[180, 0.6], [180, 1.2]]), ...screen(g, min, 'brooklyn', ['USS Honolulu'], [[180, 1.8]]), ...screen(g, min, 'usca', ['USS Northampton'], [[180, 2.4]])];
+      const us = [...cruisers, ...screen(g, min, 'fletcher', ['USS Fletcher', 'USS Drayton', 'USS Maury', 'USS Perkins', 'USS Lamson', 'USS Lardner'], [[30, 3], [20, 3.6], [10, 4.2], [0, 4.8], [200, 4], [190, 4.6]])];
+      setGoal(g, { targets: ids(jp), need: 4, protect: ids(cruisers), maxLosses: 1, win: 'Tanaka\'s force is broken and the drums never reach the beach. Wright\'s cruisers come home.', timeout: 'Tanaka slipped away up the Slot.', lossText: 'The Long Lances have wrecked Wright\'s cruisers.' });
+      g.script = (gg) => melee(gg, jp, us, 6, true, false);
+    },
+  },
+
+  komandorski: {
+    key: 'komandorski', title: 'Komandorski Islands', era: '1941', place: 'Bering Sea', date: '26 Mar 1943, 0800',
+    library: ['myoko', 'takao', 'sendai', 'kagero', 'maru', 'usca', 'brooklyn', 'fletcher'],
+    brief: 'In the cold Bering Sea, Rear Admiral McMorris\'s small force has found a Japanese convoy for the Aleutian garrisons, and its escort is twice his size: the heavy cruisers Nachi and Maya, two light cruisers and four destroyers. This is a long-range daylight gun duel with no aircraft. Salt Lake City will be hit and stop dead in the water. Sink Nachi and Maya before they finish her.',
+    build(g, r, carry) {
+      g.startClock = clock(8);
+      g.timeLimit = 3 * 3600;
+      const course = 90;
+      g.own.hdg = g.own.ordHdg = 270;
+      const lead = offset(g.own, 270, 10 + r() * 3);
+      const nachi = add(g, 'myoko', alive(carry, 'Nachi') ? 'Nachi' : 'Ashigara', 'enemy', lead, course, 26, go(course, 26, 500));
+      const maya = add(g, 'takao', alive(carry, 'Maya') ? 'Maya' : 'Takao', 'enemy', offset(lead, 270, 1.2), course, 26, { mode: 'station', leader: nachi.id, rel: 180, rng: 1.2 });
+      const jp = [nachi, maya, ...screen(g, nachi, 'sendai', ['Tama', 'Abukuma'], [[150, 3], [210, 3]]), ...screen(g, nachi, 'kagero', ['Wakaba', 'Hatsushimo', 'Ikazuchi', 'Inazuma'], [[45, 3], [315, 3], [90, 3], [270, 3]])];
+      const cvy = offset(lead, 300, 12);
+      for (const n of ['Asaka Maru', 'Sakito Maru']) add(g, 'maru', n, 'enemy', offset(cvy, r() * 360, 1), 300, 8, go(300, 8, 1e9));
+      const slc = add(g, 'usca', 'USS Salt Lake City', 'allied', offset(g.own, 90, 7), 270, 28, go(270, 28, 900));
+      const us = [slc, ...screen(g, slc, 'brooklyn', ['USS Richmond'], [[0, 2]]), ...screen(g, slc, 'fletcher', ['USS Bailey', 'USS Coghlan', 'USS Dale', 'USS Monaghan'], [[45, 2], [315, 2], [135, 2], [225, 2]])];
+      setGoal(g, { targets: [nachi.id, maya.id], need: 2, protect: [slc.id], maxLosses: 0, win: 'Nachi and Maya are gone. The Aleutian garrisons are cut off.', timeout: 'Hosogaya turned for home with his cruisers.', lossText: 'Salt Lake City has been sunk.' });
+      g.script = (gg) => melee(gg, jp, us, 12, false, false, 0.35);
+    },
+  },
+
+  northcape: {
+    key: 'northcape', title: 'North Cape', era: '1941', place: 'Off the North Cape, Norway', date: '26 Dec 1943, 0900', night: true,
+    library: ['scharnhorst', 'zerstorer', 'kgv', 'town', 'county', 'flower', 'liberty', 'hclass'],
+    brief: 'Arctic winter, dark almost all day. Scharnhorst has come out of Altafjord to fall on convoy JW 55B, bound for Murmansk, and Admiral Fraser is racing to cut her off in Duke of York. History sinks her tonight after a long chase. Get to her first, before she reaches the convoy. Five German destroyers are out looking for it too.',
+    build(g, r) {
+      g.startClock = clock(9);
+      g.timeLimit = 3 * 3600;
+      g.own.hdg = g.own.ordHdg = 180;
+      const cvy = offset(g.own, 90, 14);
+      const lib = add(g, 'liberty', 'SS Fort Thompson', 'allied', cvy, 80, 8, go(80, 8, 1e9));
+      const ships = [lib, ...screen(g, lib, 'liberty', ['SS Harmatris', 'SS Ocean Gypsy', 'SS John Vining', 'SS Thomas Scott', 'SS British Statesman', 'SS Fort Vercheres', 'SS Andrew Carnegie'], [[0, 1], [90, 1], [270, 1], [180, 1], [45, 1.5], [135, 1.5], [225, 1.5]])];
+      screen(g, lib, 'flower', ['HMS Honeysuckle', 'HMS Oxlip'], [[0, 3], [180, 3]]);
+      const sch0 = offset(g.own, 200, 14 + r() * 4);
+      const sch = add(g, 'scharnhorst', 'Scharnhorst', 'enemy', sch0, brg(sch0, cvy), 26, { mode: 'raider', goal: cvy, cruise: 26 });
+      const zs = ['Z29', 'Z30', 'Z33', 'Z34', 'Z38'].map((n, i) => add(g, 'zerstorer', n, 'enemy', offset(sch0, 90 + i * 20, 12), 60, 20, { mode: 'raider', goal: cvy, cruise: 18 }));
+      const bel = add(g, 'town', 'HMS Belfast', 'allied', offset(cvy, 200, 8), 200, 22, go(200, 22, 1e9));
+      const force1 = [bel, ...screen(g, bel, 'town', ['HMS Sheffield'], [[180, 1]]), ...screen(g, bel, 'county', ['HMS Norfolk'], [[180, 2]])];
+      const doy = add(g, 'kgv', 'HMS Duke of York', 'allied', offset(sch0, 240, 40), 60, 24, go(60, 24, 1e9));
+      const force2 = [doy, ...screen(g, doy, 'town', ['HMS Jamaica'], [[180, 1]]), ...screen(g, doy, 'hclass', ['HMS Savage', 'HMS Saumarez', 'HMS Scorpion', 'HMS Stord'], [[30, 2], [330, 2], [60, 2], [300, 2]])];
+      setGoal(g, { targets: [sch.id], need: 1, protect: ids(ships), maxLosses: 2, win: 'Scharnhorst has gone down off the North Cape. JW 55B sails on to Murmansk.', timeout: 'Scharnhorst escaped back into Altafjord.', lossText: 'Scharnhorst has broken into the convoy.' });
+      g.script = (gg) => {
+        if (sch.alive) sch.ai!.goal = { x: lib.x, y: lib.y };
+        melee(gg, [sch, ...zs], [...ships, ...force1, ...force2], 9, true, false);
+      };
+    },
+  },
+
+  // ---- Before the vortex: optional battles from 1939 to early 1941, outside the campaign story ----
+  riverplate: {
+    key: 'riverplate', title: 'River Plate', era: '1941', place: 'Off the River Plate, Uruguay', date: '13 Dec 1939, 0600',
+    library: ['deutschland', 'county', 'leander'],
+    brief: 'Before the vortex: the first naval battle of the war. The pocket battleship Admiral Graf Spee, three months a raider in the South Atlantic, has run into Commodore Harwood\'s cruisers: Exeter, Ajax and Achilles. Her 28 cm guns will wreck Exeter, and she will run for Montevideo and be scuttled four days later. Sink her at sea instead, and save Exeter.',
+    build(g, r) {
+      g.startClock = clock(6);
+      g.timeLimit = 2.5 * 3600;
+      g.own.hdg = g.own.ordHdg = 0;
+      const gs0 = offset(g.own, 0, 12 + r() * 3);
+      const spee = add(g, 'deutschland', 'Admiral Graf Spee', 'enemy', gs0, 180, 24, go(180, 24, 600));
+      const exe = add(g, 'county', 'HMS Exeter', 'allied', offset(g.own, 200, 4), 20, 25, go(20, 25, 1e9));
+      const ajax = add(g, 'leander', 'HMS Ajax', 'allied', offset(g.own, 120, 6), 30, 28, go(30, 28, 1e9));
+      const ach = screen(g, ajax, 'leander', ['HMNZS Achilles'], [[180, 1]])[0];
+      const montevideo = offset(gs0, 270, 60);
+      setGoal(g, { targets: [spee.id], need: 1, protect: [exe.id], maxLosses: 0, win: 'Graf Spee has sunk at sea. Exeter is battered but afloat.', timeout: 'Graf Spee reached Montevideo.', lossText: 'Exeter has been sunk by Graf Spee\'s guns.' });
+      g.script = (gg) => {
+        if (gg.t > 1500 && spee.ai!.baseCourse !== 270) { spee.ai!.baseCourse = 270; spee.ai!.cruise = 22; log(gg, 'info', 'Graf Spee is turning west for Montevideo, making smoke.'); }
+        if (spee.alive && dist(spee, montevideo) < 15) end(gg, false, 'Graf Spee reached the shelter of Montevideo.');
+        melee(gg, [spee], [exe, ajax, ach], 10, false, false);
+      };
+    },
+  },
+
+  narvik: {
+    key: 'narvik', title: 'Narvik', era: '1941', place: 'Ofotfjord, Norway', date: '10 Apr 1940, 0430',
+    library: ['zerstorer', 'hclass', 'frachter'],
+    brief: 'Before the vortex: ten German destroyers landed mountain troops at Narvik yesterday and are refuelling in the fjord. Captain Warburton-Lee is taking five British destroyers in through the snow at dawn. He will die on Hardy\'s bridge, and it will take Warspite three days later to finish the job. Help him do it this morning: sink six of the German destroyers.',
+    build(g, r) {
+      g.startClock = clock(4, 30);
+      g.timeLimit = 2 * 3600;
+      g.own.hdg = g.own.ordHdg = 90;
+      const harbor = offset(g.own, 90, 9);
+      const names = ['Wilhelm Heidkamp', 'Anton Schmitt', 'Hans Lüdemann', 'Hermann Künne', 'Diether von Roeder', 'Georg Thiele', 'Wolfgang Zenker', 'Bernd von Arnim', 'Erich Giese', 'Erich Koellner'];
+      const zs = names.map((n, i) => (i < 5 ? moored(g, 'zerstorer', n, 'enemy', offset(harbor, i * 72, 1 + (i % 2)), 270) : add(g, 'zerstorer', n, 'enemy', offset(harbor, 20 + (i - 5) * 40, 6 + r() * 4), 270, 0, { mode: 'transit', baseCourse: 270, cruise: 0, legT: 1e9 })));
+      for (let i = 0; i < 4; i++) moored(g, 'frachter', ['Bockenheim', 'Frielinghaus', 'Martha Hendrik Fisser', 'Neuenfels'][i], 'enemy', offset(harbor, 200 + i * 20, 2), 90);
+      const hardy = add(g, 'hclass', 'HMS Hardy', 'allied', offset(g.own, 270, 3), 90, 15, go(90, 15, 1e9));
+      const brits = [hardy, ...screen(g, hardy, 'hclass', ['HMS Hunter', 'HMS Havock', 'HMS Hotspur', 'HMS Hostile'], [[180, 0.6], [180, 1.2], [180, 1.8], [180, 2.4]])];
+      setGoal(g, { targets: ids(zs), need: 6, protect: ids(brits), maxLosses: 2, win: 'Six German destroyers are on the bottom of Ofotfjord. Warburton-Lee brings his flotilla out.', timeout: 'Dawn: the German destroyers have got under way.', lossText: 'Warburton-Lee\'s flotilla has been destroyed.' });
+      g.script = (gg) => {
+        at(gg, 900, 'wake', () => { for (const z of zs.slice(5)) if (z.alive) { z.ai!.cruise = 28; z.ai!.baseCourse = 250; } log(gg, 'warn', 'The German destroyers in the side fjords are getting under way.'); });
+        melee(gg, zs, brits, 5, true, true);
+      };
+    },
+  },
+
+  calabria: {
+    key: 'calabria', title: 'Calabria', era: '1941', place: 'Off Calabria, Ionian Sea', date: '9 Jul 1940, 1500',
+    library: ['cavour', 'zara', 'soldati', 'qe'],
+    brief: 'Before the vortex: Admiral Cunningham\'s battle fleet has caught the Italian fleet heading home from a convoy run. Warspite will hit Giulio Cesare at 26,000 yards, one of the longest-range hits ever made at sea, and the Italians will escape behind a smokescreen. Sink both Italian battleships before they get away.',
+    build(g, r) {
+      g.startClock = clock(15);
+      g.timeLimit = 3 * 3600;
+      const course = 300;
+      g.own.hdg = g.own.ordHdg = 120;
+      const lead = offset(g.own, 120, 12 + r() * 3);
+      const ces = add(g, 'cavour', 'Giulio Cesare', 'enemy', lead, course, 24, go(course, 24, 600));
+      const bbs = [ces, ...screen(g, ces, 'cavour', ['Conte di Cavour'], [[180, 1]])];
+      const it = [...bbs, ...screen(g, ces, 'zara', ['Zara', 'Fiume', 'Pola', 'Gorizia'], [[60, 5], [90, 5], [270, 5], [300, 5]]),
+        ...screen(g, ces, 'soldati', ['Alfredo Oriani', 'Vittorio Alfieri', 'Giosuè Carducci', 'Vincenzo Gioberti', 'Lanciere', 'Carabiniere'], RING)];
+      const war = add(g, 'qe', 'HMS Warspite', 'allied', offset(g.own, 300, 8), 300, 23, go(300, 23, 1e9));
+      const brits = [war, ...screen(g, war, 'qe', ['HMS Malaya', 'HMS Royal Sovereign'], [[180, 3], [180, 5]])];
+      setGoal(g, { targets: ids(bbs), need: 2, protect: [war.id], maxLosses: 0, win: 'Both Italian battleships are sunk. The Regia Marina will think hard before leaving harbour again.', timeout: 'The Italian fleet escaped behind its smokescreen.', lossText: 'Warspite has been sunk.' });
+      g.script = (gg) => melee(gg, it, brits, 13, false, false);
+    },
+  },
+
+  taranto: {
+    key: 'taranto', title: 'Taranto', era: '1941', place: 'Taranto harbour, Italy', date: '11 Nov 1940, 2300', night: true,
+    library: ['littorio', 'cavour', 'zara', 'soldati'],
+    brief: 'Before the vortex: tonight twenty-one Swordfish biplanes from HMS Illustrious will cripple three Italian battleships at their moorings, the first all-aircraft attack on a fleet in history. Three of them were raised and repaired. Tang has slipped into the Mar Grande ahead of the Swordfish. Sink three battleships for good before dawn. The destroyers on harbour patrol will come hunting when the torpedoes hit.',
+    build(g, r) {
+      g.startClock = clock(23);
+      g.timeLimit = 3 * 3600;
+      g.own.hdg = g.own.ordHdg = 0;
+      const anch = offset(g.own, 0, 6);
+      const bbs = [['littorio', 'Littorio'], ['littorio', 'Vittorio Veneto'], ['cavour', 'Conte di Cavour'], ['cavour', 'Giulio Cesare'], ['cavour', 'Caio Duilio'], ['cavour', 'Andrea Doria']]
+        .map(([c, n], i) => moored(g, c, n, 'enemy', offset(anch, 60 + i * 25, 1.5 + (i % 2) * 1.2), 120));
+      for (const [i, n] of ['Zara', 'Fiume', 'Gorizia'].entries()) moored(g, 'zara', n, 'enemy', offset(anch, 300 - i * 20, 2.5), 120);
+      for (const [i, n] of ['Lampo', 'Fulmine', 'Baleno', 'Strale'].entries()) add(g, 'soldati', n, 'enemy', offset(anch, 180 + i * 30, 3), 90, 8, { mode: 'picket', center: offset(anch, 180 + i * 30, 3) });
+      setGoal(g, { targets: ids(bbs), need: 3, win: 'Three Italian battleships lie on the bottom of the Mar Grande. They will not be raised.', timeout: 'Dawn over Taranto.' });
+    },
+  },
+
+  matapan: {
+    key: 'matapan', title: 'Cape Matapan', era: '1941', place: 'South of Cape Matapan, Greece', date: '28 Mar 1941, 2130', night: true,
+    library: ['littorio', 'zara', 'soldati', 'qe'],
+    brief: 'Before the vortex: a Swordfish torpedo has stopped the cruiser Pola dead in the water, and Zara and Fiume are coming back in the dark to help her, not knowing Cunningham\'s battleships are waiting with radar. All three will be sunk tonight. But the battleship Vittorio Veneto, torpedoed this afternoon, will get home at 19 knots. Sink Vittorio Veneto.',
+    build(g, r) {
+      g.startClock = clock(21, 30);
+      g.timeLimit = 3 * 3600;
+      g.own.hdg = g.own.ordHdg = 300;
+      const vv0 = offset(g.own, 115 + (r() * 2 - 1) * 12, 14 + r() * 3);
+      const vv = add(g, 'littorio', 'Vittorio Veneto', 'enemy', vv0, 300, 19, go(300, 19, 900));
+      screen(g, vv, 'soldati', ['Alpino', 'Bersagliere', 'Fuciliere', 'Granatiere'], [[45, 2], [315, 2], [135, 2], [225, 2]]);
+      const pola = moored(g, 'zara', 'Pola', 'enemy', offset(g.own, 90, 8), 300);
+      const zara = add(g, 'zara', 'Zara', 'enemy', offset(pola, 300, 12), 120, 16, { mode: 'raider', goal: pola, cruise: 16 });
+      const fiume = add(g, 'zara', 'Fiume', 'enemy', offset(pola, 300, 13), 120, 16, { mode: 'station', leader: zara.id, rel: 180, rng: 1 });
+      const war = add(g, 'qe', 'HMS Warspite', 'allied', offset(pola, 200, 10), 30, 20, go(30, 20, 1e9));
+      const brits = [war, ...screen(g, war, 'qe', ['HMS Valiant', 'HMS Barham'], [[180, 1], [180, 2]])];
+      setGoal(g, { targets: [vv.id], need: 1, win: 'Vittorio Veneto has gone down off Cape Matapan. The Italian battle fleet will not sail again this year.', timeout: 'Vittorio Veneto reached Taranto.' });
+      g.script = (gg) => melee(gg, [zara, fiume, pola], brits, 4, false, false);
     },
   },
 

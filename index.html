@@ -30,10 +30,11 @@
       </div>
       <div class="row" id="speeds"></div>
       <div class="row" id="depths"></div>
-    </section>
-    <section class="card">
-      <h2>Time compression</h2>
-      <div class="row" id="times"></div>
+      <div class="row depth-row">
+        <button id="shallower" title="Come up 50 feet.">▲ 50 <kbd>[</kbd></button>
+        <form class="depth-set" id="depthSet" novalidate><input id="depthFt" type="number" min="60" max="800" step="any" inputmode="numeric" placeholder="ft" aria-label="Depth in feet, 60 to 800"><button type="submit">Go</button></form>
+        <button id="deeper" title="Go down 50 feet, as deep as 800 feet.">▼ 50 <kbd>]</kbd></button>
+      </div>
     </section>
     <section class="card logcard">
       <h2>Control room log</h2>
@@ -42,6 +43,16 @@
   </aside>
 
   <div class="main">
+    <div class="stage">
+    <div class="replaybar" id="replayBar" hidden>
+      <span id="replayText">Replay</span>
+      <button id="replayRestart">Restart</button>
+      <button id="replayExit">Back to results <kbd>Esc</kbd></button>
+    </div>
+    <div class="depthview" id="depthView" hidden>
+      <div class="sol-head"><span>Sea conditions · <span id="depthRead" class="depth-read"></span></span><button id="depthClose">Close <kbd>X</kbd></button></div>
+      <canvas id="depthCanvas" aria-label="Side view of the sea around Tang: thermal layer, contact depths and aircraft altitudes"></canvas>
+    </div>
     <div class="solution" id="solution" hidden>
       <div class="sol-head"><span id="solTitle">Solution</span><button id="solClose">Close <kbd>B</kbd></button></div>
       <div class="sol-sonar">
@@ -79,6 +90,7 @@
       </div>
     </div>
     <div class="plot-wrap" id="plotWrap" aria-label="Tactical plot. Click a contact to select it, click open water to steer, scroll to zoom.">
+      <button class="depth-btn" id="depthBtn" title="Side-on view of the sea: the thermal layer, ships on the surface, submarine depths and aircraft altitudes.">Depth view <kbd>X</kbd></button>
       <div class="zoom">
         <button id="zoomIn" title="Zoom in">+</button>
         <button id="zoomOut" title="Zoom out">−</button>
@@ -91,6 +103,11 @@
         <div class="scope-ref" id="scopeRef" aria-label="Identification book"></div>
       </div>
     </div>
+    </div>
+    <section class="card timebar">
+      <h2>Time compression</h2>
+      <div class="row" id="times"></div>
+    </section>
   </div>
 
   <aside class="combat">
@@ -142,6 +159,10 @@
         <button id="ping">Active ping <kbd>P</kbd></button>
         <button id="decoy">Countermeasure <kbd>C</kbd></button>
       </div>
+      <div class="row straddle">
+        <button id="arrayUp" title="Go below the layer to 550 feet and work the towed array up above it, to hear surface ships and shallow submarines while staying hidden under the layer.">Sub below · array above <kbd>U</kbd></button>
+        <button id="arrayDown" title="Stay above the layer at 300 feet and let the towed array out deep below it, to hear submarines hiding under the layer.">Sub above · array below <kbd>N</kbd></button>
+      </div>
     </section>
   </aside>
 </div>
@@ -149,7 +170,7 @@
 <div class="overlay" id="overlay">
   <div class="brief" id="brief">
     <h2>USS Tang, through the vortex</h2>
-    <p class="sub">WWII campaign · twelve missions, in date order</p>
+    <p class="sub">WWII campaign · twenty-two missions, in date order</p>
     <div class="camp">
       <ol class="camp-list" id="campList"></ol>
       <div class="camp-detail" id="campDetail"></div>
