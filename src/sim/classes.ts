@@ -529,6 +529,7 @@ export const REFERENCE: Record<string, Reference> = {
     notes: 'Workhorse U-boat of the Atlantic. Slow and short-legged on batteries, poor hydrophones at speed. Two shafts.',
   },
   fw200: {
+    photo: { file: 'fw200.jpg', credit: 'Focke-Wulf Fw 200C Condor in flight over the sea, 1940. Via Wikimedia Commons; tail swastika painted out · Public domain (per Wikimedia Commons)' },
     displacement: '24,500 kg max takeoff',
     armament: ['Up to 2,100 kg of bombs', '1 to 2 × 20 mm cannon, 3 to 4 machine guns', 'Later models: FuG 200 search radar'],
     armor: 'Light crew armor',
@@ -563,6 +564,7 @@ export const REFERENCE: Record<string, Reference> = {
     notes: 'Friendly. Anti-aircraft cruiser: twin 5 in mounts stacked three high fore and aft, two funnels. Two shafts.',
   },
   flower: {
+    photo: { file: 'flower.jpg', credit: 'HMS Delphinium (K77), Flower-class corvette, 1943. Photo: Cmdr Vivian Funge Smith RNR, via Wikimedia Commons · Public domain (per Wikimedia Commons)' },
     displacement: '1,170 t full load',
     armament: ['1 × 4 in gun', '1 × 2-pounder pom-pom', 'Depth charges, later Hedgehog', 'ASDIC'],
     armor: 'None',
@@ -588,6 +590,7 @@ export const REFERENCE: Record<string, Reference> = {
     notes: 'German cargo steamer. Single funnel amidships, cargo masts fore and aft. Single screw.',
   },
   renown: {
+    photo: { file: 'renown.jpg', credit: 'HMS Repulse (Renown class) escorting a troop convoy, 1941. Royal Navy official photographer, IWM A 6793, via Wikimedia Commons, cropped · Public domain (UK Crown Copyright expired)' },
     displacement: '37,400 t full load',
     armament: ['6 × 15 in guns in three twin turrets', '20 × 4 in guns (Renown, twin DP mounts) or 9 × 4 in in triple mounts (Repulse)', '2-pounder pom-poms', '8 × 21 in torpedo tubes', '4 floatplanes'],
     armor: '152 to 229 mm belt, 76 to 127 mm deck (Renown after rebuild)',

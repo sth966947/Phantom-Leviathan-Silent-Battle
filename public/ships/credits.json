@@ -262,5 +262,23 @@
     "credit": "Japanese cruiser Aoba soon after completion, 1927. NHHC photo NH 97727 (from the collection of RAdm Samuel Eliot Morison)",
     "license": "Public domain (per NHHC)",
     "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-97000/NH-97727.html"
+  },
+  "fw200": {
+    "file": "fw200.jpg",
+    "credit": "Focke-Wulf Fw 200C Condor in flight over the sea, 1940. Via Wikimedia Commons; tail swastika painted out",
+    "license": "Public domain (per Wikimedia Commons)",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Focke-Wulf_Fw_200C_Condor_in_flight.jpg"
+  },
+  "flower": {
+    "file": "flower.jpg",
+    "credit": "HMS Delphinium (K77), Flower-class corvette, 1943. Photo: Cmdr Vivian Funge Smith RNR, via Wikimedia Commons",
+    "license": "Public domain (per Wikimedia Commons)",
+    "source_url": "https://commons.wikimedia.org/wiki/File:HMS_Delphinium_%28K77%29.jpg"
+  },
+  "renown": {
+    "file": "renown.jpg",
+    "credit": "HMS Repulse (Renown class) escorting a troop convoy, 1941. Royal Navy official photographer, IWM A 6793, via Wikimedia Commons, cropped",
+    "license": "Public domain (UK Crown Copyright expired)",
+    "source_url": "https://commons.wikimedia.org/wiki/File:HMS_Repulse_escorting_a_troop_convoy_A6793.jpg"
   }
 }
