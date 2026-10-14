@@ -240,3 +240,28 @@ button.on-air { background: #1d4a3a; border-color: #2f7a5e; color: #d4ffe9; }
 .cls-photo { margin: 0; }
 .cls-photo img { width: 100%; max-height: 180px; object-fit: cover; display: block; border: 1px solid var(--rule); }
 .cls-photo figcaption { font-size: 11px; color: var(--dim); margin-top: 2px; }
+
+/* ---- Campaign screen ---- */
+.brief { max-width: 980px; max-height: calc(100vh - 40px); overflow-y: auto; }
+.camp { display: grid; grid-template-columns: minmax(220px, 300px) 1fr; gap: 16px; margin: 4px 0 14px; }
+.camp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.camp-list li.sep { font: 11px var(--f-data); color: var(--dim); letter-spacing: 0.1em; text-transform: uppercase; margin: 8px 0 2px; }
+.camp-list button { width: 100%; display: grid; grid-template-columns: 2.2em 1fr auto; align-items: center; gap: 6px; text-align: left; padding: 6px 8px; font-size: 14px; background: transparent; }
+.camp-list .n { font: 600 13px var(--f-data); color: var(--dim); }
+.camp-list .t { display: flex; flex-direction: column; }
+.camp-list small { font: 11px var(--f-data); color: var(--dim); }
+.camp-list li.sel button { background: #1d3f5e; border-color: var(--own); }
+.camp-list li.locked button { opacity: 0.4; cursor: not-allowed; }
+.camp-list .ok { color: var(--good); }
+.camp-list .no { color: var(--threat); }
+.camp-detail { border: 1px solid var(--rule); padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.camp-detail h3 { font: 700 22px var(--f-display); margin: 0; letter-spacing: 0.03em; }
+.camp-detail .sub { margin: 0; }
+.camp-detail .changed { color: var(--contact); border-left: 3px solid var(--contact); padding-left: 10px; }
+.camp-detail button { margin-top: auto; }
+.howto summary { cursor: pointer; color: var(--dim); font: 12px var(--f-data); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px; }
+.interlude { border-left: 3px solid var(--own); padding: 4px 0 4px 14px; margin: 6px 0 14px; }
+.interlude p { font-size: 15px; }
+.brief .row { display: flex; gap: 8px; }
+@media (max-width: 700px) { .camp { grid-template-columns: 1fr; } }
+.camp-detail button { flex: none; height: auto; }

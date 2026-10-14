@@ -1,6 +1,8 @@
 // Plays many seeded games with simple scripted captains and prints the outcome mix.
 // Run with: npx vite-node scripts/balance.ts
-import { atPeriscopeDepth, create, orders, targetContact, tick, type Game } from '../src/sim/sim';
+import { atPeriscopeDepth, create, isFriendlyClass, orders, targetContact, tick, type Game } from '../src/sim/sim';
+import { CLASSES } from '../src/sim/classes';
+import { CAMPAIGN } from '../src/sim/missions';
 import { brg, dist } from '../src/sim/math';
 
 const med = (a: number[]) => (a.length ? a.sort((x, y) => x - y)[Math.floor(a.length / 2)] : NaN);
@@ -34,15 +36,42 @@ function bismarckCaptain(g: Game, i: number) {
   if (bis.q > 0.6 && r < 8 && i % 60 === 0) orders.fire(g, 'mk48');
 }
 
-for (const key of ['duel', 'bismarck'] as const) {
+/**
+ * A generic WWII captain: knows which classes the mission wants sunk (from the briefing), and
+ * otherwise only uses contacts, matches and solutions. Goes deep when depth charges are about.
+ */
+function wwiiCaptain(g: Game, i: number, s: { deepT: number }) {
+  const want = new Set(g.goal.targets.map((id) => g.vessels.find((v) => v.id === id)!.cls.key));
+  const guess = (c: (typeof g.contacts)[number]) => c.classified ?? (c.matches[0]?.pct > 80 ? c.matches[0].key : null);
+  for (const e of g.events) if (/Depth charges|sonar has us|sighted our periscope/.test(e.text)) { s.deepT = i; orders.depth(g, 2); orders.speed(g, 5); }
+  const deep = i - s.deepT < 900;
+  if (!deep && g.own.ordDepth === 2 && i % 60 === 0) orders.depth(g, 1);
+  const tgts = g.contacts.filter((c) => c.held && c.est && !c.air && guess(c) && want.has(guess(c)!) && !isFriendlyClass(guess(c)));
+  tgts.sort((a, b) => dist(g.own, a.est!) - dist(g.own, b.est!));
+  const t = tgts[0];
+  if (!t) { if (i % 600 === 0) { orders.turn(g, 60); orders.speed(g, 6); } return; }
+  g.selected = t.id;
+  if (!t.classified) orders.classify(g, t.id, guess(t)!);
+  const r = dist(g.own, t.est!);
+  const sub = CLASSES[guess(t)!].kind === 'sub';
+  if (i % 120 === 0) { orders.heading(g, brg(g.own, t.est!)); orders.speed(g, deep ? 5 : r > 10 ? 15 : 6); }
+  if (t.q > 0.6 && r < 8 && i % 90 === 0) orders.fire(g, 'mk48');
+  if (!sub && !deep && t.q > 0.6 && r < 30 && r > 4 && i % 120 === 0) orders.fire(g, 'mst');
+  if (sub && !deep && t.q > 0.6 && r > 1 && r < 15 && i % 120 === 0) orders.fire(g, 'asroc');
+}
+
+const only = process.argv[2];
+for (const key of only ? [only as 'duel'] : (['duel', ...CAMPAIGN] as const)) {
+
   const res: Record<string, number> = {};
   const mins: number[] = [];
-  for (let seed = 1; seed <= 100; seed++) {
+  const n = key === 'duel' || key === 'bismarck' ? 100 : 30;
+  for (let seed = 1; seed <= n; seed++) {
     const g = create(key, seed);
-    const s = { legs: 0, lastLeg: 0, sprintT: -1 };
-    for (let i = 0; i < 10800 && !g.over; i++) {
+    const s = { legs: 0, lastLeg: 0, sprintT: -1, deepT: -1e9 };
+    for (let i = 0; i < Math.min(18000, g.timeLimit + 5) && !g.over; i++) {
       tick(g, 1);
-      if (key === 'duel') duelCaptain(g, i, s); else bismarckCaptain(g, i);
+      if (key === 'duel') duelCaptain(g, i, s); else if (key === 'bismarck') bismarckCaptain(g, i); else wwiiCaptain(g, i, s);
       g.events.length = 0;
     }
     const out = g.over ? (g.over.win ? 'win' : g.over.reason) : 'timeout';

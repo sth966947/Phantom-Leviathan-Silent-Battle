@@ -4,15 +4,16 @@
 // speeds in knots, bearings in degrees true (clockwise from north).
 
 import { angDiff, approach, brg, clamp, D2R, dist, fmtBrg, fmtRng, gauss, KT, mulberry32, norm, offset, type Vec } from './math';
-import { CLASSES, LIBRARY, type ClassCard } from './classes';
+import { CLASSES, type ClassCard } from './classes';
+import { MISSIONS, type Carry, type MissionKey } from './missions';
 import { matchClasses, signatureView, type Match, type SignatureView } from './signature';
 
 export type Side = 'us' | 'allied' | 'enemy';
 export type Depth = 0 | 1 | 2;
-export type ScenarioKey = 'bismarck' | 'duel';
+export type ScenarioKey = MissionKey;
 export type EventKind = 'info' | 'contact' | 'danger' | 'good' | 'warn';
 export type Sound = 'ping' | 'ping-echo' | 'contact' | 'launch' | 'missile' | 'alarm' | 'boom';
-export type WeaponKey = 'mk48' | 'ugst' | 'harpoon' | 'mst' | 'asroc' | 'mk54' | 'jatm' | 'sm6' | 'apr3';
+export type WeaponKey = 'mk48' | 'ugst' | 'harpoon' | 'mst' | 'asroc' | 'mk54' | 'jatm' | 'sm6' | 'apr3' | 'wwtorp';
 /** What the player can launch. Mk 54 comes from ASROC; UGST and APR-3 are enemy weapons. */
 export type FireKey = 'mk48' | 'harpoon' | 'mst' | 'asroc' | 'jatm' | 'sm6';
 /** How a weapon finds its target: homing torpedo, anti-ship missile, ASROC carrier, or surface-to-air. */
@@ -26,20 +27,27 @@ const LAYER_AT = 1.5; // depthT above this is below the layer
 
 export interface Knowledge extends Vec { t: number; deep: boolean; exact?: boolean }
 export interface AI {
-  mode: 'patrol' | 'attack' | 'evade' | 'transit' | 'station' | 'alert' | 'orbit' | 'search' | 'prosecute' | 'dip';
+  mode: 'patrol' | 'attack' | 'evade' | 'transit' | 'station' | 'alert' | 'orbit' | 'search' | 'prosecute' | 'dip'
+    | 'hunt' | 'raider' | 'strike' | 'picket' | 'wander';
   legT: number; holdT: number; knows: Knowledge | null; cool: number; evadeT: number;
   threat: Weapon | null; snapTaken: boolean; decoys: number;
   baseCourse: number; zig: number; cruise: number;
   leader?: number; rel?: number; rng?: number; alertT: number; fleeHdg: number;
   // Aircraft: patrol centre, current waypoint, sonobuoy timer and torpedoes left.
   center?: Vec; wp?: Vec; buoyT?: number; torps?: number; datum?: Knowledge | null; phase?: number; hits?: number; dipT?: number;
+  // WWII: the ship a raiding submarine is after, a goal point (harbour mouth, strike target), a picket's report timer,
+  // and where an escort was stationed before it went hunting.
+  prey?: number | null; goal?: Vec; reportT?: number; home?: AIMode;
 }
+export type AIMode = AI['mode'];
 
 export interface Vessel extends Vec {
   id: number; name: string; cls: ClassCard; side: Side;
   hdg: number; ordHdg: number; spd: number; ordSpd: number;
   depthT: number; ordDepth: Depth; hp: number; alive: boolean;
   track: Vec[]; ai: AI | null;
+  /** Left the area alive (a strike that got through, a ship that escaped): not sunk. */
+  gone?: boolean;
 }
 
 export interface OwnBoat extends Vessel {
@@ -74,14 +82,31 @@ export interface Contact {
 
 export interface WaterfallRow { row: Float32Array; baffle: Uint8Array; t: number }
 
+/**
+ * What a mission asks. Sinking `need` of `targets` wins at once. Losing more than `maxLosses` of
+ * `protect` loses. At the time limit the mission is won if `surviveWin`, else lost with `timeout`.
+ */
+export interface Goal {
+  targets: number[]; need: number; protect: number[]; maxLosses: number; surviveWin: boolean;
+  win: string; timeout: string; lossText: string;
+}
+
 export interface Game {
   scenario: ScenarioKey; era: '1941' | '2029'; startClock: number; timeLimit: number;
+  /** Classes in the signature and recognition book for this mission. */
+  library: string[]; night: boolean; goal: Goal;
+  /** Who was sunk or shot down, in order, and mission counters (strikes through, reports sent). */
+  sunk: { name: string; cls: string; side: Side; by: Side }[]; flags: Record<string, number>;
+  /** Mission script run every tick: waves launching, pickets reporting, midgets reaching harbour. */
+  script: ((g: Game) => void) | null;
   t: number; r: () => number; seq: number;
   over: { win: boolean; t: number; reason: string } | null;
   own: OwnBoat; vessels: Vessel[]; contacts: Contact[]; selected: number | null;
   weapons: Weapon[]; decoys: Decoy[]; buoys: Buoy[]; splashT: number; heard: Set<number>; sweeps: { t: number }[];
   events: GameEvent[]; waterfall: WaterfallRow | null; wfTimer: number;
   pings: { t: number }[]; blasts: (Vec & { t: number; missile: boolean })[];
+  /** Depth charges sinking toward their set depth, and when they go off. */
+  charges: (Vec & { t: number })[];
   stats: { fired: Record<WeaponKey, number>; enemyFired: number; pings: number; hits: number; blueOnBlue: number };
 }
 
@@ -107,6 +132,8 @@ export const WEAPONS: Record<WeaponKey, {
   jatm: { name: 'AIM-260 JATM (sub-launched)', short: 'JATM', spd: 2300, maxRun: 100, seeker: 50, damage: 1, missile: true, role: 'aa', vls: true, pk: 0.85 },
   sm6: { name: 'SM-6 (sub-launched)', short: 'SM-6', spd: 2000, maxRun: 130, seeker: 50, damage: 1, missile: true, role: 'aa', vls: true, pk: 0.9 },
   apr3: { name: 'APR-3E air-dropped torpedo', short: 'APR-3', spd: 60, maxRun: 3, seeker: 1.2, damage: 3, missile: false, role: 'torpedo' },
+  // WWII straight-running torpedo (G7e, Type 95): no seeker, it hits whatever is in its path.
+  wwtorp: { name: 'Straight-running torpedo', short: 'Torpedo', spd: 40, maxRun: 5, seeker: 0.12, damage: 3, missile: false, role: 'torpedo' },
 };
 export const JATM_PER_CANISTER = 7;
 const AA_CONE = 45;
@@ -154,7 +181,7 @@ export function excess(sl: number, src: Vec & { depthT?: number; deep?: boolean 
 const ownEars = (g: Game): Listener => ({ x: g.own.x, y: g.own.y, hdg: g.own.hdg, spd: g.own.spd, depthT: g.own.depthT, array: arrayActive(g) });
 
 // ---- Setup ---------------------------------------------------------------------------
-function makeVessel(g: Game, cls: string, name: string, side: Side, p: Vec, hdg: number, spd: number, depth: Depth): Vessel {
+export function makeVessel(g: Game, cls: string, name: string, side: Side, p: Vec, hdg: number, spd: number, depth: Depth): Vessel {
   const c = CLASSES[cls];
   return {
     id: g.seq++, name, cls: c, side, x: p.x, y: p.y, hdg, ordHdg: hdg, spd, ordSpd: spd,
@@ -163,24 +190,22 @@ function makeVessel(g: Game, cls: string, name: string, side: Side, p: Vec, hdg:
   };
 }
 
-function makeAI(over: Partial<AI>): AI {
+export function makeAI(over: Partial<AI>): AI {
   return {
     mode: 'patrol', legT: 300, holdT: 0, knows: null, cool: 0, evadeT: 0, threat: null, snapTaken: false,
     decoys: 0, baseCourse: 0, zig: 0, cruise: 0, alertT: 0, fleeHdg: 0, ...over,
   };
 }
 
-export const SCENARIOS: Record<ScenarioKey, { title: string; era: '1941' | '2029'; place: string }> = {
-  bismarck: { title: 'Sink the Bismarck', era: '1941', place: 'Denmark Strait, 24 May 1941' },
-  duel: { title: 'Duel: Kazan', era: '2029', place: 'Bear Gap, Norwegian Sea, March 2029' },
-};
-
-export function create(scenario: ScenarioKey = 'bismarck', seed?: number): Game {
+export function create(scenario: ScenarioKey = 'bismarck', seed?: number, carry: Carry = { sunk: [] }): Game {
   const r = mulberry32(seed ?? (Date.now() & 0xffffffff));
+  const m = MISSIONS[scenario];
   const g = {
-    scenario, era: SCENARIOS[scenario].era, startClock: 0, timeLimit: Infinity,
+    scenario, era: m.era, startClock: 0, timeLimit: Infinity, library: m.library, night: !!m.night,
+    goal: { targets: [], need: 1, protect: [], maxLosses: Infinity, surviveWin: false, win: '', timeout: '', lossText: '' },
+    sunk: [], flags: {}, script: null,
     t: 0, r, seq: 1, over: null, vessels: [], contacts: [], selected: null,
-    weapons: [], decoys: [], buoys: [], splashT: -1e9, heard: new Set(), sweeps: [], events: [], waterfall: null, wfTimer: 0, pings: [], blasts: [],
+    weapons: [], decoys: [], buoys: [], charges: [], splashT: -1e9, heard: new Set(), sweeps: [], events: [], waterfall: null, wfTimer: 0, pings: [], blasts: [],
     stats: {
       fired: Object.fromEntries(Object.keys(WEAPONS).map((k) => [k, 0])) as Record<WeaponKey, number>,
       enemyFired: 0, pings: 0, hits: 0, blueOnBlue: 0,
@@ -190,50 +215,11 @@ export function create(scenario: ScenarioKey = 'bismarck', seed?: number): Game 
   const ownV = makeVessel(g, 'virginia', 'USS Tang (SSN-805)', 'us', { x: 0, y: 0 }, 0, 5, 1);
   g.own = Object.assign(ownV, { tubes: [0, 0, 0, 0], vls: Array(12).fill(0), decoys: 4, arrayStableAt: 0, jatm: 0, radar: false });
   g.vessels.push(g.own);
-
-  if (scenario === 'bismarck') {
-    // 0300 on 24 May 1941. The German group runs southwest down the Denmark Strait
-    // at 27 kt with Suffolk and Norfolk shadowing well astern. Tang lies ahead of them.
-    g.startClock = 3 * 3600;
-    g.timeLimit = 5 * 3600;
-    const course = 205 + (r() * 2 - 1) * 10;
-    const lateral = (r() * 2 - 1) * 9;
-    const pass = offset(g.own, course + 90, lateral);
-    const bPos = offset(pass, course + 180, 38 + r() * 6);
-    g.own.hdg = g.own.ordHdg = norm(course + 180 + 30);
-    const bis = makeVessel(g, 'bismarck', 'Bismarck', 'enemy', bPos, course, 27, 0);
-    bis.ai = makeAI({ mode: 'transit', baseCourse: course, cruise: 27, legT: 400 + r() * 400 });
-    const pe = makeVessel(g, 'hipper', 'Prinz Eugen', 'enemy', offset(bPos, course, 1.5), course, 27, 0);
-    pe.ai = makeAI({ mode: 'station', leader: bis.id, rel: 0, rng: 1.5 });
-    const suf = makeVessel(g, 'county', 'HMS Suffolk', 'allied', offset(bPos, course + 165, 13), course, 27, 0);
-    suf.ai = makeAI({ mode: 'station', leader: bis.id, rel: 165, rng: 13 });
-    const nor = makeVessel(g, 'county', 'HMS Norfolk', 'allied', offset(bPos, course + 200, 15), course, 27, 0);
-    nor.ai = makeAI({ mode: 'station', leader: bis.id, rel: 200, rng: 15 });
-    // Bismarck's Arado floatplane scouts around the group, watching for periscopes.
-    const ar = makeVessel(g, 'ar196', 'Arado Ar 196', 'enemy', offset(bPos, course, 12), course, 140, 0);
-    ar.ai = makeAI({ mode: 'orbit', leader: bis.id, phase: r() * 360, rng: 12, torps: 1 });
-    g.vessels.push(bis, pe, suf, nor, ar);
-  } else {
-    g.startClock = 2 * 3600;
-    const startBrg = r() * 360;
-    const p = offset(g.own, startBrg, 11 + r() * 3);
-    const kaz = makeVessel(g, 'yasen', 'Kazan (K-561)', 'enemy', p, norm(startBrg + 180 + (r() * 2 - 1) * 60), 7, r() < 0.5 ? 2 : 1);
-    kaz.ai = makeAI({ mode: 'patrol', legT: 300 + r() * 300, decoys: 2 });
-    // An Il-38N works the same patrol box, laying sonobuoys and cueing Kazan.
-    const center = offset(g.own, r() * 360, r() * 10);
-    const ilBrg = r() * 360;
-    const il = makeVessel(g, 'il38', 'Il-38N May', 'enemy', offset(center, ilBrg, 70), norm(ilBrg + 180), 300, 0);
-    il.ai = makeAI({ mode: 'search', center, wp: center, buoyT: 0, torps: 2, datum: null });
-    // A Ka-27PL from a frigate over the horizon hops between dips with its sonar.
-    const kaBrg = r() * 360;
-    const ka = makeVessel(g, 'ka27', 'Ka-27PL Helix', 'enemy', offset(center, kaBrg, 35), norm(kaBrg + 180), 120, 0);
-    ka.ai = makeAI({ mode: 'search', center, wp: offset(center, r() * 360, r() * 8), torps: 1, datum: null, hits: 0, dipT: 0 });
-    g.vessels.push(kaz, il, ka);
-  }
+  m.build(g, r, carry);
   return g;
 }
 
-function log(g: Game, kind: EventKind, text: string, sound?: Sound) { g.events.push({ t: g.t, kind, text, sound }); }
+export function log(g: Game, kind: EventKind, text: string, sound?: Sound) { g.events.push({ t: g.t, kind, text, sound }); }
 const vesselById = (g: Game, id: number) => g.vessels.find((v) => v.id === id)!;
 export const contactById = (g: Game, id: number | null) => (id === null ? null : g.contacts.find((c) => c.id === id) ?? null);
 /** What the player calls a contact: its accepted class if classified, else its sonar designation. */
@@ -418,6 +404,7 @@ function transient(g: Game, src: Vessel, side: Side) {
 }
 
 function enemyFire(g: Game, v: Vessel, aim: Vec, deep: boolean, snap: boolean) {
+  if (g.era === '1941') { v.ai!.cool = 300; return fireStraight(g, v, aim, deep); }
   const w = WEAPONS.ugst;
   const hdg = brg(v, aim);
   v.ai!.cool = 300;
@@ -425,6 +412,19 @@ function enemyFire(g: Game, v: Vessel, aim: Vec, deep: boolean, snap: boolean) {
   g.weapons.push({
     id: g.seq++, type: 'ugst', side: 'enemy', label: w.short, x: v.x, y: v.y, hdg, ordHdg: hdg, spd: w.spd,
     run: 0, maxRun: w.maxRun, enableAt: snap ? 0.5 : 1, enabled: false, deep, wire: false, aim, contactId: null,
+    target: null, rolled: new Set(), trail: [],
+  });
+  transient(g, v, 'enemy');
+}
+
+/** A WWII torpedo: runs straight at the aim point and hits whatever is in its way. */
+export function fireStraight(g: Game, v: Vessel, aim: Vec, deep = false) {
+  const w = WEAPONS.wwtorp;
+  const hdg = brg(v, aim);
+  g.stats.enemyFired++;
+  g.weapons.push({
+    id: g.seq++, type: 'wwtorp', side: 'enemy', label: w.short, x: v.x, y: v.y, hdg, ordHdg: hdg, spd: w.spd,
+    run: 0, maxRun: w.maxRun, enableAt: 0.2, enabled: false, deep, wire: false, aim, contactId: null,
     target: null, rolled: new Set(), trail: [],
   });
   transient(g, v, 'enemy');
@@ -545,7 +545,7 @@ function seek(g: Game, w: Weapon) {
   let best: Vessel | null = null;
   for (const v of g.vessels) {
     if (!v.alive) continue;
-    if (w.side === 'us' ? v.side === 'us' : v.side !== 'us') continue;
+    if (w.side === 'us' ? v.side === 'us' : v.side === 'enemy') continue;
     if (spec.role === 'aa' ? v.cls.kind !== 'air' : spec.role === 'antiship' ? v.cls.kind !== 'surface' : v.cls.kind === 'air') continue;
     const acq = !spec.missile && deepOf(v) !== w.deep ? spec.seeker / 2 : spec.seeker;
     // Torpedoes take the nearest return; anti-ship missiles take the ship nearest their aim point.
@@ -555,7 +555,7 @@ function seek(g: Game, w: Weapon) {
   if (!best) return;
   w.target = best; w.targetKind = 'vessel';
   if (w.side === 'us') { if (w.wire || spec.missile || w.contactId !== null) log(g, 'good', `${w.label} has acquired a target.`); }
-  else log(g, 'danger', 'Torpedo seeker has acquired us! Evade!', 'alarm');
+  else if (best === g.own) log(g, 'danger', 'Torpedo seeker has acquired us! Evade!', 'alarm');
 }
 
 function hit(g: Game, w: Weapon, v: Vessel) {
@@ -569,30 +569,80 @@ function hit(g: Game, w: Weapon, v: Vessel) {
   }
   if (w.side === 'us') g.stats.hits++;
   const sunk = v.hp <= 0;
-  if (sunk) v.alive = false;
+  if (sunk) { v.alive = false; g.sunk.push({ name: v.name, cls: v.cls.key, side: v.side, by: w.side }); }
   const c = g.contacts.find((x) => x.vid === v.id);
-  if (v.cls.kind === 'air') return log(g, 'good', `${w.label} hit. Splash one ${v.cls.name}.`, 'boom');
+  if (v.cls.kind === 'air') { log(g, 'good', `${w.label} hit. Splash one ${v.cls.name}.`, 'boom'); return checkGoal(g); }
   const who = c ? contactLabel(c) : 'an unseen ship';
+  if (v.side === 'allied' && w.side === 'enemy') {
+    log(g, 'danger', sunk ? `Explosion on bearing ${fmtBrg(brg(g.own, v))}: ${v.name} has been torpedoed and is sinking.` : `Explosion on bearing ${fmtBrg(brg(g.own, v))}: ${v.name} has been torpedoed.`, 'boom');
+    return checkGoal(g);
+  }
   if (v.side === 'allied') {
     g.stats.blueOnBlue++;
-    log(g, 'danger', `${w.label} hit ${v.name}! That's a British cruiser.${sunk ? ` ${v.name} is sinking.` : ''}`, 'boom');
+    log(g, 'danger', `${w.label} hit ${v.name}! She's a friendly ship.${sunk ? ` ${v.name} is sinking.` : ''}`, 'boom');
     if (sunk) return end(g, false, `${v.name} was sunk by our own weapon.`);
   } else {
     log(g, 'good', sunk ? `${w.label} hit ${who}. Breaking-up noises: ${v.name} is sinking.` : `${w.label} hit ${who}. Secondary explosions; she is slowing.`, 'boom');
   }
-  // The whole group knows it is under attack and runs from the threat.
-  alertGroup(g, norm(brg(w, v)), v.side);
-  if (g.scenario === 'bismarck' && !g.vessels[1].alive) end(g, true, 'Bismarck has been sunk.');
-  if (g.scenario === 'duel' && !g.vessels[1].alive) end(g, true, 'Kazan has been sunk.');
+  // The whole group knows it is under attack and runs from the threat; escorts come hunting.
+  alertGroup(g, norm(brg(w, v)), v.side, v);
+  checkGoal(g);
 }
 
-function end(g: Game, win: boolean, reason: string) { if (!g.over) g.over = { win, t: g.t, reason }; }
+/**
+ * Gunfire between surface ships (Tang plays no part): a hit takes one point. Used by mission
+ * scripts for battleships shelling a convoy or a night melee off Guadalcanal.
+ */
+export function shellfire(g: Game, from: Vessel, at: Vessel, pHit: number) {
+  if (!from.alive || !at.alive || g.r() > pHit) return;
+  at.hp -= 1;
+  g.blasts.push({ x: at.x + gauss(g.r) * 0.05, y: at.y + gauss(g.r) * 0.05, t: g.t, missile: false });
+  if (at.hp > 0) return;
+  at.alive = false;
+  g.sunk.push({ name: at.name, cls: at.cls.key, side: at.side, by: from.side });
+  log(g, at.side === 'enemy' ? 'good' : 'danger', `Gunfire: ${at.name} is burning and sinking, hit by ${from.name}.`, 'boom');
+  checkGoal(g);
+}
 
-function alertGroup(g: Game, fleeHdg: number, side: Side) {
+/** Win or lose on the mission goal. Called after every sinking and every tick. */
+function checkGoal(g: Game) {
+  if (g.over) return;
+  const gl = g.goal;
+  const sunkIds = (ids: number[]) => ids.filter((id) => !vesselById(g, id).alive && !vesselById(g, id).gone).length;
+  if (gl.protect.length && sunkIds(gl.protect) > gl.maxLosses) return end(g, false, gl.lossText);
+  if (gl.targets.length && sunkIds(gl.targets) >= gl.need) return end(g, true, gl.win);
+  if (g.t >= g.timeLimit) end(g, gl.surviveWin, gl.surviveWin ? gl.win : gl.timeout);
+}
+
+export function end(g: Game, win: boolean, reason: string) { if (!g.over) g.over = { win, t: g.t, reason }; }
+
+const isEscort = (v: Vessel) => /destroyer|corvette/.test(v.cls.type);
+const ADJ: Record<string, string> = { Germany: 'German', Japan: 'Japanese', Russia: 'Russian', UK: 'British', US: 'US' };
+/** "The German group", "The Japanese force": how the log names the enemy. */
+export const groupName = (g: Game) => {
+  const e = g.vessels.find((v) => v.side === 'enemy' && v.cls.kind === 'surface');
+  return e ? `The ${ADJ[e.cls.nation]} ${g.vessels.filter((v) => v.side === 'enemy' && v.cls.kind === 'surface').length > 3 ? 'force' : 'group'}` : 'The enemy';
+};
+
+/**
+ * A group under attack: big ships turn away and run, escorts go hunting where they think the
+ * submarine is (`near` is the ship that was hit or that saw us, so their datum is rough).
+ */
+function alertGroup(g: Game, fleeHdg: number, side: Side, near?: Vessel) {
+  const o = g.own;
   for (const v of g.vessels) {
     if (!v.ai || !v.alive || v.side !== side || v.cls.kind !== 'surface') continue;
+    if (isEscort(v) && v.ai.mode !== 'picket') {
+      if (near && dist(v, near) > 15) continue;
+      if (v.ai.mode !== 'hunt') v.ai.home = v.ai.mode;
+      const e = 0.6 + dist(o, near ?? v) * 0.1;
+      v.ai.mode = 'hunt'; v.ai.alertT = 1500; v.ai.cool = 0;
+      v.ai.datum = { x: o.x + gauss(g.r) * e, y: o.y + gauss(g.r) * e, t: g.t, deep: false };
+      v.ai.wp = { x: v.ai.datum.x, y: v.ai.datum.y };
+      continue;
+    }
     if (v.ai.mode !== 'transit' && v.ai.mode !== 'alert') continue;
-    // Turn away from the threat, but keep running for the open Atlantic.
+    // Turn away from the threat, but keep running for the objective.
     const threatBrg = norm(fleeHdg + 180);
     v.ai.mode = 'alert'; v.ai.alertT = 1800;
     v.ai.fleeHdg = norm(v.ai.baseCourse + (angDiff(threatBrg, v.ai.baseCourse) > 0 ? -50 : 50));
@@ -660,8 +710,8 @@ function ownSensors(g: Game, dt: number) {
       if (!v.alive || v.side !== 'enemy' || v.cls.kind !== 'surface' || !v.ai || v.ai.mode === 'alert') continue;
       const r = dist(o, v);
       if (r < 6 && g.r() < 0.004 * (6 - r)) {
-        log(g, 'danger', `${v.name} has sighted our periscope! The German group is turning away at full speed.`, 'alarm');
-        alertGroup(g, brg(o, v), 'enemy');
+        log(g, 'danger', `${v.name} has sighted our periscope! ${groupName(g)} is turning away and the escorts are coming.`, 'alarm');
+        alertGroup(g, brg(o, v), 'enemy', v);
       }
     }
   }
@@ -753,8 +803,10 @@ function launchSeen(g: Game) {
     const r = dist(o, v);
     if (r > 20) continue;
     if (v.ai.mode === 'orbit') {
-      if (!alerted(g)) log(g, 'danger', `${v.cls.name} has seen our missile launch! The German group is turning away.`, 'alarm');
-      alertGroup(g, brg(o, vesselById(g, v.ai.leader!)), 'enemy');
+      if (!alerted(g)) log(g, 'danger', `${v.cls.name} has seen our missile launch! ${groupName(g)} is turning away.`, 'alarm');
+      alertGroup(g, brg(o, vesselById(g, v.ai.leader!)), 'enemy', v);
+    } else if (v.ai.mode === 'wander' || v.ai.mode === 'strike') {
+      continue;
     } else airDatum(g, v, { x: o.x, y: o.y, t: g.t, deep: false, exact: true }, 'missile launch');
   }
 }
@@ -788,8 +840,8 @@ function airAI(g: Game, v: Vessel, dt: number) {
     v.ordHdg = brg(v, spot); v.ordSpd = 140;
     const r = dist(o, v);
     if (o.depthT < PD_MAX && r < 5 && g.r() < 0.012 * (1 - r / 5) && !alerted(g)) {
-      log(g, 'danger', `The ${v.cls.name} has spotted our periscope! The German group is turning away at full speed.`, 'alarm');
-      alertGroup(g, brg(o, lead), 'enemy');
+      log(g, 'danger', `The ${v.cls.name} has spotted our periscope! ${groupName(g)} is turning away at full speed.`, 'alarm');
+      alertGroup(g, brg(o, lead), 'enemy', v);
       // Its two 50 kg bombs are the only way it can touch us.
       if (ai.torps! > 0) {
         ai.torps = 0;
@@ -797,6 +849,24 @@ function airAI(g: Game, v: Vessel, dt: number) {
         if (g.r() < 0.35) { o.hp -= 1; log(g, 'danger', 'Bomb hit aft! Minor flooding, still in the fight.', 'boom'); }
         else log(g, 'warn', 'Two bombs close aboard. No damage.', 'boom');
       }
+    }
+    return;
+  }
+  if (ai.mode === 'strike') {
+    // A strike flight on its way to the target. Reaching it is the mission script's business.
+    v.ordSpd = ai.cruise || 140; v.ordHdg = brg(v, ai.goal!);
+    if (dist(v, ai.goal!) < 3) { v.alive = false; v.gone = true; g.flags.strikesThrough = (g.flags.strikesThrough ?? 0) + 1; }
+    return;
+  }
+  if (ai.mode === 'wander') {
+    // A patrol plane or flying boat quartering its area, watching for periscopes.
+    v.ordSpd = ai.cruise || 120;
+    if (!ai.wp || dist(v, ai.wp) < 2) ai.wp = offset(ai.center!, g.r() * 360, g.r() * (ai.rng ?? 30));
+    v.ordHdg = brg(v, ai.wp);
+    const r = dist(o, v);
+    if (o.depthT < PD_MAX && r < 6 && g.r() < 0.01 * (1 - r / 6)) {
+      log(g, 'danger', `${v.name} has spotted our periscope and is signalling the fleet.`, 'alarm');
+      alertGroup(g, brg(o, v), 'enemy', o);
     }
     return;
   }
@@ -918,7 +988,7 @@ function updateBuoys(g: Game, dt: number) {
 }
 
 function updateSignatures(g: Game) {
-  const lib = LIBRARY[g.era];
+  const lib = g.library;
   for (const c of g.contacts) {
     const v = vesselById(g, c.vid);
     if (c.air && !(dipping(v) && c.held)) {
@@ -928,13 +998,73 @@ function updateSignatures(g: Game) {
     }
     if (!c.held || !v.alive) continue;
     c.sig = signatureView(v.cls, c.seAvg, v.spd, () => gauss(g.r));
-    c.matches = matchClasses(c.sig, lib, c.sighted);
+    c.matches = matchClasses(c.sig, lib.filter((k) => (CLASSES[k].kind === 'air') === c.air), c.sighted);
   }
 }
 
 // ---- AI ------------------------------------------------------------------------------------
+/** Depth charges go off about 20 s after they are rolled. Set for 50 to 400 ft: deep water is safe. */
+const CHARGE_DEEPEST = 1.35;
+function depthCharges(g: Game) {
+  const o = g.own;
+  const due = g.charges.filter((c) => c.t <= g.t);
+  if (!due.length) return;
+  g.charges = g.charges.filter((c) => c.t > g.t);
+  const near = Math.min(...due.map((c) => dist(o, c)));
+  for (const c of due) g.blasts.push({ x: c.x, y: c.y, t: g.t, missile: false });
+  if (near > 3) return;
+  if (near < 0.12 && o.depthT <= CHARGE_DEEPEST) {
+    o.hp -= 1;
+    if (o.hp <= 0) { o.alive = false; log(g, 'danger', 'Depth charges right on top of us. The hull is breached.', 'boom'); return end(g, false, 'USS Tang was sunk by depth charges.'); }
+    log(g, 'danger', `Depth charges close aboard! Damage aft, flooding under control. ${o.depthT > LAYER_AT ? '' : 'Go deep: they are set shallow.'}`, 'boom');
+  } else log(g, 'warn', near < 0.5 ? (o.depthT > CHARGE_DEEPEST ? 'Depth charges, well above us. They are set too shallow to reach 700 feet.' : 'Depth charges, close! Go deep.') : 'Depth charges exploding in the distance.', 'boom');
+}
+
+/** A WWII escort hunting: run to the datum, sweep around it with its sonar, and roll a pattern on a fix. */
+function huntAI(g: Game, v: Vessel, dt: number) {
+  const ai = v.ai!, o = g.own;
+  ai.alertT -= dt; ai.cool = Math.max(0, ai.cool - dt);
+  const r = dist(v, o);
+  // Its sonar (ASDIC) finds a quiet boat only close in, and hardly at all below the layer.
+  const p = r < 1.5 ? (o.depthT > LAYER_AT ? 0.004 : 0.03) * (o.spd > 12 ? 2 : 1) : 0;
+  if (g.r() < p * dt) {
+    if (!ai.datum?.exact) log(g, 'danger', `Sonar: ${v.name}'s sonar has us, bearing ${fmtBrg(brg(o, v))}. She's starting her attack run.`, 'ping');
+    ai.datum = { x: o.x + gauss(g.r) * 0.12, y: o.y + gauss(g.r) * 0.12, t: g.t, deep: o.depthT > LAYER_AT, exact: true };
+    ai.wp = { x: ai.datum.x, y: ai.datum.y };
+  }
+  if (!ai.wp) ai.wp = { x: v.x, y: v.y };
+  v.ordHdg = brg(v, ai.wp);
+  v.ordSpd = dist(v, ai.wp) > 1 ? Math.min(25, v.cls.maxSpd) : 15;
+  if (dist(v, ai.wp) < 0.15) {
+    const d = ai.datum;
+    if (d?.exact && g.t - d.t < 150 && ai.cool <= 0) {
+      ai.cool = 90; g.flags.patterns = (g.flags.patterns ?? 0) + 1;
+      for (let i = 0; i < 5; i++) g.charges.push({ ...offset(d, i * 72, i ? 0.08 : 0), t: g.t + 18 + i });
+      d.exact = false;
+    }
+    ai.wp = d ? offset(d, g.r() * 360, 0.3 + g.r() * 1.5) : offset(v, g.r() * 360, 1);
+  }
+  if (ai.alertT <= 0) { ai.mode = ai.home ?? 'station'; ai.datum = null; }
+}
+
+/** A picket boat drifting on its station; it radios a report the moment it sees a warship. */
+function picketAI(g: Game, v: Vessel, dt: number) {
+  const ai = v.ai!, o = g.own;
+  if (!ai.wp || dist(v, ai.wp) < 0.5) ai.wp = offset(ai.center!, g.r() * 360, g.r() * 3);
+  v.ordHdg = brg(v, ai.wp); v.ordSpd = 6;
+  if (v.side !== 'enemy') return; // a friendly patrol boat just keeps its beat
+  const sees = g.vessels.some((x) => x.alive && x !== o && x.side !== 'enemy' && x.cls.kind === 'surface' && dist(x, v) < 12)
+    || (o.depthT < PD_MAX && dist(o, v) < 3 && g.r() < 0.01);
+  if (sees || ai.reportT !== undefined) {
+    if (ai.reportT === undefined) { ai.reportT = 0; log(g, 'danger', `Radio intercept: ${v.name} is transmitting, bearing ${fmtBrg(brg(o, v))}. She has seen something. Stop her before the message gets through!`, 'alarm'); }
+    ai.reportT += dt;
+  }
+}
+
 function surfaceAI(g: Game, v: Vessel, dt: number) {
   const ai = v.ai!;
+  if (ai.mode === 'hunt') return huntAI(g, v, dt);
+  if (ai.mode === 'picket') return picketAI(g, v, dt);
   if (ai.mode === 'station') {
     const lead = vesselById(g, ai.leader!);
     if (!lead.alive) { ai.mode = 'transit'; ai.baseCourse = v.hdg; ai.cruise = 20; return; }
@@ -961,8 +1091,36 @@ function surfaceAI(g: Game, v: Vessel, dt: number) {
   v.ordSpd = ai.cruise;
 }
 
+/** WWII submarine attacking surface ships (or a midget making for a harbour), not hunting us. */
+function raiderAI(g: Game, v: Vessel, dt: number) {
+  const ai = v.ai!, o = g.own;
+  ai.cool = Math.max(0, ai.cool - dt);
+  const threat = g.weapons.find((w) => w.side === 'us' && !w.dead && !WEAPONS[w.type].missile && dist(w, v) < 3);
+  if (threat) { v.ordHdg = brg(threat, v); v.ordSpd = v.cls.maxSpd; v.ordDepth = 2; return; }
+  v.ordDepth = 1;
+  if (ai.goal) { v.ordHdg = brg(v, ai.goal); v.ordSpd = ai.cruise || 6; return; }
+  let prey = ai.prey != null ? vesselById(g, ai.prey) : null;
+  if (!prey?.alive) {
+    prey = null;
+    for (const x of g.vessels) if (x.alive && x !== o && x.side !== 'enemy' && x.cls.kind === 'surface' && (!prey || dist(v, x) < dist(v, prey))) prey = x;
+    ai.prey = prey?.id ?? null;
+  }
+  if (!prey) { v.ordSpd = 4; return; }
+  const r = dist(v, prey);
+  // Aim off for the target's run while the torpedo travels.
+  const lead = offset(prey, prey.hdg, prey.spd * (r / WEAPONS.wwtorp.spd));
+  v.ordHdg = brg(v, r > 2 ? offset(prey, prey.hdg, Math.min(6, r * 0.5)) : lead);
+  v.ordSpd = r > 5 ? Math.min(v.cls.maxSpd, 14) : 6;
+  if (r < 1.6 && ai.cool <= 0 && (ai.torps ?? 6) > 0) {
+    ai.torps = (ai.torps ?? 6) - 1; ai.cool = 300;
+    fireStraight(g, v, lead);
+    fireStraight(g, v, offset(lead, prey.hdg, 0.15));
+  }
+}
+
 function subAI(g: Game, v: Vessel, dt: number) {
   const o = g.own, ai = v.ai!;
+  if (ai.mode === 'raider') return raiderAI(g, v, dt);
   const se = excess(vesselSL(o), o, v, v.cls.threshold!) + gauss(g.r) * 2;
   if (se > 0) {
     const err = dist(o, v) * 0.12;
@@ -1077,10 +1235,9 @@ export function tick(g: Game, dt = 1) {
   updateBuoys(g, dt);
   g.wfTimer -= dt;
   if (g.wfTimer <= 0) { g.wfTimer = 3; g.waterfall = waterfallRow(g); updateSignatures(g); }
-  if (g.scenario === 'bismarck') {
-    const bis = g.vessels[1];
-    if (g.t >= g.timeLimit || dist(o, bis) > 60) end(g, false, 'Bismarck broke out into the Atlantic.');
-  }
+  depthCharges(g);
+  g.script?.(g);
+  checkGoal(g);
 }
 
 /** Degrees per minute of bearing drift on a held contact, or null. */

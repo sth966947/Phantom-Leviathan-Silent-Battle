@@ -6,7 +6,7 @@
 // propeller blade-rate line (blades x shaft rate), which shifts with speed.
 
 export type Kind = 'sub' | 'surface' | 'air';
-export type Nation = 'US' | 'UK' | 'Germany' | 'Russia';
+export type Nation = 'US' | 'UK' | 'Germany' | 'Russia' | 'Japan';
 
 export interface ClassCard {
   key: string;
@@ -76,6 +76,116 @@ export const CLASSES: Record<string, ClassCard> = {
   ka27: {
     key: 'ka27', name: 'Ka-27PL Helix', type: 'ASW helicopter', nation: 'Russia', kind: 'air',
     slBase: 104, maxSpd: 140, threshold: null, hp: 1, tonals: [14, 28, 115, 42], blades: 0, shaftHzPerKt: 0,
+  },
+
+  // ---- Pacific and Atlantic WWII classes ----
+  // Japanese capital ships share a strong 47 Hz turbo-generator line (Yamato and Shinano
+  // share 44 Hz), and the fleet carriers of the Sōryū/Shōkaku/Taihō line share 53 Hz, so a
+  // contact heard on one line alone stays ambiguous.
+  akagi: {
+    key: 'akagi', name: 'Akagi', type: 'aircraft carrier', nation: 'Japan', kind: 'surface',
+    slBase: 82, maxSpd: 31, threshold: null, hp: 9, tonals: [47, 18, 112, 66, 168], blades: 3, shaftHzPerKt: 0.14,
+  },
+  kaga: {
+    key: 'kaga', name: 'Kaga', type: 'aircraft carrier', nation: 'Japan', kind: 'surface',
+    slBase: 83, maxSpd: 28, threshold: null, hp: 9, tonals: [47, 21, 104, 72], blades: 3, shaftHzPerKt: 0.15,
+  },
+  soryu: {
+    key: 'soryu', name: 'Sōryū (Sōryū, Hiryū)', type: 'aircraft carrier', nation: 'Japan', kind: 'surface',
+    slBase: 80, maxSpd: 34, threshold: null, hp: 8, tonals: [53, 20, 126, 88, 182], blades: 3, shaftHzPerKt: 0.15,
+  },
+  shokaku: {
+    key: 'shokaku', name: 'Shōkaku (Shōkaku, Zuikaku)', type: 'aircraft carrier', nation: 'Japan', kind: 'surface',
+    slBase: 81, maxSpd: 34, threshold: null, hp: 9, tonals: [53, 24, 118, 94, 172], blades: 3, shaftHzPerKt: 0.14,
+  },
+  taiho: {
+    key: 'taiho', name: 'Taihō', type: 'armored aircraft carrier', nation: 'Japan', kind: 'surface',
+    slBase: 81, maxSpd: 33, threshold: null, hp: 10, tonals: [53, 26, 132, 78], blades: 3, shaftHzPerKt: 0.14,
+  },
+  shinano: {
+    key: 'shinano', name: 'Shinano', type: 'aircraft carrier', nation: 'Japan', kind: 'surface',
+    slBase: 83, maxSpd: 27, threshold: null, hp: 14, tonals: [44, 14, 96, 138, 186], blades: 3, shaftHzPerKt: 0.13,
+  },
+  kongo: {
+    key: 'kongo', name: 'Kongō (Hiei, Kirishima)', type: 'battleship', nation: 'Japan', kind: 'surface',
+    slBase: 82, maxSpd: 30, threshold: null, hp: 11, tonals: [47, 16, 108, 62, 178], blades: 3, shaftHzPerKt: 0.15,
+  },
+  yamato: {
+    key: 'yamato', name: 'Yamato (Yamato, Musashi)', type: 'battleship', nation: 'Japan', kind: 'surface',
+    slBase: 84, maxSpd: 27, threshold: null, hp: 20, tonals: [44, 12, 92, 146, 190], blades: 3, shaftHzPerKt: 0.12,
+  },
+  takao: {
+    key: 'takao', name: 'Takao (Atago, Maya, Chōkai)', type: 'heavy cruiser', nation: 'Japan', kind: 'surface',
+    slBase: 79, maxSpd: 35, threshold: null, hp: 7, tonals: [55, 22, 102, 76, 164], blades: 3, shaftHzPerKt: 0.17,
+  },
+  agano: {
+    key: 'agano', name: 'Agano (Yahagi)', type: 'light cruiser', nation: 'Japan', kind: 'surface',
+    slBase: 78, maxSpd: 35, threshold: null, hp: 6, tonals: [55, 28, 134, 84], blades: 3, shaftHzPerKt: 0.18,
+  },
+  kagero: {
+    key: 'kagero', name: 'Kagerō', type: 'destroyer', nation: 'Japan', kind: 'surface',
+    slBase: 80, maxSpd: 35, threshold: null, hp: 3, tonals: [61, 31, 144, 92], blades: 3, shaftHzPerKt: 0.22,
+  },
+  // WWII submarines: speeds are submerged on batteries, and their hydrophones are poor.
+  isub: {
+    key: 'isub', name: 'I-16 (Type C1)', type: 'submarine', nation: 'Japan', kind: 'sub',
+    slBase: 96, maxSpd: 8, threshold: 40, hp: 3, tonals: [37, 74, 11, 148], blades: 3, shaftHzPerKt: 0.2,
+  },
+  midget: {
+    key: 'midget', name: 'Type A Ko-hyōteki', type: 'midget submarine', nation: 'Japan', kind: 'sub',
+    slBase: 96, maxSpd: 19, threshold: 40, hp: 1, tonals: [83, 166, 41], blades: 3, shaftHzPerKt: 0.25,
+  },
+  picket: {
+    key: 'picket', name: 'Picket boat (Nittō Maru)', type: 'guard boat', nation: 'Japan', kind: 'surface',
+    slBase: 80, maxSpd: 9, threshold: null, hp: 2, tonals: [28, 56, 84, 14], blades: 4, shaftHzPerKt: 0.25,
+  },
+  kate: {
+    key: 'kate', name: 'Nakajima B5N "Kate"', type: 'torpedo bomber', nation: 'Japan', kind: 'air',
+    slBase: 0, maxSpd: 204, threshold: null, hp: 1, tonals: [], blades: 0, shaftHzPerKt: 0,
+  },
+  mavis: {
+    key: 'mavis', name: 'Kawanishi H6K "Mavis"', type: 'flying boat', nation: 'Japan', kind: 'air',
+    slBase: 0, maxSpd: 208, threshold: null, hp: 1, tonals: [], blades: 0, shaftHzPerKt: 0,
+  },
+  jake: {
+    key: 'jake', name: 'Aichi E13A "Jake"', type: 'floatplane', nation: 'Japan', kind: 'air',
+    slBase: 0, maxSpd: 202, threshold: null, hp: 1, tonals: [], blades: 0, shaftHzPerKt: 0,
+  },
+  tirpitz: {
+    key: 'tirpitz', name: 'Tirpitz', type: 'battleship', nation: 'Germany', kind: 'surface',
+    slBase: 80, maxSpd: 30, threshold: null, hp: 12, tonals: [42, 16, 120, 52, 175], blades: 3, shaftHzPerKt: 0.15,
+  },
+  typevii: {
+    key: 'typevii', name: 'Type VIIC U-boat', type: 'submarine', nation: 'Germany', kind: 'sub',
+    slBase: 96, maxSpd: 8, threshold: 40, hp: 3, tonals: [33, 66, 9, 132], blades: 3, shaftHzPerKt: 0.22,
+  },
+  fw200: {
+    key: 'fw200', name: 'Focke-Wulf Fw 200 Condor', type: 'maritime patrol aircraft', nation: 'Germany', kind: 'air',
+    slBase: 0, maxSpd: 194, threshold: null, hp: 1, tonals: [], blades: 0, shaftHzPerKt: 0,
+  },
+  yorktown: {
+    key: 'yorktown', name: 'Yorktown (Hornet, Enterprise)', type: 'aircraft carrier', nation: 'US', kind: 'surface',
+    slBase: 81, maxSpd: 32, threshold: null, hp: 9, tonals: [60, 19, 122, 86, 178], blades: 3, shaftHzPerKt: 0.14,
+  },
+  fletcher: {
+    key: 'fletcher', name: 'Fletcher', type: 'destroyer', nation: 'US', kind: 'surface',
+    slBase: 80, maxSpd: 36, threshold: null, hp: 3, tonals: [60, 29, 150, 96], blades: 3, shaftHzPerKt: 0.21,
+  },
+  wickes: {
+    key: 'wickes', name: 'Wickes (USS Ward)', type: 'destroyer', nation: 'US', kind: 'surface',
+    slBase: 81, maxSpd: 35, threshold: null, hp: 3, tonals: [50, 33, 100, 156], blades: 3, shaftHzPerKt: 0.22,
+  },
+  atlanta: {
+    key: 'atlanta', name: 'Atlanta (Atlanta, Juneau)', type: 'light cruiser', nation: 'US', kind: 'surface',
+    slBase: 79, maxSpd: 33, threshold: null, hp: 6, tonals: [60, 27, 138, 82, 170], blades: 3, shaftHzPerKt: 0.18,
+  },
+  flower: {
+    key: 'flower', name: 'Flower', type: 'corvette', nation: 'UK', kind: 'surface',
+    slBase: 81, maxSpd: 16, threshold: null, hp: 3, tonals: [30, 15, 60, 104], blades: 3, shaftHzPerKt: 0.2,
+  },
+  liberty: {
+    key: 'liberty', name: 'Liberty ship', type: 'merchant', nation: 'US', kind: 'surface',
+    slBase: 84, maxSpd: 11, threshold: null, hp: 3, tonals: [26, 52, 78, 12], blades: 4, shaftHzPerKt: 0.2,
   },
 };
 
@@ -182,5 +292,161 @@ export const REFERENCE: Record<string, Reference> = {
     armament: ['2 × 20 mm cannon', '1 to 2 × 7.92 mm machine guns', '2 × 50 kg bombs'],
     armor: 'None',
     notes: 'Twin-float monoplane, catapulted from German heavy ships.',
+  },
+  akagi: {
+    displacement: '42,500 t full load',
+    armament: ['6 × 20 cm guns in casemates', '12 × 12 cm AA guns in twin mounts', '28 × 25 mm AA guns', 'About 66 aircraft'],
+    armor: '152 mm belt, 79 mm deck',
+    notes: 'Converted battlecruiser hull. Small island on the port side, big funnel curving down to starboard below the flight deck. Four shafts.',
+  },
+  kaga: {
+    displacement: '42,500 t full load',
+    armament: ['10 × 20 cm guns in casemates', '16 × 12.7 cm AA guns in twin mounts', '22 × 25 mm AA guns', 'About 72 aircraft'],
+    armor: '152 mm belt, 38 mm deck',
+    notes: 'Converted battleship hull, slower than Akagi. Small starboard island, downturned funnel to starboard. Four shafts.',
+  },
+  soryu: {
+    displacement: '19,800 t full load (Hiryū 20,250 t)',
+    armament: ['12 × 12.7 cm AA guns in twin mounts', '28 to 31 × 25 mm AA guns', 'About 63 aircraft'],
+    armor: 'Light: 41 mm belt over machinery, 55 mm over magazines',
+    notes: 'Light, fast fleet carrier. Small island (port side on Hiryū), two small funnels curving down to starboard. Four shafts.',
+  },
+  shokaku: {
+    displacement: '32,100 t full load',
+    armament: ['16 × 12.7 cm AA guns in twin mounts', '36 to 70 × 25 mm AA guns', 'About 72 aircraft'],
+    armor: '46 to 215 mm belt over machinery and magazines, 65 to 170 mm deck',
+    notes: 'Best Japanese carriers of 1941. Starboard island forward of two downturned funnels. Four shafts.',
+  },
+  taiho: {
+    displacement: '37,300 t full load',
+    armament: ['12 × 10 cm AA guns in twin mounts', '51 × 25 mm AA guns', 'About 65 aircraft'],
+    armor: '75 mm armored flight deck, up to 165 mm belt',
+    notes: 'Enclosed hurricane bow and a big island with a raked funnel built in, like Shinano. Four shafts.',
+  },
+  shinano: {
+    displacement: '71,900 t full load',
+    armament: ['16 × 12.7 cm AA guns in twin mounts', '137 × 25 mm AA guns', '336 AA rockets', 'About 47 aircraft'],
+    armor: '75 mm flight deck, 160 to 200 mm belt, 190 mm deck over magazines',
+    notes: 'Third Yamato hull completed as a support carrier. Largest carrier of the war. Large island with raked funnel. Four shafts.',
+  },
+  kongo: {
+    displacement: '37,200 t full load',
+    armament: ['8 × 35.6 cm guns in four twin turrets', '14 × 15.2 cm secondary guns', '8 × 12.7 cm AA guns', '3 floatplanes'],
+    armor: '203 mm belt, up to 120 mm deck',
+    notes: 'Rebuilt battlecruisers, the fastest Japanese battleships. Tall pagoda foremast and two funnels. Four shafts.',
+  },
+  yamato: {
+    displacement: '72,800 t full load',
+    armament: ['9 × 46 cm guns in three triple turrets', '6 to 12 × 15.5 cm secondary guns', '12 to 24 × 12.7 cm AA guns', 'Up to 7 floatplanes'],
+    armor: '410 mm belt, 650 mm turret faces, 200 to 230 mm deck',
+    notes: 'Largest battleships ever built. Compact tower bridge and one huge raked funnel. Four shafts.',
+  },
+  takao: {
+    displacement: '15,800 t full load',
+    armament: ['10 × 20.3 cm guns in five twin turrets', '4 × 12 cm AA guns', '16 × 61 cm torpedo tubes (Type 93)', '3 floatplanes'],
+    armor: '102 mm belt, 35 mm deck',
+    notes: 'Massive bridge block, trunked forward funnel and a tall raked aft funnel. Three turrets forward. Four shafts.',
+  },
+  agano: {
+    displacement: '8,500 t full load',
+    armament: ['6 × 15.2 cm guns in three twin turrets', '4 × 8 cm AA guns', '8 × 61 cm torpedo tubes (Type 93)', '2 floatplanes'],
+    armor: '60 mm belt, 20 mm deck',
+    notes: 'Destroyer-flotilla leader. Single large raked funnel. Four shafts.',
+  },
+  kagero: {
+    displacement: '2,500 t full load',
+    armament: ['6 × 12.7 cm guns in three twin mounts', '8 × 61 cm torpedo tubes (Type 93), with reloads', 'Depth charges'],
+    armor: 'None',
+    notes: 'Two funnels, one twin mount forward and two aft. Two shafts.',
+  },
+  isub: {
+    displacement: '3,560 t submerged',
+    armament: ['8 × 53.3 cm bow torpedo tubes, 20 torpedoes', '1 × 14 cm deck gun', 'Carried a Type A midget submarine on deck at Pearl Harbor'],
+    armor: 'None',
+    notes: 'Large ocean-going boat. Noisy and slow submerged, with poor hydrophones. Two shafts.',
+  },
+  midget: {
+    displacement: '46 t submerged',
+    armament: ['2 × 45 cm torpedo tubes (bow, one above the other)'],
+    armor: 'None',
+    notes: 'Two-man battery boat launched from a mother submarine. Fast for a short dash, then nearly spent. Contra-rotating screws.',
+  },
+  picket: {
+    displacement: 'About 70 to 100 GRT',
+    armament: ['Machine guns, sometimes a small gun', 'Radio to report sightings'],
+    armor: 'None',
+    notes: 'Requisitioned fishing trawler on the picket line, like Nittō Maru that reported the Doolittle force. Single screw.',
+  },
+  kate: {
+    displacement: '4,100 kg max takeoff',
+    armament: ['1 × Type 91 aerial torpedo or 800 kg of bombs', '1 × 7.7 mm rear machine gun'],
+    armor: 'None',
+    notes: 'Three-seat carrier torpedo bomber with a long greenhouse canopy. Also flew ASW patrols.',
+  },
+  mavis: {
+    displacement: '17,000 kg max takeoff',
+    armament: ['Up to 2 torpedoes or 1,000 kg of bombs', '1 × 20 mm cannon and 4 × 7.7 mm machine guns'],
+    armor: 'None',
+    notes: 'Four-engine parasol-wing flying boat with strut-braced wing. Long-range ocean patrol.',
+  },
+  jake: {
+    displacement: '3,600 kg max takeoff',
+    armament: ['1 × 250 kg bomb or depth charges', '1 × 7.7 mm rear machine gun'],
+    armor: 'None',
+    notes: 'Three-seat twin-float reconnaissance floatplane, catapulted from cruisers and battleships.',
+  },
+  tirpitz: {
+    displacement: '52,600 t full load',
+    armament: ['8 × 38 cm guns in four twin turrets', '12 × 15 cm secondary guns', '16 × 10.5 cm AA guns', '8 × 53.3 cm torpedo tubes', '4 Arado Ar 196 floatplanes'],
+    armor: '320 mm belt, 360 mm turret faces, up to 120 mm deck',
+    notes: "Bismarck's sister, nearly identical at sea. Added torpedo tubes amidships. Three shafts.",
+  },
+  typevii: {
+    displacement: '871 t submerged',
+    armament: ['4 bow and 1 stern 53.3 cm torpedo tubes, 14 torpedoes', '1 × 8.8 cm deck gun'],
+    armor: 'None',
+    notes: 'Workhorse U-boat of the Atlantic. Slow and short-legged on batteries, poor hydrophones at speed. Two shafts.',
+  },
+  fw200: {
+    displacement: '24,500 kg max takeoff',
+    armament: ['Up to 2,100 kg of bombs', '1 to 2 × 20 mm cannon, 3 to 4 machine guns', 'Later models: FuG 200 search radar'],
+    armor: 'Light crew armor',
+    notes: 'Four-engine converted airliner. Shadowed convoys and homed U-boats onto them.',
+  },
+  yorktown: {
+    displacement: '25,500 t full load',
+    armament: ['8 × 5 in/38 dual-purpose guns', '16 × 1.1 in AA guns, later 20 mm and 40 mm', 'About 90 aircraft'],
+    armor: '64 to 102 mm belt, 38 mm deck',
+    notes: 'Friendly. Large starboard island with tripod mast and a big flat-sided funnel. Four shafts.',
+  },
+  fletcher: {
+    displacement: '2,900 t full load',
+    armament: ['5 × 5 in/38 guns in single mounts', '10 × 21 in torpedo tubes', '40 mm and 20 mm AA guns', 'Depth charges'],
+    armor: 'Light splinter protection',
+    notes: 'Friendly. Flush deck, two funnels, two gun mounts forward and three aft. Two shafts.',
+  },
+  wickes: {
+    displacement: '1,250 t full load',
+    armament: ['4 × 4 in/50 guns', '12 × 21 in torpedo tubes', 'Depth charges'],
+    armor: 'None',
+    notes: 'Friendly. World War I "four-piper": flush deck and four thin funnels. USS Ward fired the first shot at Pearl Harbor. Two shafts.',
+  },
+  atlanta: {
+    displacement: '8,300 t full load',
+    armament: ['16 × 5 in/38 guns in eight twin mounts', '8 × 21 in torpedo tubes', '1.1 in and 20 mm AA guns'],
+    armor: '95 mm belt, 32 mm deck',
+    notes: 'Friendly. Anti-aircraft cruiser: twin 5 in mounts stacked three high fore and aft, two funnels. Two shafts.',
+  },
+  flower: {
+    displacement: '1,170 t full load',
+    armament: ['1 × 4 in gun', '1 × 2-pounder pom-pom', 'Depth charges, later Hedgehog', 'ASDIC'],
+    armor: 'None',
+    notes: 'Friendly. Whale-catcher design: short, round-bottomed, single funnel and mast. Reciprocating engine, single screw.',
+  },
+  liberty: {
+    displacement: '14,250 t full load (7,176 GRT)',
+    armament: ['1 × 4 in or 5 in gun aft', '1 × 3 in gun forward', '20 mm AA guns'],
+    armor: 'None',
+    notes: 'Mass-produced wartime freighter. Midships bridge and single funnel, three cargo masts. Triple-expansion engine, single screw.',
   },
 };
