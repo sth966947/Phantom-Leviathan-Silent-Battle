@@ -46,10 +46,19 @@ function wwiiCaptain(g: Game, i: number, s: { deepT: number }) {
   for (const e of g.events) if (/Depth charges|sonar has us|sighted our periscope/.test(e.text)) { s.deepT = i; orders.depth(g, 2); orders.speed(g, 5); }
   const deep = i - s.deepT < 900;
   if (!deep && g.own.ordDepth === 2 && i % 60 === 0) orders.depth(g, 1);
+  // A radar look every quarter hour when nothing is chasing us.
+  if (!deep && i % 900 === 450) orders.depth(g, 0);
+  if (atPeriscopeDepth(g)) { orders.radar(g, true); if (i % 900 > 600 || deep) { orders.radar(g, false); orders.depth(g, deep ? 2 : 1); } }
+  if (g.sites.length && i % 400 === 200 && (g.flags.landHits ?? 0) + g.weapons.filter((w) => w.type === 'tlam').length < 5) orders.strike(g, g.sites[(i / 400 | 0) % g.sites.length].id);
   const tgts = g.contacts.filter((c) => c.held && c.est && !c.air && guess(c) && want.has(guess(c)!) && !isFriendlyClass(guess(c)));
   tgts.sort((a, b) => dist(g.own, a.est!) - dist(g.own, b.est!));
   const t = tgts[0];
-  if (!t) { if (i % 600 === 0) { orders.turn(g, 60); orders.speed(g, 6); } return; }
+  if (!t) {
+    // With land targets, the pickets lie ahead on the task force's course: go and look. Otherwise search in circles.
+    if (g.sites.length) { if (i % 120 === 0) { orders.heading(g, 270); orders.speed(g, 10); } }
+    else if (i % 600 === 0) { orders.turn(g, 60); orders.speed(g, 6); }
+    return;
+  }
   g.selected = t.id;
   if (!t.classified) orders.classify(g, t.id, guess(t)!);
   const r = dist(g.own, t.est!);

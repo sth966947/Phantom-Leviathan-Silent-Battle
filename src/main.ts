@@ -12,6 +12,7 @@ import { Periscope } from './ui/periscope';
 import { Solution } from './ui/solution';
 
 const $ = (id: string) => document.getElementById(id)!;
+const esc = (t: string) => t.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]!));
 
 const SPEEDS: [number, string][] = [[3, 'Creep'], [5, '⅓'], [10, '⅔'], [15, 'Std'], [20, 'Full'], [32, 'Flank']];
 const DEPTHS: [number, string][] = [[0, 'Periscope'], [1, '150 ft'], [2, '700 ft']];
@@ -58,6 +59,7 @@ on('fireAsroc', () => orders.fire(g, 'asroc'));
 on('fireJatm', () => orders.fire(g, 'jatm'));
 on('fireSm6', () => orders.fire(g, 'sm6'));
 on('radar', () => orders.radar(g));
+on('fireTlam', () => orders.strike(g, Number(($('tlamSite') as HTMLSelectElement).value)));
 on('scopeBtn', togglePeriscope);
 on('solBtn', () => solution.toggle());
 on('ping', () => orders.ping(g));
@@ -111,7 +113,7 @@ document.addEventListener('keydown', (ev) => {
     e: () => orders.depth(g, Math.min(2, g.own.ordDepth + 1) as Depth),
     l: () => orders.layer(g),
     f: () => orders.fire(g, 'mk48'), h: () => orders.fire(g, 'harpoon'), t: () => orders.fire(g, 'mst'),
-    g: () => orders.fire(g, 'asroc'), j: () => orders.fire(g, 'jatm'), m: () => orders.fire(g, 'sm6'),
+    g: () => orders.fire(g, 'asroc'), y: () => orders.strike(g, Number(($('tlamSite') as HTMLSelectElement).value)), j: () => orders.fire(g, 'jatm'), m: () => orders.fire(g, 'sm6'),
     r: () => orders.radar(g), v: togglePeriscope, b: () => solution.toggle(), escape: () => { if (periscope.open) periscope.close(); else solution.close(); },
     p: () => orders.ping(g), c: () => orders.decoy(g),
     tab: () => orders.cycleContact(g), k: acceptTop,
@@ -133,6 +135,8 @@ function newGame(key: ScenarioKey) {
   waterfall.clear();
   signature.clear();
   plot.reset(key === 'duel' ? 2 : 3);
+  $('tlamRow').hidden = !g.sites.length;
+  $('tlamSite').innerHTML = g.sites.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join('');
   periscope.close();
   solution.close();
   overShown = false;
@@ -154,7 +158,6 @@ function start(key: ScenarioKey) {
 }
 
 // ---- Campaign screen ---------------------------------------------------------------
-const esc = (t: string) => t.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]!));
 const campaignHTML = $('brief').innerHTML;
 let picked: MissionKey = CAMPAIGN.find((k) => unlocked(k) && !results()[k]?.win) ?? 'bismarck';
 

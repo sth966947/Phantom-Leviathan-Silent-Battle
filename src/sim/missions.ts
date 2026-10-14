@@ -146,27 +146,32 @@ export const MISSIONS: Record<MissionKey, Mission> = {
   doolittle: {
     key: 'doolittle', title: 'The Doolittle Raid', era: '1941', place: '650 nm east of Japan', date: '18 Apr 1942, 0600',
     library: ['picket', 'yorktown', 'fletcher', 'atlanta', 'merchant', 'mavis'],
-    brief: 'Hornet has sixteen Army B-25s lashed to her flight deck, and Enterprise is covering her. Historically the picket boat Nittō Maru spotted the task force at 0738 and radioed Tokyo, and the bombers had to launch ten hours early, 170 miles farther out than planned. Tang is ahead of the task force. Find the picket boats and sink them before they can report. A Kawanishi flying boat is patrolling high overhead.',
+    brief: 'Hornet has sixteen Army B-25s lashed to her flight deck, and Enterprise is covering her. Historically the picket boat Nittō Maru spotted the task force at 0738 and radioed Tokyo, and the bombers had to launch ten hours early, 170 miles farther out than planned. Tang is ahead of the task force. Find the picket boats and sink them before they can report. Then hit Japan first: Tang\'s land-attack Tomahawks can reach the raid\'s own targets, flying by terrain maps with no GPS. Land at least three hits before the bombers launch. A Kawanishi flying boat is patrolling high overhead.',
     build(g, r) {
       g.startClock = clock(6);
-      g.timeLimit = 2.5 * 3600;
+      g.timeLimit = 3 * 3600;
       const course = 270;
       g.own.hdg = g.own.ordHdg = course;
-      const tfPos = offset(g.own, 90, 22);
+      const tfPos = offset(g.own, 90, 45);
       const hornet = add(g, 'yorktown', 'USS Hornet', 'allied', tfPos, course, 20, { mode: 'transit', baseCourse: course, cruise: 20, legT: 900 });
       add(g, 'yorktown', 'USS Enterprise', 'allied', offset(tfPos, 0, 3), course, 20, { mode: 'station', leader: hornet.id, rel: 0, rng: 3 });
       screen(g, hornet, 'atlanta', ['USS Nashville'], [[270, 4]]);
       screen(g, hornet, 'fletcher', ['USS Gwin', 'USS Meredith', 'USS Grayson', 'USS Monssen'], [[300, 6], [60, 6], [150, 5], [210, 5]]);
-      const line = offset(g.own, course, 26 + r() * 4);
+      const line = offset(g.own, course, 18 + r() * 4);
       const pickets = ['No. 23 Nittō Maru', 'Nagato Maru', 'Awata Maru'].map((n, i) => {
         const c = offset(line, 0, (i - 1) * 16 + (r() * 2 - 1) * 4);
         return add(g, 'picket', n, 'enemy', c, r() * 360, 6, { mode: 'picket', center: c });
       });
       add(g, 'mavis', 'Kawanishi H6K', 'enemy', offset(line, 0, 40), 180, 120, { mode: 'wander', center: line, rng: 40, cruise: 120 });
-      setGoal(g, { targets: ids(pickets), need: pickets.length, surviveWin: true, win: 'No report reached Tokyo. Hornet launches the raid from the planned spot.', timeout: '' });
+      // Doolittle's targets, roughly 650 nm west. Tokyo is the reference point.
+      const tokyo = offset(tfPos, course, 650);
+      g.sites = ([['Yokosuka naval yard', 200, 25], ['Tokyo: army arsenal and steel works', 0, 0], ['Yokohama docks', 210, 14], ['Nagoya: Mitsubishi aircraft works', 250, 140], ['Kobe: Kawasaki aircraft works', 255, 245]] as const)
+        .map(([name, b, d], i) => ({ id: -(i + 1), name, ...offset(tokyo, b, d), hits: 0 }));
+      setGoal(g, { targets: ids(pickets), need: 99, win: '', timeout: 'Fewer than three Tomahawks reached Japan before the raid launched.' });
       g.script = (gg) => {
         const sender = pickets.find((p) => p.alive && (p.ai!.reportT ?? 0) >= 240);
-        if (sender) end(gg, false, `${sender.name}'s report reached Tokyo. The raid launches early and far out.`);
+        if (sender) return end(gg, false, `${sender.name}'s report reached Tokyo. The raid launches early and far out.`);
+        if (gg.t >= gg.timeLimit - 1 && (gg.flags.landHits ?? 0) >= 3) end(gg, true, `No report reached Tokyo, and ${gg.flags.landHits} Tomahawks have already hit Japan. Hornet launches the raid from the planned spot.`);
       };
     },
   },

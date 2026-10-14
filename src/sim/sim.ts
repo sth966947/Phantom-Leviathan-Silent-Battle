@@ -13,11 +13,11 @@ export type Depth = 0 | 1 | 2;
 export type ScenarioKey = MissionKey;
 export type EventKind = 'info' | 'contact' | 'danger' | 'good' | 'warn';
 export type Sound = 'ping' | 'ping-echo' | 'contact' | 'launch' | 'missile' | 'alarm' | 'boom';
-export type WeaponKey = 'mk48' | 'ugst' | 'harpoon' | 'mst' | 'asroc' | 'mk54' | 'jatm' | 'sm6' | 'apr3' | 'wwtorp';
+export type WeaponKey = 'mk48' | 'ugst' | 'harpoon' | 'mst' | 'asroc' | 'mk54' | 'jatm' | 'sm6' | 'apr3' | 'wwtorp' | 'tlam';
 /** What the player can launch. Mk 54 comes from ASROC; UGST and APR-3 are enemy weapons. */
 export type FireKey = 'mk48' | 'harpoon' | 'mst' | 'asroc' | 'jatm' | 'sm6';
 /** How a weapon finds its target: homing torpedo, anti-ship missile, ASROC carrier, or surface-to-air. */
-export type Role = 'torpedo' | 'antiship' | 'asw' | 'aa';
+export type Role = 'torpedo' | 'antiship' | 'asw' | 'aa' | 'land';
 
 export interface GameEvent { t: number; kind: EventKind; text: string; sound?: Sound }
 
@@ -99,6 +99,8 @@ export interface Game {
   sunk: { name: string; cls: string; side: Side; by: Side }[]; flags: Record<string, number>;
   /** Mission script run every tick: waves launching, pickets reporting, midgets reaching harbour. */
   script: ((g: Game) => void) | null;
+  /** Fixed targets ashore for land-attack Tomahawks, with hits landed on each. */
+  sites: (Vec & { id: number; name: string; hits: number })[];
   t: number; r: () => number; seq: number;
   over: { win: boolean; t: number; reason: string } | null;
   own: OwnBoat; vessels: Vessel[]; contacts: Contact[]; selected: number | null;
@@ -133,6 +135,8 @@ export const WEAPONS: Record<WeaponKey, {
   sm6: { name: 'SM-6 (sub-launched)', short: 'SM-6', spd: 2000, maxRun: 130, seeker: 50, damage: 1, missile: true, role: 'aa', vls: true, pk: 0.9 },
   apr3: { name: 'APR-3E air-dropped torpedo', short: 'APR-3', spd: 60, maxRun: 3, seeker: 1.2, damage: 3, missile: false, role: 'torpedo' },
   // WWII straight-running torpedo (G7e, Type 95): no seeker, it hits whatever is in its path.
+  // Land attack: flies to a fixed site by terrain matching (TERCOM), so it needs no GPS.
+  tlam: { name: 'Tomahawk land attack (Block V)', short: 'TLAM', spd: 480, maxRun: 1000, seeker: 0, damage: 1, missile: true, role: 'land', vls: true },
   wwtorp: { name: 'Straight-running torpedo', short: 'Torpedo', spd: 40, maxRun: 5, seeker: 0.12, damage: 3, missile: false, role: 'torpedo' },
 };
 export const JATM_PER_CANISTER = 7;
@@ -203,7 +207,7 @@ export function create(scenario: ScenarioKey = 'bismarck', seed?: number, carry:
   const g = {
     scenario, era: m.era, startClock: 0, timeLimit: Infinity, library: m.library, night: !!m.night,
     goal: { targets: [], need: 1, protect: [], maxLosses: Infinity, surviveWin: false, win: '', timeout: '', lossText: '' },
-    sunk: [], flags: {}, script: null,
+    sunk: [], flags: {}, script: null, sites: [],
     t: 0, r, seq: 1, over: null, vessels: [], contacts: [], selected: null,
     weapons: [], decoys: [], buoys: [], charges: [], splashT: -1e9, heard: new Set(), sweeps: [], events: [], waterfall: null, wfTimer: 0, pings: [], blasts: [],
     stats: {
@@ -325,6 +329,30 @@ export const orders = {
     transient(g, o, 'us');
     if (w.missile) launchSeen(g);
   },
+  /** Land-attack Tomahawk at one of the mission's fixed sites ashore. */
+  strike(g: Game, siteId: number) {
+    const o = g.own, w = WEAPONS.tlam;
+    if (g.over) return;
+    const site = g.sites.find((x) => x.id === siteId);
+    if (!site) return log(g, 'warn', 'TLAM: no target selected.');
+    if (o.depthT > MISSILE_MAX_DEPTH) return log(g, 'warn', 'TLAM: come up to 150 feet or shallower to launch.');
+    const range = dist(o, site);
+    if (range > w.maxRun) return log(g, 'warn', `TLAM: ${site.name} is ${fmtRng(range)} away, beyond Tomahawk range.`);
+    const tube = o.vls.findIndex((x) => x <= 0);
+    if (tube < 0) return log(g, 'warn', 'All vertical launch tubes reloading.');
+    o.vls[tube] = VLS_RELOAD;
+    g.stats.fired.tlam++;
+    const label = `TLAM ${g.stats.fired.tlam}`;
+    const hdg = brg(o, site);
+    g.weapons.push({
+      id: g.seq++, type: 'tlam', side: 'us', label, x: o.x, y: o.y, hdg, ordHdg: hdg, spd: w.spd,
+      run: 0, maxRun: w.maxRun, enableAt: Infinity, enabled: false, deep: false, wire: false,
+      aim: { x: site.x, y: site.y }, contactId: site.id, target: null, rolled: new Set(), trail: [],
+    });
+    log(g, 'good', `VLS tube ${tube + 1} fired. ${label} for ${site.name}, ${fmtRng(range)}, about ${Math.round(range / w.spd * 60)} minutes' flight. Terrain matching only: no GPS in 1942.`, 'missile');
+    transient(g, o, 'us');
+    launchSeen(g);
+  },
   radar(g: Game, on = !g.own.radar) {
     if (g.over || on === g.own.radar) return;
     if (on && g.own.depthT > PD_MAX) return log(g, 'warn', 'Radar: the mast only clears the water at periscope depth.');
@@ -436,6 +464,21 @@ function updateWeapon(g: Game, w: Weapon, dt: number) {
   const step = w.spd * KT * dt;
   w.run += step;
   // ASROC flies straight to the drop point and puts a Mk 54 in the water there.
+  // TLAM: cruise to the site. Terrain matching over 2029 maps works on 1942 ground; the
+  // terminal camera's scenes are 87 years out of date, so a few miss.
+  if (spec.role === 'land') {
+    w.ordHdg = brg(w, w.aim);
+    if (dist(w, w.aim) <= step) {
+      w.dead = true;
+      const site = g.sites.find((x) => x.id === w.contactId);
+      if (site && g.r() < 0.85) {
+        site.hits++; g.flags.landHits = (g.flags.landHits ?? 0) + 1;
+        log(g, 'good', `${w.label}: impact on ${site.name}.`, 'boom');
+      } else log(g, 'warn', `${w.label}: no impact report from ${site?.name ?? 'the target'}. Probably a miss.`);
+      return;
+    }
+    return moveWeapon(g, w, spec, dt);
+  }
   if (spec.role === 'asw') {
     w.ordHdg = brg(w, w.aim);
     if (dist(w, w.aim) <= step) {

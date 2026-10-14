@@ -106,6 +106,7 @@ export function interlude(key: MissionKey, r: Result): string[] {
     case 'doolittle':
       return r.win ? [
         'No picket report reached Tokyo. Hornet launched Doolittle\'s sixteen B-25s from the planned spot, 400 miles out, and every one of them reached China with fuel to spare.',
+        `Before they arrived, ${r.flags.landHits ?? 0} explosions had already shaken Japan: Tang\'s Tomahawks, which no Japanese report could explain. Tokyo blames "a new long-range bomber", and fighter squadrons are pulled home from the Pacific to guard the cities.`,
         'The raid itself did little damage, but it shamed the Japanese high command, and Yamamoto pushes his Midway plan through.',
         'XO: "So Midway happens anyway. We know how that one is supposed to go. Do we?"',
       ] : [

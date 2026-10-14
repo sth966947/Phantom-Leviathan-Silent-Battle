@@ -265,3 +265,5 @@ button.on-air { background: #1d4a3a; border-color: #2f7a5e; color: #d4ffe9; }
 .brief .row { display: flex; gap: 8px; }
 @media (max-width: 700px) { .camp { grid-template-columns: 1fr; } }
 .camp-detail button { flex: none; height: auto; }
+#tlamRow select { flex: 1 1 auto; min-width: 0; background: #0a1b2b; color: var(--ink); border: 1px solid var(--rule); font: 12px var(--f-body); padding: 4px; }
+#tlamRow button { flex: none; }
