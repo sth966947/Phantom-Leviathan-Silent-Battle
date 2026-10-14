@@ -53,6 +53,8 @@ export interface Vessel extends Vec {
 
 export interface OwnBoat extends Vessel {
   tubes: number[]; vls: number[]; decoys: number; arrayStableAt: number;
+  /** The towed array streams with the boat, or is worked across the layer from it. */
+  arraySide: ArraySide;
   /** Rounds left in the JATM canister in the current vertical tube (7 per canister). */
   jatm: number; radar: boolean;
 }
@@ -186,17 +188,23 @@ export const inBaffles = (lis: { hdg: number }, bearing: number) => Math.abs(ang
 /** Towed array works when slow and straight; it removes the stern blind spot and adds gain. */
 export const arrayActive = (g: Game) => g.own.spd <= ARRAY.maxSpd && g.t >= g.own.arrayStableAt;
 
-type Listener = Vec & { hdg: number; spd: number; depthT: number; array?: boolean };
+type Listener = Vec & { hdg: number; spd: number; depthT: number; array?: boolean; arrayDepthT?: number };
 
 /** Passive sonar equation, simplified. Positive means detectable. */
 export function excess(sl: number, src: Vec & { depthT?: number; deep?: boolean }, lis: Listener, threshold: number): number {
   const r = dist(src, lis);
-  const b = brg(lis, src);
-  if (!lis.array && inBaffles(lis, b)) return -99;
-  const layer = deepOf(src) !== deepOf(lis) ? LAYER_LOSS : 0;
-  return sl - 20 * Math.log10(Math.max(r, 0.05)) - selfNoise(lis.spd) - layer - threshold + (lis.array ? ARRAY.gain : 0);
+  const base = sl - 20 * Math.log10(Math.max(r, 0.05)) - selfNoise(lis.spd) - threshold;
+  // Hull sonar: deaf astern, and it hears across the layer badly.
+  const hull = inBaffles(lis, brg(lis, src)) ? -99 : base - (deepOf(src) !== deepOf(lis) ? LAYER_LOSS : 0);
+  if (!lis.array) return hull;
+  // Towed array: no baffles, some gain, and it listens from its own side of the layer.
+  const arr = base + ARRAY.gain - (deepOf(src) !== deepOf({ depthT: lis.arrayDepthT ?? lis.depthT }) ? LAYER_LOSS : 0);
+  return Math.max(hull, arr);
 }
-const ownEars = (g: Game): Listener => ({ x: g.own.x, y: g.own.y, hdg: g.own.hdg, spd: g.own.spd, depthT: g.own.depthT, array: arrayActive(g) });
+/** Where the towed array streams: with the boat, or across the layer from it. */
+export type ArraySide = 'with' | 'above' | 'below';
+export const arrayDepthT = (o: OwnBoat) => (o.arraySide === 'above' ? Math.min(o.depthT, 1) : o.arraySide === 'below' ? Math.max(o.depthT, 2) : o.depthT);
+const ownEars = (g: Game): Listener => ({ x: g.own.x, y: g.own.y, hdg: g.own.hdg, spd: g.own.spd, depthT: g.own.depthT, array: arrayActive(g), arrayDepthT: arrayDepthT(g.own) });
 
 // ---- Setup ---------------------------------------------------------------------------
 export function makeVessel(g: Game, cls: string, name: string, side: Side, p: Vec, hdg: number, spd: number, depth: Depth): Vessel {
@@ -231,7 +239,7 @@ export function create(scenario: ScenarioKey = 'bismarck', seed?: number, carry:
   } as unknown as Game;
 
   const ownV = makeVessel(g, 'virginia', 'USS Tang (SSN-805)', 'us', { x: 0, y: 0 }, 0, 5, 1);
-  g.own = Object.assign(ownV, { tubes: [0, 0, 0, 0], vls: Array(12).fill(0), decoys: 4, arrayStableAt: 0, jatm: 0, radar: false });
+  g.own = Object.assign(ownV, { tubes: [0, 0, 0, 0], vls: Array(12).fill(0), decoys: 4, arrayStableAt: 0, arraySide: 'with' as ArraySide, jatm: 0, radar: false });
   g.vessels.push(g.own);
   m.build(g, r, carry);
   return g;
@@ -282,11 +290,28 @@ export const orders = {
   turn(g: Game, delta: number) { g.own.ordHdg = norm(Math.round(g.own.ordHdg + delta)); },
   speed(g: Game, kts: number) { g.own.ordSpd = clamp(kts, 0, g.own.cls.maxSpd); },
   depth(g: Game, d: Depth) {
+    if (g.own.arraySide !== 'with') { g.own.arraySide = 'with'; g.own.arrayStableAt = g.t + ARRAY.settle; log(g, 'info', 'Towed array streaming with the boat again.'); }
     if (g.own.ordDepth === d) return;
     g.own.ordDepth = d;
     const ft = Math.round(depthFeet(d));
     log(g, 'info', d === 0 ? 'Making periscope depth, 60 feet. Periscope and masts will be up.'
       : `Making depth ${ft} feet${d > LAYER_AT ? (g.own.depthT > LAYER_AT ? ', below the layer' : ', going below the layer') : ', above the layer'}.`);
+  },
+  /**
+   * Straddle the layer: the boat on one side, the towed array worked across to the other, so
+   * the array hears what the hull can't. 'above' puts the boat below the layer and the array
+   * above it; 'below' the other way round.
+   */
+  straddle(g: Game, array: 'above' | 'below') {
+    const o = g.own;
+    if (o.arraySide === array) return;
+    o.arraySide = 'with'; // quietly: the order below sets the depth, then the array goes across
+    orders.depth(g, depthT(array === 'above' ? 550 : 300));
+    o.arraySide = array;
+    o.arrayStableAt = g.t + ARRAY.settle;
+    log(g, 'info', array === 'above'
+      ? 'Making depth 550 feet, below the layer. Towed array is being worked up above the layer.'
+      : 'Making depth 300 feet, above the layer. Towed array is being let out deep, below the layer.');
   },
   /** Make a depth in feet, between periscope depth and test depth. */
   depthTo(g: Game, feet: number) {

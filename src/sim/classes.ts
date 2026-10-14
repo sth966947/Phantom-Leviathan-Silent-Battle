@@ -187,6 +187,14 @@ export const CLASSES: Record<string, ClassCard> = {
     key: 'liberty', name: 'Liberty ship', type: 'merchant', nation: 'US', kind: 'surface',
     slBase: 84, maxSpd: 11, threshold: null, hp: 3, tonals: [26, 52, 78, 12], blades: 4, shaftHzPerKt: 0.2,
   },
+  maru: {
+    key: 'maru', name: 'Maru transport', type: 'transport', nation: 'Japan', kind: 'surface',
+    slBase: 83, maxSpd: 12, threshold: null, hp: 3, tonals: [55, 27, 110, 83], blades: 4, shaftHzPerKt: 0.21,
+  },
+  frachter: {
+    key: 'frachter', name: 'German freighter', type: 'merchant', nation: 'Germany', kind: 'surface',
+    slBase: 84, maxSpd: 11, threshold: null, hp: 3, tonals: [50, 25, 100, 75], blades: 4, shaftHzPerKt: 0.19,
+  },
   // ---- 1942 additions: Java Sea, Coral Sea, Solomons and the Arctic ----
   // Japanese cruisers keep the 55 Hz line, Allied European ships 50 Hz, US ships 60 Hz.
   renown: {
@@ -554,6 +562,18 @@ export const REFERENCE: Record<string, Reference> = {
     armament: ['1 × 4 in or 5 in gun aft', '1 × 3 in gun forward', '20 mm AA guns'],
     armor: 'None',
     notes: 'Mass-produced wartime freighter. Midships bridge and single funnel, three cargo masts. Triple-expansion engine, single screw.',
+  },
+  maru: {
+    displacement: '4,000 to 9,000 GRT',
+    armament: ['Often one or two old field guns', 'Machine guns'],
+    armor: 'None',
+    notes: 'Requisitioned freighter or liner carrying troops and supplies. Japanese merchant names end in Maru. Bridge and funnel amidships, derricks fore and aft.',
+  },
+  frachter: {
+    displacement: '5,000 to 8,000 GRT',
+    armament: ['Usually unarmed'],
+    armor: 'None',
+    notes: 'German cargo steamer. Single funnel amidships, cargo masts fore and aft. Single screw.',
   },
   renown: {
     displacement: '37,400 t full load',

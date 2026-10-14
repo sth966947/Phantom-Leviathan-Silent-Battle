@@ -301,3 +301,4 @@ button.on-air { background: #1d4a3a; border-color: #2f7a5e; color: #d4ffe9; }
 .depth-set input::-webkit-outer-spin-button, .depth-set input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .depth-set input:focus { outline: 1px solid var(--own); }
 .depth-set button { flex: none; }
+.straddle button { flex: 1 1 0; font-size: 12.5px; }

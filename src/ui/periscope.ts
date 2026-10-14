@@ -72,6 +72,16 @@ const SHIPS: Record<string, ShipSil> = {
     parts: [{ t: 'box', x0: 0, x1: 0.1, h: 10 }, { t: 'mast', x: 0.24, h: 24 }, { t: 'box', x0: 0.42, x1: 0.56, h: 15 },
       { t: 'funnel', x: 0.5, w: 0.06, h: 21 }, { t: 'mast', x: 0.74, h: 24 }, { t: 'box', x0: 0.88, x1: 1, h: 10 }],
   },
+  maru: {
+    kind: 'ship', len: 125, deck: [[0, 7], [0.12, 8], [0.14, 6], [0.84, 6], [0.86, 8], [1, 9]],
+    parts: [{ t: 'box', x0: 0, x1: 0.12, h: 9 }, { t: 'mast', x: 0.22, h: 22 }, { t: 'box', x0: 0.4, x1: 0.58, h: 14 }, { t: 'box', x0: 0.44, x1: 0.52, h: 19 },
+      { t: 'funnel', x: 0.54, w: 0.05, h: 24 }, { t: 'mast', x: 0.76, h: 22 }, { t: 'box', x0: 0.86, x1: 1, h: 9 }],
+  },
+  frachter: {
+    kind: 'ship', len: 135, deck: [[0, 7], [0.1, 8], [0.12, 6], [0.86, 6], [0.88, 8], [1, 9]],
+    parts: [{ t: 'box', x0: 0, x1: 0.1, h: 10 }, { t: 'mast', x: 0.2, h: 26 }, { t: 'mast', x: 0.32, h: 20 }, { t: 'box', x0: 0.44, x1: 0.6, h: 16 },
+      { t: 'funnel', x: 0.53, w: 0.07, h: 22 }, { t: 'mast', x: 0.72, h: 26 }, { t: 'box', x0: 0.88, x1: 1, h: 10 }],
+  },
 
   // ---- Pacific and Atlantic WWII ----
   // Carriers: hull, hangar block, then the flight deck as a slab so its overhangs and the

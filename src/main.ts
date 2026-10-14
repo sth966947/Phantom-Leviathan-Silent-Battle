@@ -1,7 +1,7 @@
 import 'pixi.js/unsafe-eval'; // no eval(), so the game runs under strict content security policies
 import './style.css';
 import { WEAPONS, contactById, create, inPeriscope, orders, tick, type Depth, type Game, type ScenarioKey, type WeaponKey } from './sim/sim';
-import { CAMPAIGN, MISSIONS, type MissionKey } from './sim/missions';
+import { CAMPAIGN, MISSIONS, PREQUELS, type MissionKey } from './sim/missions';
 import { carryFor, changedFor, interlude, record, results, unlocked } from './campaign';
 import { Plot, SPANS } from './render/plot';
 import { Waterfall } from './ui/waterfall';
@@ -57,6 +57,8 @@ buttonRow($('times'), TIMES, (_, l) => l, (v) => { timeScale = v; });
 const on = (id: string, fn: () => void) => $(id).addEventListener('click', fn);
 on('left', () => orders.turn(g, -10));
 on('shallower', () => orders.depthBy(g, -50));
+on('arrayUp', () => orders.straddle(g, 'above'));
+on('arrayDown', () => orders.straddle(g, 'below'));
 on('deeper', () => orders.depthBy(g, 50));
 $('depthSet').addEventListener('submit', (ev) => {
   ev.preventDefault();
@@ -128,6 +130,7 @@ document.addEventListener('keydown', (ev) => {
     q: () => { const up = [...DEPTHS].reverse().find(([v]) => v < g.own.ordDepth - 0.01); if (up) orders.depth(g, up[0]); },
     e: () => { const dn = DEPTHS.find(([v]) => v > g.own.ordDepth + 0.01); if (dn) orders.depth(g, dn[0]); },
     '[': () => orders.depthBy(g, -50), ']': () => orders.depthBy(g, 50),
+    u: () => orders.straddle(g, 'above'), n: () => orders.straddle(g, 'below'),
     l: () => orders.layer(g),
     f: () => orders.fire(g, 'mk48'), h: () => orders.fire(g, 'harpoon'), t: () => orders.fire(g, 'mst'),
     g: () => orders.fire(g, 'asroc'), y: () => orders.strike(g, Number(($('tlamSite') as HTMLSelectElement).value)), j: () => orders.fire(g, 'jatm'), m: () => orders.fire(g, 'sm6'),
@@ -231,7 +234,9 @@ function showCampaign(key: MissionKey = picked) {
     const mark = r?.win ? '<span class="ok">✓</span>' : r ? '<span class="no">✗</span>' : '';
     return `<li class="${k === key ? 'sel' : ''} ${open ? '' : 'locked'}"><button data-m="${k}" ${open ? '' : 'disabled'}><span class="n">${n}</span><span class="t">${esc(MISSIONS[k].title)}<small>${esc(MISSIONS[k].date.split(',')[0])}</small></span>${mark}</button></li>`;
   };
-  $('campList').innerHTML = CAMPAIGN.map((k, i) => item(k, String(i + 1))).join('') + '<li class="sep">Present day</li>' + item('duel', '—');
+  $('campList').innerHTML = CAMPAIGN.map((k, i) => item(k, String(i + 1))).join('')
+    + '<li class="sep">Before the vortex · optional</li>' + PREQUELS.map((k) => item(k, '·')).join('')
+    + '<li class="sep">Present day</li>' + item('duel', '—');
   $('campList').addEventListener('click', (ev) => {
     const b = (ev.target as HTMLElement).closest<HTMLButtonElement>('button[data-m]');
     if (b && !b.disabled) showCampaign(b.dataset.m as MissionKey);
@@ -298,6 +303,8 @@ function frame(now: number) {
     solution.update(g);
     for (const b of $('speeds').children as HTMLCollectionOf<HTMLElement>) b.classList.toggle('on', +b.dataset.v! === g.own.ordSpd);
     for (const b of $('depths').children as HTMLCollectionOf<HTMLElement>) b.classList.toggle('on', +b.dataset.v! === g.own.ordDepth);
+    $('arrayUp').classList.toggle('on', g.own.arraySide === 'above');
+    $('arrayDown').classList.toggle('on', g.own.arraySide === 'below');
     for (const b of $('times').children as HTMLCollectionOf<HTMLElement>) b.classList.toggle('on', +b.dataset.v! === timeScale);
   }
   if (g.over && !overShown) {

@@ -4,7 +4,7 @@
 // at the surface, at its depth or at its altitude. Contacts with no range yet are listed in
 // a column on the right at their height.
 import { CLASSES } from '../sim/classes';
-import { LAYER_FT, altitudeFt, depthFeet, isFriendlyClass, type Contact, type Game, type Vessel } from '../sim/sim';
+import { LAYER_FT, altitudeFt, arrayDepthT, depthFeet, isFriendlyClass, type Contact, type Game, type Vessel } from '../sim/sim';
 import { dist, fmtBrg } from '../sim/math';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -165,8 +165,14 @@ export class DepthView {
       if (what) { x2.fillStyle = C.dim; x2.font = mono(10.5); x2.fillText(what, box.l + 3, box.t + 13); }
       x2.globalAlpha = 1;
     }
-    // Own ship last so it sits on top.
+    // Own ship last so it sits on top, with the towed array trailing at its own depth.
     const oy = yDep(depthFeet(g.own.depthT));
+    const ay = yDep(depthFeet(arrayDepthT(g.own)));
+    x2.strokeStyle = C.own; x2.globalAlpha = 0.7; x2.setLineDash([4, 3]); x2.lineWidth = 1.5;
+    x2.beginPath(); x2.moveTo(x0 - 10, oy); x2.bezierCurveTo(x0 + 20, oy, x0 + 30, ay, x0 + 70, ay); x2.stroke();
+    x2.setLineDash([]); x2.lineWidth = 3; x2.beginPath(); x2.moveTo(x0 + 70, ay); x2.lineTo(x0 + 100, ay); x2.stroke(); x2.lineWidth = 1; x2.globalAlpha = 1;
+    x2.font = mono(10.5); x2.fillStyle = C.own; x2.textAlign = 'left'; x2.textBaseline = 'bottom';
+    x2.fillText(`ARRAY ${fmtFt(depthFeet(arrayDepthT(g.own)))}`, x0 + 72, ay - 4);
     glyph(x2, g.own, x0, oy, C.own, false);
     x2.font = mono(11, 600); x2.fillStyle = C.own; x2.textAlign = 'left'; x2.textBaseline = 'top';
     x2.fillText(`TANG ${fmtFt(depthFeet(g.own.depthT))}`, x0 + 18, oy + 8);

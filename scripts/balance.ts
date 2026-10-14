@@ -2,7 +2,7 @@
 // Run with: npx vite-node scripts/balance.ts
 import { atPeriscopeDepth, create, isFriendlyClass, orders, targetContact, tick, type Game } from '../src/sim/sim';
 import { CLASSES } from '../src/sim/classes';
-import { CAMPAIGN } from '../src/sim/missions';
+import { CAMPAIGN, PREQUELS } from '../src/sim/missions';
 import { brg, dist } from '../src/sim/math';
 
 const med = (a: number[]) => (a.length ? a.sort((x, y) => x - y)[Math.floor(a.length / 2)] : NaN);
@@ -50,6 +50,9 @@ function wwiiCaptain(g: Game, i: number, s: { deepT: number }) {
   if (!deep && i % 900 === 450) orders.depth(g, 0);
   if (atPeriscopeDepth(g)) { orders.radar(g, true); if (i % 900 > 600 || deep) { orders.radar(g, false); orders.depth(g, deep ? 2 : 1); } }
   if (g.sites.length && i % 400 === 200 && (g.flags.landHits ?? 0) + g.weapons.filter((w) => w.type === 'tlam').length < 5) orders.strike(g, g.sites[(i / 400 | 0) % g.sites.length].id);
+  // Strike flights: at periscope depth with radar on, SM-6 the nearest one.
+  const air = g.contacts.filter((c) => c.held && c.air && c.est && guess(c) && !isFriendlyClass(guess(c)) && g.vessels.find((v) => v.id === c.vid)?.ai?.mode === 'strike');
+  if (air.length && !deep && i % 45 === 0) { if (!atPeriscopeDepth(g)) orders.depth(g, 0); else { orders.radar(g, true); g.selected = air[0].id; orders.fire(g, 'sm6'); } }
   const tgts = g.contacts.filter((c) => c.held && c.est && !c.air && guess(c) && want.has(guess(c)!) && !isFriendlyClass(guess(c)));
   tgts.sort((a, b) => dist(g.own, a.est!) - dist(g.own, b.est!));
   const t = tgts[0];
@@ -70,7 +73,7 @@ function wwiiCaptain(g: Game, i: number, s: { deepT: number }) {
 }
 
 const only = process.argv[2];
-for (const key of only ? [only as 'duel'] : (['duel', ...CAMPAIGN] as const)) {
+for (const key of only ? [only as 'duel'] : (['duel', ...CAMPAIGN, ...PREQUELS] as const)) {
 
   const res: Record<string, number> = {};
   const mins: number[] = [];
@@ -84,6 +87,8 @@ for (const key of only ? [only as 'duel'] : (['duel', ...CAMPAIGN] as const)) {
       g.events.length = 0;
     }
     const out = g.over ? (g.over.win ? 'win' : g.over.reason) : 'timeout';
+    // V=1 lists each run.
+    if (process.env.V) console.log(seed, out.slice(0, 30), "sunk:", g.vessels.filter((v) => !v.alive).map((v) => v.name).join(", "));
     res[out] = (res[out] ?? 0) + 1;
     if (g.over) mins.push(Math.round(g.over.t / 60));
   }

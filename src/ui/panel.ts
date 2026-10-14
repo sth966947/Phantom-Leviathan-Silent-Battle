@@ -77,7 +77,7 @@ export function updatePanel(g: Game) {
   setText('oDepth', `${ft} ft${o.depthT < 0.3 ? ', periscope up' : o.depthT > 1.5 ? ', below layer' : ', above layer'}${Math.abs(o.depthT - o.ordDepth) > 0.05 ? ` → ${Math.round(depthFeet(o.ordDepth))} ft` : ''}`);
   const sl = vesselSL(o) - o.cls.slBase;
   setText('oNoise', sl < 10 ? 'quiet' : sl < 20 ? 'moderate' : sl < 35 ? 'loud' : 'very loud');
-  setText('oArray', o.radar ? 'radar transmitting' : arrayActive(g) ? 'tracking' : o.spd > ARRAY.maxSpd ? 'flow noise, too fast' : `settling ${Math.ceil(o.arrayStableAt - g.t)}s`);
+  setText('oArray', `${o.radar ? 'radar transmitting' : arrayActive(g) ? 'tracking' : o.spd > ARRAY.maxSpd ? 'flow noise, too fast' : `settling ${Math.ceil(o.arrayStableAt - g.t)}s`}${o.arraySide === 'with' || o.radar ? '' : `, ${o.arraySide} layer`}`);
 
   setHTML($('contacts'), contactsHTML(g));
   const id = identHTML(g);
