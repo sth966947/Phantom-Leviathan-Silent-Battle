@@ -43,6 +43,11 @@
 
   <div class="main">
     <div class="stage">
+    <div class="replaybar" id="replayBar" hidden>
+      <span id="replayText">Replay</span>
+      <button id="replayRestart">Restart</button>
+      <button id="replayExit">Back to results <kbd>Esc</kbd></button>
+    </div>
     <div class="depthview" id="depthView" hidden>
       <div class="sol-head"><span>Sea conditions · <span id="depthRead" class="depth-read"></span></span><button id="depthClose">Close <kbd>X</kbd></button></div>
       <canvas id="depthCanvas" aria-label="Side view of the sea around Tang: thermal layer, contact depths and aircraft altitudes"></canvas>

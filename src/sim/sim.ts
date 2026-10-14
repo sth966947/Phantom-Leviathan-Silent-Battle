@@ -106,6 +106,8 @@ export interface Game {
   sites: (Vec & { id: number; name: string; hits: number })[];
   t: number; r: () => number; seq: number;
   over: { win: boolean; t: number; reason: string } | null;
+  /** A replay of a finished mission: the plot shows every ship where it really is. */
+  replay?: boolean;
   own: OwnBoat; vessels: Vessel[]; contacts: Contact[]; selected: number | null;
   weapons: Weapon[]; decoys: Decoy[]; buoys: Buoy[]; splashT: number; heard: Set<number>; sweeps: { t: number }[];
   events: GameEvent[]; waterfall: WaterfallRow | null; wfTimer: number;

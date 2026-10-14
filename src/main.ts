@@ -11,6 +11,7 @@ import { play, unlockAudio } from './ui/audio';
 import { Periscope } from './ui/periscope';
 import { Solution } from './ui/solution';
 import { DepthView } from './ui/depth';
+import { Player, noteSelection, record as recordOrders, recording } from './replay';
 
 const $ = (id: string) => document.getElementById(id)!;
 const esc = (t: string) => t.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]!));
@@ -26,6 +27,8 @@ let running = false;
 let acc = 0;
 let last = performance.now();
 let overShown = false;
+let replay: Player | null = null;
+let liveGame: Game | null = null; // the finished mission, kept while its replay plays
 
 const plot = new Plot();
 const waterfall = new Waterfall($('waterfall') as HTMLCanvasElement);
@@ -120,7 +123,7 @@ document.addEventListener('keydown', (ev) => {
     l: () => orders.layer(g),
     f: () => orders.fire(g, 'mk48'), h: () => orders.fire(g, 'harpoon'), t: () => orders.fire(g, 'mst'),
     g: () => orders.fire(g, 'asroc'), y: () => orders.strike(g, Number(($('tlamSite') as HTMLSelectElement).value)), j: () => orders.fire(g, 'jatm'), m: () => orders.fire(g, 'sm6'),
-    r: () => orders.radar(g), v: togglePeriscope, b: () => { depthView.close(); solution.toggle(); }, x: () => { solution.close(); depthView.toggle(); }, escape: () => { if (periscope.open) periscope.close(); else if (depthView.open) depthView.close(); else solution.close(); },
+    r: () => orders.radar(g), v: togglePeriscope, b: () => { depthView.close(); solution.toggle(); }, x: () => { solution.close(); depthView.toggle(); }, escape: () => { if (replay && liveGame && !periscope.open && !depthView.open && !solution.open) exitReplay(); else if (periscope.open) periscope.close(); else if (depthView.open) depthView.close(); else solution.close(); },
     p: () => orders.ping(g), c: () => orders.decoy(g),
     tab: () => orders.cycleContact(g), k: acceptTop,
     ' ': () => { timeScale = timeScale ? 0 : 30; },
@@ -135,7 +138,25 @@ document.addEventListener('keydown', (ev) => {
 function newGame(key: ScenarioKey) {
   scenario = key;
   const m = MISSIONS[key];
-  g = create(key, undefined, carryFor(key));
+  const seed = Date.now() & 0x7fffffff;
+  const carry = carryFor(key);
+  g = create(key, seed, carry);
+  recordOrders(g, key, seed, carry);
+  replay = null;
+  liveGame = null;
+  $('replayBar').hidden = true;
+  setUp(key);
+  addLog(g, {
+    t: 0, kind: 'info', text: key === 'bismarck'
+      ? 'The vortex has closed behind us. No GPS, no satellites, Morse on the radio. Radio intercepts put Bismarck in the Denmark Strait. 150 feet, ahead one-third, towed array streamed.'
+      : key === 'duel' ? 'On station in the Bear Gap. Ahead one-third, 150 feet. Towed array streamed, passive watch set.'
+        : `${m.title}: ${m.place}, ${m.date}. 150 feet, ahead one-third, towed array streamed.`,
+  });
+}
+
+/** Resets the screens for the game in `g`. */
+function setUp(key: ScenarioKey) {
+  const m = MISSIONS[key];
   $('log').innerHTML = '';
   $('place').textContent = `· ${m.place}, ${m.date.split(',')[0]}`;
   waterfall.clear();
@@ -148,13 +169,35 @@ function newGame(key: ScenarioKey) {
   depthView.close();
   overShown = false;
   acc = 0;
-  addLog(g, {
-    t: 0, kind: 'info', text: key === 'bismarck'
-      ? 'The vortex has closed behind us. No GPS, no satellites, Morse on the radio. Radio intercepts put Bismarck in the Denmark Strait. 150 feet, ahead one-third, towed array streamed.'
-      : key === 'duel' ? 'On station in the Bear Gap. Ahead one-third, 150 feet. Towed array streamed, passive watch set.'
-        : `${m.title}: ${m.place}, ${m.date}. 150 feet, ahead one-third, towed array streamed.`,
-  });
 }
+
+// ---- Replay -------------------------------------------------------------------------
+function startReplay() {
+  const r = recording();
+  if (!r) return;
+  liveGame ??= g;
+  g = create(r.key, r.seed, r.carry);
+  replay = new Player(g, r);
+  setUp(r.key);
+  addLog(g, { t: 0, kind: 'info', text: 'Replay: the mission again from the start, with every ship shown where it really was. Use time compression to speed it up or slow it down.' });
+  $('replayText').textContent = 'Replay';
+  $('replayBar').hidden = false;
+  $('overlay').hidden = true;
+  timeScale = 30;
+  running = true;
+  last = performance.now();
+}
+function exitReplay() {
+  if (!liveGame) return;
+  g = liveGame;
+  liveGame = null;
+  replay = null;
+  $('replayBar').hidden = true;
+  $('overlay').hidden = false; // the results, as they were
+  running = false;
+}
+on('replayRestart', startReplay);
+on('replayExit', exitReplay);
 
 function start(key: ScenarioKey) {
   unlockAudio();
@@ -213,8 +256,9 @@ function showResult() {
     <p class="sub">${esc(MISSIONS[key].title)} · ${Math.round(o.t / 60)} min · ${fired} fired · ${g.stats.hits} hits${g.stats.blueOnBlue ? ` · ${g.stats.blueOnBlue} on friendly ships` : ''}</p>
     <p>${esc(o.reason)}${res.sunk.length ? ` Sunk: ${esc(res.sunk.join(', '))}.` : ''}${res.aircraft ? ` Aircraft shot down: ${res.aircraft}.` : ''} The plot now shows where every ship really was.</p>
     ${story.length ? `<div class="interlude"><div class="wlabel">The war, as it now stands</div>${story.map((p) => `<p>${esc(p)}</p>`).join('')}</div>` : ''}
-    <div class="row">${next ? `<button id="next">Next: ${esc(MISSIONS[next].title)}</button>` : ''}<button id="again">Play again</button><button id="menu">Campaign</button></div>`;
+    <div class="row">${next ? `<button id="next">Next: ${esc(MISSIONS[next].title)}</button>` : ''}<button id="watch">Watch replay</button><button id="again">Play again</button><button id="menu">Campaign</button></div>`;
   $('next')?.addEventListener('click', () => showCampaign(next!));
+  $('watch').addEventListener('click', startReplay);
   $('again').addEventListener('click', () => start(scenario));
   $('menu').addEventListener('click', () => showCampaign(i >= 0 ? key : picked));
   $('overlay').hidden = false;
@@ -228,7 +272,10 @@ function frame(now: number) {
   last = now;
   if (running && !g.over) {
     acc += dt * timeScale;
-    for (let n = 0; acc >= 1 && n < 400 && !g.over; n++) { tick(g, 1); acc -= 1; }
+    for (let n = 0; acc >= 1 && n < 400 && !g.over; n++) {
+      if (replay) replay.apply(); else noteSelection(g);
+      tick(g, 1); acc -= 1;
+    }
   }
   for (const ev of g.events) { addLog(g, ev); if (ev.sound) play(ev.sound); }
   g.events.length = 0;
@@ -245,7 +292,11 @@ function frame(now: number) {
     for (const b of $('depths').children as HTMLCollectionOf<HTMLElement>) b.classList.toggle('on', +b.dataset.v! === g.own.ordDepth);
     for (const b of $('times').children as HTMLCollectionOf<HTMLElement>) b.classList.toggle('on', +b.dataset.v! === timeScale);
   }
-  if (g.over && !overShown) { overShown = true; updatePanel(g); setTimeout(showResult, 2500); }
+  if (g.over && !overShown) {
+    overShown = true; updatePanel(g);
+    if (replay) $('replayText').textContent = 'Replay finished';
+    else setTimeout(showResult, 2500);
+  }
   requestAnimationFrame(frame);
 }
 

@@ -93,7 +93,7 @@ export class Plot {
     if (!W) return;
     this.span += (SPANS[this.zoom] - this.span) * 0.15; // smooth zoom
     const k = Math.min(W, H) / this.span;
-    const own = g.own, over = !!g.over;
+    const own = g.own, over = !!g.over || !!g.replay;
     const cx = W / 2, cy = H / 2, ctr = { x: cx, y: cy };
     const scr = (p: Vec): P => ({ x: cx + (p.x - own.x) * k, y: cy - (p.y - own.y) * k });
     const ray = (b: number, len: number): P => ({ x: cx + Math.sin((b * Math.PI) / 180) * len, y: cy - Math.cos((b * Math.PI) / 180) * len });
