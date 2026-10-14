@@ -23,6 +23,7 @@ const TIMES: [number, string][] = [[0, 'Pause'], [10, '×10'], [30, '×30'], [90
 let scenario: ScenarioKey = 'bismarck';
 let g: Game = create(scenario);
 let timeScale = 30;
+let resumeScale = 30; // what Pause goes back to
 let running = false;
 let acc = 0;
 let last = performance.now();
@@ -53,8 +54,24 @@ function buttonRow(host: HTMLElement, items: [number, string][], fmt: (v: number
 }
 buttonRow($('speeds'), SPEEDS, (v, l) => `${l} ${v}`, (v) => orders.speed(g, v));
 buttonRow($('depths'), DEPTHS, (_, l) => l, (v) => orders.depth(g, v as Depth));
-buttonRow($('times'), TIMES, (_, l) => l, (v) => { timeScale = v; });
+buttonRow($('times'), TIMES, (_, l) => l, (v) => { if (!v && timeScale) resumeScale = timeScale; timeScale = v; });
+function togglePause() { if (timeScale) { resumeScale = timeScale; timeScale = 0; } else timeScale = resumeScale; }
 const on = (id: string, fn: () => void) => $(id).addEventListener('click', fn);
+on('pauseBtn', togglePause);
+// Leaving a mission in progress takes two clicks, so a stray one doesn't throw it away.
+on('toCampaign', () => {
+  const b = $('toCampaign');
+  const midMission = running && !g.over && !replay;
+  if (midMission && !b.classList.contains('confirm')) {
+    b.classList.add('confirm');
+    b.textContent = 'Leave mission? Click again';
+    setTimeout(() => { b.classList.remove('confirm'); b.textContent = 'Back to campaign'; }, 4000);
+    return;
+  }
+  b.classList.remove('confirm'); b.textContent = 'Back to campaign';
+  if (replay) exitReplay();
+  showCampaign();
+});
 on('left', () => orders.turn(g, -10));
 on('shallower', () => orders.depthBy(g, -50));
 on('arrayUp', () => orders.straddle(g, 'above'));
@@ -137,7 +154,7 @@ document.addEventListener('keydown', (ev) => {
     r: () => orders.radar(g), v: togglePeriscope, b: () => { depthView.close(); solution.toggle(); }, x: () => { solution.close(); depthView.toggle(); }, escape: () => { if (replay && liveGame && !periscope.open && !depthView.open && !solution.open) exitReplay(); else if (periscope.open) periscope.close(); else if (depthView.open) depthView.close(); else solution.close(); },
     p: () => orders.ping(g), c: () => orders.decoy(g),
     tab: () => orders.cycleContact(g), k: acceptTop,
-    ' ': () => { timeScale = timeScale ? 0 : 30; },
+    ' ': togglePause,
     '1': () => { timeScale = 10; }, '2': () => { timeScale = 30; }, '3': () => { timeScale = 90; },
     '=': () => { plot.zoom = Math.max(0, plot.zoom - 1); }, '-': () => { plot.zoom = Math.min(SPANS.length - 1, plot.zoom + 1); },
   };
@@ -224,6 +241,7 @@ let picked: MissionKey = CAMPAIGN.find((k) => unlocked(k) && !results()[k]?.win)
 
 function showCampaign(key: MissionKey = picked) {
   picked = key;
+  const keep = document.getElementById('campList')?.scrollTop ?? 0; // the list is redrawn below
   const brief = $('brief');
   brief.className = 'brief';
   brief.innerHTML = campaignHTML;
@@ -237,6 +255,8 @@ function showCampaign(key: MissionKey = picked) {
   $('campList').innerHTML = CAMPAIGN.map((k, i) => item(k, String(i + 1))).join('')
     + '<li class="sep">Before the vortex · optional</li>' + PREQUELS.map((k) => item(k, '·')).join('')
     + '<li class="sep">Present day</li>' + item('duel', '—');
+  if (keep) $('campList').scrollTop = keep;
+  else $('campList').querySelector('li.sel')?.scrollIntoView({ block: 'nearest' });
   $('campList').addEventListener('click', (ev) => {
     const b = (ev.target as HTMLElement).closest<HTMLButtonElement>('button[data-m]');
     if (b && !b.disabled) showCampaign(b.dataset.m as MissionKey);
@@ -319,6 +339,9 @@ function frame(now: number) {
     $('arrayUp').classList.toggle('on', g.own.arraySide === 'above');
     $('arrayDown').classList.toggle('on', g.own.arraySide === 'below');
     for (const b of $('times').children as HTMLCollectionOf<HTMLElement>) b.classList.toggle('on', +b.dataset.v! === timeScale);
+    const pb = $('pauseBtn'), label = timeScale ? 'Pause' : 'Resume';
+    if (pb.firstChild?.textContent?.trim() !== label) pb.innerHTML = `${label} <kbd>Space</kbd>`;
+    pb.classList.toggle('on', !timeScale);
   }
   if (g.over && !overShown) {
     overShown = true; updatePanel(g);

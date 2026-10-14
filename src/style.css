@@ -212,14 +212,15 @@ button.on-air { background: #1d4a3a; border-color: #2f7a5e; color: #d4ffe9; }
 /* Solution window: covers the plot column while open. */
 .solution {
   position: absolute; inset: 0; z-index: 3; background: var(--panel); border: 1px solid var(--rule);
-  display: grid; grid-template-rows: auto minmax(150px, 38%) minmax(0, 1fr); gap: 8px; padding: 8px 10px;
+  display: grid; grid-template-rows: auto minmax(130px, 30%) minmax(0, 1fr); gap: 8px; padding: 8px 10px;
   box-sizing: border-box; overflow: hidden;
 }
 .sol-head { display: flex; justify-content: space-between; align-items: center; font: 600 13px var(--f-data); }
 .sol-head button { flex: none; }
 .sol-sonar { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 8px; min-height: 0; }
-.sol-sonar .wf-wrap, .sol-sonar .sig-wrap { display: flex; flex-direction: column; }
-.sol-sonar canvas { flex: 1 1 auto; height: auto; min-height: 0; image-rendering: pixelated; }
+.sol-sonar .wf-wrap, .sol-sonar .sig-wrap { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+/* Fill the row and stretch, rather than keep the canvas's shape and spill over the class panel below. */
+.sol-sonar canvas { flex: 1 1 0; width: 100%; height: 0; min-height: 0; image-rendering: pixelated; }
 .sol-body { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(260px, 1fr); gap: 10px; min-height: 0; }
 .sol-feed { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
 .sol-sensed { display: flex; flex-wrap: wrap; gap: 4px 6px; font: 12px var(--f-data); color: var(--contact); }
@@ -277,6 +278,11 @@ button.on-air { background: #1d4a3a; border-color: #2f7a5e; color: #d4ffe9; }
 .interlude { border-left: 3px solid var(--own); padding: 4px 0 4px 14px; margin: 6px 0 14px; }
 .interlude p { font-size: 15px; }
 .brief .row { display: flex; gap: 8px; }
+/* The list scrolls on its own, so the briefing of a mission far down it stays in view. */
+@media (min-width: 701px) {
+  .camp-list { max-height: calc(100vh - 230px); overflow-y: auto; padding-right: 4px; }
+  .camp-detail { align-self: start; position: sticky; top: 0; }
+}
 @media (max-width: 700px) { .camp { grid-template-columns: 1fr; } }
 .camp-detail button { flex: none; height: auto; }
 #tlamRow select { flex: 1 1 auto; min-width: 0; background: #0a1b2b; color: var(--ink); border: 1px solid var(--rule); font: 12px var(--f-body); padding: 4px; }
@@ -306,3 +312,8 @@ button.on-air { background: #1d4a3a; border-color: #2f7a5e; color: #d4ffe9; }
 .camp-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .brief .restart { flex: none; width: auto; margin-top: 4px; padding: 6px 12px; font-size: 12px; }
 .brief .restart.confirm { border-color: var(--threat); color: var(--threat); }
+
+.head-right { display: flex; align-items: center; gap: 8px; }
+.head-right button { padding: 5px 12px; }
+.head-right .clock { margin-left: 8px; }
+#toCampaign.confirm { border-color: var(--threat); color: var(--threat); }
