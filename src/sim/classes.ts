@@ -6,7 +6,7 @@
 // propeller blade-rate line (blades x shaft rate), which shifts with speed.
 
 export type Kind = 'sub' | 'surface' | 'air';
-export type Nation = 'US' | 'UK' | 'Germany' | 'Russia' | 'Japan';
+export type Nation = 'US' | 'UK' | 'Germany' | 'Russia' | 'Japan' | 'Netherlands' | 'Italy';
 
 export interface ClassCard {
   key: string;
@@ -186,6 +186,100 @@ export const CLASSES: Record<string, ClassCard> = {
   liberty: {
     key: 'liberty', name: 'Liberty ship', type: 'merchant', nation: 'US', kind: 'surface',
     slBase: 84, maxSpd: 11, threshold: null, hp: 3, tonals: [26, 52, 78, 12], blades: 4, shaftHzPerKt: 0.2,
+  },
+  // ---- 1942 additions: Java Sea, Coral Sea, Solomons and the Arctic ----
+  // Japanese cruisers keep the 55 Hz line, Allied European ships 50 Hz, US ships 60 Hz.
+  renown: {
+    key: 'renown', name: 'Renown (Renown, Repulse)', type: 'battlecruiser', nation: 'UK', kind: 'surface',
+    slBase: 82, maxSpd: 31, threshold: null, hp: 10, tonals: [50, 17, 124, 37, 184], blades: 3, shaftHzPerKt: 0.14,
+  },
+  g4m: {
+    key: 'g4m', name: 'Mitsubishi G4M "Betty"', type: 'land-based bomber', nation: 'Japan', kind: 'air',
+    slBase: 0, maxSpd: 230, threshold: null, hp: 1, tonals: [], blades: 0, shaftHzPerKt: 0,
+  },
+  ryujo: {
+    key: 'ryujo', name: 'Light carrier (Ryūjō, Shōhō, Zuihō)', type: 'light aircraft carrier', nation: 'Japan', kind: 'surface',
+    slBase: 79, maxSpd: 28, threshold: null, hp: 6, tonals: [53, 30, 140, 70], blades: 3, shaftHzPerKt: 0.17,
+  },
+  myoko: {
+    key: 'myoko', name: 'Myōkō (Nachi, Haguro, Ashigara)', type: 'heavy cruiser', nation: 'Japan', kind: 'surface',
+    slBase: 79, maxSpd: 34, threshold: null, hp: 7, tonals: [55, 23, 110, 80, 166], blades: 3, shaftHzPerKt: 0.17,
+  },
+  aoba: {
+    key: 'aoba', name: 'Aoba / Furutaka (Aoba, Kinugasa, Furutaka, Kako)', type: 'heavy cruiser', nation: 'Japan', kind: 'surface',
+    slBase: 78, maxSpd: 33, threshold: null, hp: 6, tonals: [55, 25, 98, 72], blades: 3, shaftHzPerKt: 0.18,
+  },
+  sendai: {
+    key: 'sendai', name: '5,500-ton light cruiser (Jintsū, Nagara, Tama, Abukuma)', type: 'light cruiser', nation: 'Japan', kind: 'surface',
+    slBase: 79, maxSpd: 35, threshold: null, hp: 5, tonals: [55, 32, 128, 90, 174], blades: 3, shaftHzPerKt: 0.19,
+  },
+  mogami: {
+    key: 'mogami', name: 'Mogami (Mogami, Mikuma)', type: 'heavy cruiser', nation: 'Japan', kind: 'surface',
+    slBase: 79, maxSpd: 35, threshold: null, hp: 7, tonals: [55, 20, 116, 68, 158], blades: 3, shaftHzPerKt: 0.17,
+  },
+  scharnhorst: {
+    key: 'scharnhorst', name: 'Scharnhorst (Scharnhorst, Gneisenau)', type: 'battleship', nation: 'Germany', kind: 'surface',
+    slBase: 81, maxSpd: 31, threshold: null, hp: 11, tonals: [42, 18, 112, 61, 168], blades: 3, shaftHzPerKt: 0.15,
+  },
+  usca: {
+    key: 'usca', name: 'US heavy cruiser (Northampton, Houston, New Orleans, Astoria, Quincy, Vincennes, Minneapolis, Salt Lake City)', type: 'heavy cruiser', nation: 'US', kind: 'surface',
+    slBase: 79, maxSpd: 32, threshold: null, hp: 7, tonals: [60, 23, 114, 79, 162], blades: 3, shaftHzPerKt: 0.17,
+  },
+  brooklyn: {
+    key: 'brooklyn', name: 'Brooklyn (Honolulu, Helena)', type: 'light cruiser', nation: 'US', kind: 'surface',
+    slBase: 79, maxSpd: 32, threshold: null, hp: 6, tonals: [60, 31, 126, 88, 182], blades: 3, shaftHzPerKt: 0.18,
+  },
+  // Turbo-electric drive: a loud, clean motor line at 15 Hz under the 60 Hz generator.
+  lexington: {
+    key: 'lexington', name: 'Lexington (Lexington, Saratoga)', type: 'aircraft carrier', nation: 'US', kind: 'surface',
+    slBase: 83, maxSpd: 33, threshold: null, hp: 10, tonals: [60, 15, 120, 180, 94], blades: 3, shaftHzPerKt: 0.14,
+  },
+  deruyter: {
+    key: 'deruyter', name: 'Dutch light cruiser (De Ruyter, Java)', type: 'light cruiser', nation: 'Netherlands', kind: 'surface',
+    slBase: 79, maxSpd: 32, threshold: null, hp: 5, tonals: [50, 26, 106, 66], blades: 3, shaftHzPerKt: 0.18,
+  },
+  town: {
+    key: 'town', name: 'Town (Belfast, Sheffield)', type: 'light cruiser', nation: 'UK', kind: 'surface',
+    slBase: 79, maxSpd: 32, threshold: null, hp: 6, tonals: [50, 29, 118, 86, 166], blades: 3, shaftHzPerKt: 0.17,
+  },
+  // ---- 1939 to 1941: River Plate, Narvik, Matapan and the Mediterranean ----
+  // Italian ships share a 39 Hz generator line. The Deutschlands run on diesels: firing-rate
+  // lines instead of turbine whine, unlike anything else in the book.
+  deutschland: {
+    key: 'deutschland', name: 'Deutschland (Admiral Graf Spee, Admiral Scheer)', type: 'heavy cruiser', nation: 'Germany', kind: 'surface',
+    slBase: 82, maxSpd: 28, threshold: null, hp: 8, tonals: [28, 56, 7, 84, 112], blades: 3, shaftHzPerKt: 0.16,
+  },
+  zerstorer: {
+    key: 'zerstorer', name: 'Zerstörer 1934/1936 (Z-class destroyers)', type: 'destroyer', nation: 'Germany', kind: 'surface',
+    slBase: 81, maxSpd: 38, threshold: null, hp: 3, tonals: [42, 34, 146, 100], blades: 3, shaftHzPerKt: 0.22,
+  },
+  cavour: {
+    key: 'cavour', name: 'Conte di Cavour (Giulio Cesare, Conte di Cavour)', type: 'battleship', nation: 'Italy', kind: 'surface',
+    slBase: 81, maxSpd: 28, threshold: null, hp: 11, tonals: [39, 16, 104, 58, 172], blades: 2, shaftHzPerKt: 0.16,
+  },
+  littorio: {
+    key: 'littorio', name: 'Littorio (Vittorio Veneto, Littorio)', type: 'battleship', nation: 'Italy', kind: 'surface',
+    slBase: 82, maxSpd: 30, threshold: null, hp: 13, tonals: [39, 14, 98, 66, 188], blades: 3, shaftHzPerKt: 0.14,
+  },
+  zara: {
+    key: 'zara', name: 'Zara (Zara, Fiume, Pola)', type: 'heavy cruiser', nation: 'Italy', kind: 'surface',
+    slBase: 79, maxSpd: 32, threshold: null, hp: 7, tonals: [39, 21, 108, 74, 160], blades: 3, shaftHzPerKt: 0.17,
+  },
+  soldati: {
+    key: 'soldati', name: 'Soldati (Italian destroyers)', type: 'destroyer', nation: 'Italy', kind: 'surface',
+    slBase: 81, maxSpd: 38, threshold: null, hp: 3, tonals: [39, 35, 152, 104], blades: 3, shaftHzPerKt: 0.22,
+  },
+  qe: {
+    key: 'qe', name: 'Queen Elizabeth (Warspite)', type: 'battleship', nation: 'UK', kind: 'surface',
+    slBase: 81, maxSpd: 24, threshold: null, hp: 12, tonals: [50, 14, 100, 46, 176], blades: 3, shaftHzPerKt: 0.15,
+  },
+  leander: {
+    key: 'leander', name: 'Leander (Ajax, Achilles, Perth)', type: 'light cruiser', nation: 'UK', kind: 'surface',
+    slBase: 79, maxSpd: 32, threshold: null, hp: 5, tonals: [50, 24, 132, 78], blades: 3, shaftHzPerKt: 0.18,
+  },
+  hclass: {
+    key: 'hclass', name: 'British fleet destroyer (Hardy, Hotspur, Cossack)', type: 'destroyer', nation: 'UK', kind: 'surface',
+    slBase: 80, maxSpd: 36, threshold: null, hp: 3, tonals: [50, 36, 148, 102], blades: 3, shaftHzPerKt: 0.22,
   },
 };
 
@@ -460,5 +554,137 @@ export const REFERENCE: Record<string, Reference> = {
     armament: ['1 × 4 in or 5 in gun aft', '1 × 3 in gun forward', '20 mm AA guns'],
     armor: 'None',
     notes: 'Mass-produced wartime freighter. Midships bridge and single funnel, three cargo masts. Triple-expansion engine, single screw.',
+  },
+  renown: {
+    displacement: '37,400 t full load',
+    armament: ['6 × 15 in guns in three twin turrets', '20 × 4 in guns (Renown, twin DP mounts) or 9 × 4 in in triple mounts (Repulse)', '2-pounder pom-poms', '8 × 21 in torpedo tubes', '4 floatplanes'],
+    armor: '152 to 229 mm belt, 76 to 127 mm deck (Renown after rebuild)',
+    notes: 'Long, lean battlecruisers: two turrets forward, one aft, two funnels. Renown rebuilt with a tower bridge, Repulse kept a tripod. Four shafts.',
+  },
+  g4m: {
+    displacement: '12,900 kg max takeoff',
+    armament: ['1 × Type 91 aerial torpedo or 800 kg of bombs', '1 × 20 mm tail cannon', '4 × 7.7 mm machine guns'],
+    armor: 'None, and unprotected fuel tanks',
+    notes: 'Twin-engine land-based bomber with a fat cigar fuselage, glazed nose and tail gun cone. Sank Prince of Wales and Repulse.',
+  },
+  ryujo: {
+    displacement: '12,500 t (Ryūjō) to 14,200 t (Shōhō) full load',
+    armament: ['8 × 12.7 cm AA guns', '25 mm AA guns', '30 to 37 aircraft'],
+    armor: 'Minimal',
+    notes: 'Small flush-deck carriers with no island: bridge under the forward lip of the flight deck, small funnels curving down on the starboard side. Ryūjō has a tall, top-heavy double hangar. Two shafts.',
+  },
+  myoko: {
+    displacement: '15,900 t full load',
+    armament: ['10 × 20.3 cm guns in five twin turrets', '8 × 12.7 cm AA guns', '16 × 61 cm torpedo tubes (Type 93)', '2 to 3 floatplanes'],
+    armor: '102 mm belt, 35 mm deck',
+    notes: 'Three turrets forward in a pyramid, two aft. Wide trunked forward funnel and a tall aft funnel. Smaller bridge than Takao. Four shafts.',
+  },
+  aoba: {
+    displacement: '10,800 t (Furutaka) to 11,700 t (Aoba) full load',
+    armament: ['6 × 20.3 cm guns in three twin turrets', '4 × 12 cm AA guns', '8 × 61 cm torpedo tubes', '1 to 2 floatplanes'],
+    armor: '76 mm belt, 32 to 35 mm deck',
+    notes: 'Smallest Japanese heavy cruisers: two turrets forward, one aft, two funnels with the forward one wide and trunked. Low sweeping sheer line. Four shafts.',
+  },
+  sendai: {
+    displacement: '7,100 t full load',
+    armament: ['7 × 14 cm guns in single mounts', '2 × 8 cm or 12.7 cm AA guns', '8 × 61 cm torpedo tubes', '1 floatplane'],
+    armor: '64 mm belt, 29 mm deck',
+    notes: 'Destroyer-squadron flagships: tall thin funnels (three, four on Sendai/Jintsū), tripod foremast, scattered single guns. Four shafts.',
+  },
+  mogami: {
+    displacement: '15,000 t full load',
+    armament: ['10 × 20.3 cm guns in five twin turrets (rebuilt from 15 × 15.5 cm)', '8 × 12.7 cm AA guns', '12 × 61 cm torpedo tubes (Type 93)', '3 floatplanes'],
+    armor: '100 mm belt, 35 to 60 mm deck',
+    notes: 'Three turrets forward, two aft, and one big trunked funnel. Compact bridge, long open quarterdeck. Four shafts.',
+  },
+  scharnhorst: {
+    displacement: '38,100 t full load',
+    armament: ['9 × 28 cm guns in three triple turrets', '12 × 15 cm secondary guns', '14 × 10.5 cm AA guns', '6 × 53.3 cm torpedo tubes (from 1942)', '3 to 4 Arado Ar 196 floatplanes'],
+    armor: '350 mm belt, 360 mm turret faces, up to 105 mm deck',
+    notes: 'Fast, low battleships with a raked "Atlantic" bow. Two triple turrets forward, one aft, single capped funnel. Three shafts.',
+  },
+  usca: {
+    displacement: '11,500 to 12,500 t full load',
+    armament: ['9 × 8 in guns in three triple turrets', '8 × 5 in/25 AA guns', '1.1 in and 20 mm AA guns', '4 floatplanes'],
+    armor: '76 to 127 mm belt, 25 to 57 mm deck',
+    notes: 'Friendly. Treaty cruisers: two triple turrets forward, one aft, two funnels and tripod masts, hangar amidships. Four shafts.',
+  },
+  brooklyn: {
+    displacement: '12,700 t full load',
+    armament: ['15 × 6 in guns in five triple turrets', '8 × 5 in/25 AA guns', '1.1 in, 40 mm and 20 mm AA guns', '4 floatplanes (stern hangar)'],
+    armor: '127 mm belt, 52 mm deck',
+    notes: 'Friendly. Three triple turrets forward, two aft, two close-set funnels and a high square transom stern. Four shafts.',
+  },
+  lexington: {
+    displacement: '48,500 t full load',
+    armament: ['12 × 5 in/25 AA guns', '8 in twin turrets (removed early 1942)', '1.1 in and 20 mm AA guns', 'About 78 aircraft'],
+    armor: '127 to 178 mm belt, 25 to 51 mm deck',
+    notes: 'Friendly. Converted battlecruisers, long and big: small island and a huge flat-sided funnel on the starboard side. Turbo-electric drive, four shafts.',
+  },
+  deruyter: {
+    displacement: '7,550 t (De Ruyter) to 8,200 t (Java) full load',
+    armament: ['De Ruyter: 7 × 15 cm guns in three twin and one single turret', 'Java: 10 × 15 cm guns in single mounts', '4 to 6 × 40 mm AA guns', '2 floatplanes'],
+    armor: '50 to 75 mm belt, 25 to 30 mm deck',
+    notes: 'Friendly (ABDA). De Ruyter has a tall tower bridge and one big funnel; Java has two funnels and a tripod. Lost in the Java Sea, February 1942. Three shafts.',
+  },
+  town: {
+    displacement: '11,500 to 14,000 t full load',
+    armament: ['12 × 6 in guns in four triple turrets', '8 × 4 in twin AA mounts', '2-pounder pom-poms', '6 × 21 in torpedo tubes', '2 to 3 Walrus amphibians'],
+    armor: '114 mm belt, 32 to 76 mm deck',
+    notes: 'Friendly. Two triple turrets forward and two aft, two widely spaced raked funnels with the hangars between bridge and fore funnel, tripod masts. Four shafts.',
+  },
+  deutschland: {
+    displacement: '16,000 t full load',
+    armament: ['6 × 28 cm guns in two triple turrets', '8 × 15 cm secondary guns', '6 × 10.5 cm AA guns', '8 × 53.3 cm torpedo tubes', '2 Arado Ar 196 floatplanes'],
+    armor: '60 to 80 mm belt, 40 to 45 mm deck',
+    notes: '"Pocket battleships": one triple turret forward, one aft, a tall tower bridge and a single funnel. Diesel-driven, very long range. Two shafts.',
+  },
+  zerstorer: {
+    displacement: '3,200 to 3,400 t full load',
+    armament: ['5 × 12.7 cm guns in single mounts', '8 × 53.3 cm torpedo tubes', '3.7 cm and 2 cm AA guns', 'Depth charges, up to 60 mines'],
+    armor: 'None',
+    notes: 'Big German destroyers: two raked, capped funnels, two guns forward and three aft. Wet forecastle. Two shafts.',
+  },
+  cavour: {
+    displacement: '29,000 t full load',
+    armament: ['10 × 32 cm guns (two triple and two twin turrets)', '12 × 12 cm secondary guns', '8 × 10 cm AA guns'],
+    armor: '250 mm belt, 280 mm turret faces, up to 135 mm deck',
+    notes: 'World War I battleships rebuilt in the 1930s: triple turrets low fore and aft with twins superfiring, two funnels, tower bridge. Two shafts.',
+  },
+  littorio: {
+    displacement: '45,000 t full load',
+    armament: ['9 × 38.1 cm guns in three triple turrets', '12 × 15.2 cm secondary guns', '12 × 9 cm AA guns', '3 floatplanes'],
+    armor: '350 mm belt, 350 mm turret faces, up to 162 mm deck',
+    notes: 'Modern, handsome battleships: two triple turrets forward, one aft, two close-set funnels and a tall tower bridge. High raised stern with catapult. Four shafts.',
+  },
+  zara: {
+    displacement: '14,300 t full load',
+    armament: ['8 × 20.3 cm guns in four twin turrets', '16 × 10 cm AA guns', '2 floatplanes'],
+    armor: '150 mm belt, 70 mm deck',
+    notes: 'The best-armored treaty cruisers: two turrets forward, two aft, two funnels and a tower bridge. Zara, Fiume and Pola were all lost at Matapan. Two shafts.',
+  },
+  soldati: {
+    displacement: '2,450 t full load',
+    armament: ['4 × 120 mm guns in two twin mounts (some with a fifth gun amidships)', '6 × 53.3 cm torpedo tubes', '20 mm AA guns', 'Depth charges'],
+    armor: 'None',
+    notes: 'Fast Italian destroyers: single large funnel, one twin mount forward and one aft. Two shafts.',
+  },
+  qe: {
+    displacement: '36,500 t full load',
+    armament: ['8 × 15 in guns in four twin turrets', '8 × 6 in secondary guns', '8 × 4 in AA guns', '2-pounder pom-poms', '4 Walrus amphibians'],
+    armor: '330 mm belt, 330 mm turret faces, up to 127 mm deck',
+    notes: "Friendly. Rebuilt World War I battleship: two turrets forward, two aft, single funnel and a tall 'Queen Anne's castle' bridge. Four shafts.",
+  },
+  leander: {
+    displacement: '9,200 t full load',
+    armament: ['8 × 6 in guns in four twin turrets', '8 × 4 in AA guns', '8 × 21 in torpedo tubes', '1 floatplane'],
+    armor: '76 mm belt, 51 mm deck',
+    notes: 'Friendly. Two turrets forward, two aft and one big trunked funnel (Perth, of the modified Amphion type, has two). Four shafts.',
+  },
+  hclass: {
+    displacement: '1,900 t (H class) to 2,500 t (Tribal) full load',
+    armament: ['4 × 4.7 in guns (8 in twin mounts on Tribals)', '8 × 21 in torpedo tubes (4 on Tribals)', 'Pom-poms and machine guns', 'Depth charges'],
+    armor: 'None',
+    notes: 'Friendly. Two raked funnels, two gun mounts forward and two aft. Hardy and Hotspur fought at Narvik; Cossack boarded the Altmark. Two shafts.',
   },
 };

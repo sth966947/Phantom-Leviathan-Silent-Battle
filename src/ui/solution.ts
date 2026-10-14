@@ -13,8 +13,8 @@ const setHTML = (el: HTMLElement, v: string) => { if (el.dataset.html !== v) { e
 const setText = (el: HTMLElement, v: string) => { if (el.textContent !== v) el.textContent = v; };
 
 const MAX_HZ = 200;
-const NATION: Record<string, string> = { US: 'US', UK: 'British', Germany: 'German', Russia: 'Russian', Japan: 'Japanese' };
-const FLAG: Record<string, string> = { US: 'US', UK: 'UK', Germany: 'GER', Russia: 'RUS', Japan: 'JPN' };
+const NATION: Record<string, string> = { US: 'US', UK: 'British', Germany: 'German', Russia: 'Russian', Japan: 'Japanese', Italy: 'Italian', Netherlands: 'Dutch' };
+const FLAG: Record<string, string> = { US: 'US', UK: 'UK', Germany: 'GER', Russia: 'RUS', Japan: 'JPN', Italy: 'ITA', Netherlands: 'NED' };
 const drift = (c: Contact) => {
   const r = c.held ? bearingRate(c) : null;
   return r === null ? null : Math.abs(r) < 0.2 ? 'steady' : `${r > 0 ? 'R' : 'L'} ${Math.abs(r).toFixed(1)}°/min`;

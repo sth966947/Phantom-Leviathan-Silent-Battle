@@ -242,7 +242,7 @@ const vesselById = (g: Game, id: number) => g.vessels.find((v) => v.id === id)!;
 export const contactById = (g: Game, id: number | null) => (id === null ? null : g.contacts.find((c) => c.id === id) ?? null);
 /** What the player calls a contact: its accepted class if classified, else its sonar designation. */
 export const contactLabel = (c: Contact) => (c.classified ? `${c.name} · ${CLASSES[c.classified].name}` : c.name);
-export const isFriendlyClass = (key: string | null) => !!key && (CLASSES[key].nation === 'UK' || CLASSES[key].nation === 'US');
+export const isFriendlyClass = (key: string | null) => !!key && ['UK', 'US', 'Netherlands'].includes(CLASSES[key].nation);
 
 // ---- Movement -------------------------------------------------------------------------
 function moveVessel(v: Vessel, dt: number) {
