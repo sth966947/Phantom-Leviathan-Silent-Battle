@@ -177,7 +177,7 @@ describe('radar', () => {
     const setup = (key: string, range: number) => {
       const g = duel(30);
       const v = g.vessels.find((x) => x.cls.key === key)!;
-      g.vessels.forEach((x) => { if (x !== g.own && x !== v) x.alive = false; });
+      g.vessels.forEach((x) => { if (x !== g.own && x !== v) { x.alive = false; x.gone = true; } });
       Object.assign(v, offset(g.own, 0, range)); v.ai = null; v.spd = v.ordSpd = 0;
       radarUp(g);
       run(g, 8);

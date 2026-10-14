@@ -102,6 +102,7 @@ export function updatePanel(g: Game) {
   dis('fireAsroc', !ready(o.vls) || !depthOk || !asrocRange);
   dis('fireJatm', (!o.jatm && !ready(o.vls)) || !depthOk);
   dis('fireSm6', !ready(o.vls) || !depthOk);
+  dis('fireTlam', !ready(o.vls) || !depthOk || !g.sites.length);
   dis('radar', !o.radar && !atPeriscopeDepth(g));
   dis('scopeBtn', !inPeriscope(g, sel));
   $('radar').classList.toggle('on-air', o.radar);

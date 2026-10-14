@@ -2,7 +2,7 @@
 // narrowband signature on top; below, the classes the sensor picture still allows, and
 // the recognition-book page (picture, reference signature, weapons, speed, armor) of
 // whichever one the captain picks.
-import { CLASSES, LIBRARY, REFERENCE } from '../sim/classes';
+import { CLASSES, REFERENCE } from '../sim/classes';
 import { bearingRate, contactById, contactLabel, inPeriscope, isFriendlyClass, orders, radarTracked, type Contact, type Game } from '../sim/sim';
 import { dist, fmtBrg, fmtRng } from '../sim/math';
 import { drawClassPicture } from './periscope';
@@ -13,8 +13,8 @@ const setHTML = (el: HTMLElement, v: string) => { if (el.dataset.html !== v) { e
 const setText = (el: HTMLElement, v: string) => { if (el.textContent !== v) el.textContent = v; };
 
 const MAX_HZ = 200;
-const NATION: Record<string, string> = { US: 'US', UK: 'British', Germany: 'German', Russia: 'Russian' };
-const FLAG: Record<string, string> = { US: 'US', UK: 'UK', Germany: 'GER', Russia: 'RUS' };
+const NATION: Record<string, string> = { US: 'US', UK: 'British', Germany: 'German', Russia: 'Russian', Japan: 'Japanese' };
+const FLAG: Record<string, string> = { US: 'US', UK: 'UK', Germany: 'GER', Russia: 'RUS', Japan: 'JPN' };
 const drift = (c: Contact) => {
   const r = c.held ? bearingRate(c) : null;
   return r === null ? null : Math.abs(r) < 0.2 ? 'steady' : `${r > 0 ? 'R' : 'L'} ${Math.abs(r).toFixed(1)}°/min`;
@@ -54,7 +54,7 @@ export class Solution {
     }
     if (c.classified) return { rows: [{ key: c.classified, pct: null }], ruledOut: 0 };
     const kind = (k: string) => CLASSES[k].kind === 'air';
-    return { rows: LIBRARY[g.era].filter((k) => kind(k) === c.air).map((key) => ({ key, pct: null })), ruledOut: 0 };
+    return { rows: g.library.filter((k) => kind(k) === c.air).map((key) => ({ key, pct: null })), ruledOut: 0 };
   }
 
   /** Called at panel refresh rate. */

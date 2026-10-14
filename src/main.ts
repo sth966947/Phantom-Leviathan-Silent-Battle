@@ -1,6 +1,8 @@
 import 'pixi.js/unsafe-eval'; // no eval(), so the game runs under strict content security policies
 import './style.css';
-import { SCENARIOS, WEAPONS, contactById, create, inPeriscope, orders, tick, type Depth, type Game, type ScenarioKey, type WeaponKey } from './sim/sim';
+import { WEAPONS, contactById, create, inPeriscope, orders, tick, type Depth, type Game, type ScenarioKey, type WeaponKey } from './sim/sim';
+import { CAMPAIGN, MISSIONS, type MissionKey } from './sim/missions';
+import { carryFor, changedFor, interlude, record, results, unlocked } from './campaign';
 import { Plot, SPANS } from './render/plot';
 import { Waterfall } from './ui/waterfall';
 import { SignatureDisplay } from './ui/signature';
@@ -10,6 +12,7 @@ import { Periscope } from './ui/periscope';
 import { Solution } from './ui/solution';
 
 const $ = (id: string) => document.getElementById(id)!;
+const esc = (t: string) => t.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]!));
 
 const SPEEDS: [number, string][] = [[3, 'Creep'], [5, '⅓'], [10, '⅔'], [15, 'Std'], [20, 'Full'], [32, 'Flank']];
 const DEPTHS: [number, string][] = [[0, 'Periscope'], [1, '150 ft'], [2, '700 ft']];
@@ -56,15 +59,13 @@ on('fireAsroc', () => orders.fire(g, 'asroc'));
 on('fireJatm', () => orders.fire(g, 'jatm'));
 on('fireSm6', () => orders.fire(g, 'sm6'));
 on('radar', () => orders.radar(g));
+on('fireTlam', () => orders.strike(g, Number(($('tlamSite') as HTMLSelectElement).value)));
 on('scopeBtn', togglePeriscope);
 on('solBtn', () => solution.toggle());
 on('ping', () => orders.ping(g));
 on('decoy', () => orders.decoy(g));
 on('zoomIn', () => { plot.zoom = Math.max(0, plot.zoom - 1); });
 on('zoomOut', () => { plot.zoom = Math.min(SPANS.length - 1, plot.zoom + 1); });
-for (const b of document.querySelectorAll<HTMLButtonElement>('[data-scenario]')) {
-  b.addEventListener('click', () => start(b.dataset.scenario as ScenarioKey));
-}
 
 $('contacts').addEventListener('click', (ev) => {
   const li = (ev.target as HTMLElement).closest<HTMLElement>('li[data-id]');
@@ -112,7 +113,7 @@ document.addEventListener('keydown', (ev) => {
     e: () => orders.depth(g, Math.min(2, g.own.ordDepth + 1) as Depth),
     l: () => orders.layer(g),
     f: () => orders.fire(g, 'mk48'), h: () => orders.fire(g, 'harpoon'), t: () => orders.fire(g, 'mst'),
-    g: () => orders.fire(g, 'asroc'), j: () => orders.fire(g, 'jatm'), m: () => orders.fire(g, 'sm6'),
+    g: () => orders.fire(g, 'asroc'), y: () => orders.strike(g, Number(($('tlamSite') as HTMLSelectElement).value)), j: () => orders.fire(g, 'jatm'), m: () => orders.fire(g, 'sm6'),
     r: () => orders.radar(g), v: togglePeriscope, b: () => solution.toggle(), escape: () => { if (periscope.open) periscope.close(); else solution.close(); },
     p: () => orders.ping(g), c: () => orders.decoy(g),
     tab: () => orders.cycleContact(g), k: acceptTop,
@@ -127,12 +128,15 @@ document.addEventListener('keydown', (ev) => {
 // ---- Lifecycle -------------------------------------------------------------------
 function newGame(key: ScenarioKey) {
   scenario = key;
-  g = create(key);
+  const m = MISSIONS[key];
+  g = create(key, undefined, carryFor(key));
   $('log').innerHTML = '';
-  $('place').textContent = `· ${SCENARIOS[key].place}`;
+  $('place').textContent = `· ${m.place}, ${m.date.split(',')[0]}`;
   waterfall.clear();
   signature.clear();
-  plot.reset(key === 'bismarck' ? 3 : 2);
+  plot.reset(key === 'duel' ? 2 : 3);
+  $('tlamRow').hidden = !g.sites.length;
+  $('tlamSite').innerHTML = g.sites.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join('');
   periscope.close();
   solution.close();
   overShown = false;
@@ -140,7 +144,8 @@ function newGame(key: ScenarioKey) {
   addLog(g, {
     t: 0, kind: 'info', text: key === 'bismarck'
       ? 'The vortex has closed behind us. No GPS, no satellites, Morse on the radio. Radio intercepts put Bismarck in the Denmark Strait. 150 feet, ahead one-third, towed array streamed.'
-      : 'On station in the Bear Gap. Ahead one-third, 150 feet. Towed array streamed, passive watch set.',
+      : key === 'duel' ? 'On station in the Bear Gap. Ahead one-third, 150 feet. Towed array streamed, passive watch set.'
+        : `${m.title}: ${m.place}, ${m.date}. 150 feet, ahead one-third, towed array streamed.`,
   });
 }
 
@@ -152,18 +157,59 @@ function start(key: ScenarioKey) {
   last = performance.now();
 }
 
+// ---- Campaign screen ---------------------------------------------------------------
+const campaignHTML = $('brief').innerHTML;
+let picked: MissionKey = CAMPAIGN.find((k) => unlocked(k) && !results()[k]?.win) ?? 'bismarck';
+
+function showCampaign(key: MissionKey = picked) {
+  picked = key;
+  const brief = $('brief');
+  brief.className = 'brief';
+  brief.innerHTML = campaignHTML;
+  const done = results();
+  const item = (k: MissionKey, n: string) => {
+    const open = k === 'duel' || unlocked(k);
+    const r = done[k];
+    const mark = r?.win ? '<span class="ok">✓</span>' : r ? '<span class="no">✗</span>' : '';
+    return `<li class="${k === key ? 'sel' : ''} ${open ? '' : 'locked'}"><button data-m="${k}" ${open ? '' : 'disabled'}><span class="n">${n}</span><span class="t">${esc(MISSIONS[k].title)}<small>${esc(MISSIONS[k].date.split(',')[0])}</small></span>${mark}</button></li>`;
+  };
+  $('campList').innerHTML = CAMPAIGN.map((k, i) => item(k, String(i + 1))).join('') + '<li class="sep">Present day</li>' + item('duel', '—');
+  $('campList').addEventListener('click', (ev) => {
+    const b = (ev.target as HTMLElement).closest<HTMLButtonElement>('button[data-m]');
+    if (b && !b.disabled) showCampaign(b.dataset.m as MissionKey);
+  });
+  const m = MISSIONS[key];
+  const changed = changedFor(key);
+  $('campDetail').innerHTML = `
+    <p class="sub">${esc(m.place)} · ${esc(m.date)}</p>
+    <h3>${esc(m.title)}</h3>
+    <p>${esc(m.brief)}</p>
+    ${changed.length ? `<p class="changed">History has changed: ${esc(changed.length > 1 ? `${changed.slice(0, -1).join(', ')} and ${changed[changed.length - 1]}` : changed[0])} ${changed.length > 1 ? 'were' : 'was'} sunk by Tang in an earlier mission and won't be here.</p>` : ''}
+    <button id="begin">Begin mission</button>`;
+  $('begin').addEventListener('click', () => start(key));
+  $('overlay').hidden = false;
+  running = false;
+}
+
 function showResult() {
   const o = g.over!;
+  const res = record(g);
+  const key = scenario;
   const brief = $('brief');
   const fired = Object.entries(g.stats.fired).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${WEAPONS[k as WeaponKey].short}`).join(', ') || 'no weapons';
+  const i = CAMPAIGN.indexOf(key);
+  const next = o.win && i >= 0 && i < CAMPAIGN.length - 1 ? CAMPAIGN[i + 1] : null;
+  const story = i >= 0 ? interlude(key, res) : [];
   brief.className = 'brief ' + (o.win ? 'win' : 'loss');
   brief.innerHTML = `
     <h2>${o.win ? 'Mission accomplished' : 'Mission failed'}</h2>
-    <p class="sub">${SCENARIOS[scenario].title} · ${Math.round(o.t / 60)} min · ${fired} fired · ${g.stats.hits} hits${g.stats.blueOnBlue ? ` · ${g.stats.blueOnBlue} on British ships` : ''}</p>
-    <p>${o.reason} The plot now shows where every ship really was.</p>
-    <div class="row"><button id="again">Play again</button><button id="menu">Choose mission</button></div>`;
+    <p class="sub">${esc(MISSIONS[key].title)} · ${Math.round(o.t / 60)} min · ${fired} fired · ${g.stats.hits} hits${g.stats.blueOnBlue ? ` · ${g.stats.blueOnBlue} on friendly ships` : ''}</p>
+    <p>${esc(o.reason)}${res.sunk.length ? ` Sunk: ${esc(res.sunk.join(', '))}.` : ''}${res.aircraft ? ` Aircraft shot down: ${res.aircraft}.` : ''} The plot now shows where every ship really was.</p>
+    ${story.length ? `<div class="interlude"><div class="wlabel">The war, as it now stands</div>${story.map((p) => `<p>${esc(p)}</p>`).join('')}</div>` : ''}
+    <div class="row">${next ? `<button id="next">Next: ${esc(MISSIONS[next].title)}</button>` : ''}<button id="again">Play again</button><button id="menu">Campaign</button></div>`;
+  $('next')?.addEventListener('click', () => showCampaign(next!));
   $('again').addEventListener('click', () => start(scenario));
-  $('menu').addEventListener('click', () => location.reload());
+  $('menu').addEventListener('click', () => showCampaign(i >= 0 ? key : picked));
   $('overlay').hidden = false;
   running = false;
 }
@@ -201,6 +247,7 @@ async function boot() {
   await plot.init(wrap);
   newGame('bismarck');
   updatePanel(g);
+  showCampaign();
   requestAnimationFrame(frame);
 }
 void boot();
