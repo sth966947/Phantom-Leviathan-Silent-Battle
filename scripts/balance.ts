@@ -1,16 +1,25 @@
 // Plays many seeded games with simple scripted captains and prints the outcome mix.
 // Run with: npx vite-node scripts/balance.ts
-import { create, orders, tick, type Game } from '../src/sim/sim';
+import { atPeriscopeDepth, create, orders, targetContact, tick, type Game } from '../src/sim/sim';
 import { brg, dist } from '../src/sim/math';
 
 const med = (a: number[]) => (a.length ? a.sort((x, y) => x - y)[Math.floor(a.length / 2)] : NaN);
 
-function duelCaptain(g: Game, i: number, s: { legs: number; lastLeg: number }) {
-  const c = g.contacts[0];
+function duelCaptain(g: Game, i: number, s: { legs: number; lastLeg: number; sprintT: number }) {
+  const c = g.contacts.find((x) => x.vid === g.vessels[1].id);
   if (c?.held && i - s.lastLeg > 240) { s.lastLeg = i; orders.heading(g, c.bearing! + (s.legs++ % 2 ? 50 : -50)); orders.speed(g, 6); }
   if (!c?.held && i % 600 === 0) { orders.turn(g, 70); orders.speed(g, 8); }
   if (c?.held && c.q > 0.55 && c.est && dist(g.own, c.est) < 8 && !g.weapons.some((w) => w.side === 'us' && !w.dead)) orders.fire(g, 'mk48');
-  for (const e of g.events) if (/Torpedo in the water/.test(e.text)) { orders.decoy(g); orders.speed(g, 25); orders.layer(g); orders.turn(g, 120); }
+  for (const e of g.events) if (/Torpedo in the water/.test(e.text)) { orders.decoy(g); orders.speed(g, 25); orders.layer(g); orders.turn(g, 120); s.sprintT = i; }
+  if (s.sprintT >= 0 && i - s.sprintT > 150) { s.sprintT = -1; orders.speed(g, 6); } // slow down again once clear
+  // Every 15 minutes, a look around at periscope depth: radar sweep, and a JATM at any aircraft.
+  if (i % 900 === 450 && s.sprintT < 0) orders.depth(g, 0);
+  if (atPeriscopeDepth(g)) {
+    orders.radar(g, true);
+    const air = targetContact(g, true);
+    if (air && !g.weapons.some((w) => w.type === 'jatm' && !w.dead)) orders.fire(g, 'jatm');
+    if (i % 900 > 600) { orders.radar(g, false); orders.depth(g, 1); }
+  }
 }
 
 /** Uses only what the player sees: contacts, suggested matches and solutions. */
@@ -30,7 +39,7 @@ for (const key of ['duel', 'bismarck'] as const) {
   const mins: number[] = [];
   for (let seed = 1; seed <= 100; seed++) {
     const g = create(key, seed);
-    const s = { legs: 0, lastLeg: 0 };
+    const s = { legs: 0, lastLeg: 0, sprintT: -1 };
     for (let i = 0; i < 10800 && !g.over; i++) {
       tick(g, 1);
       if (key === 'duel') duelCaptain(g, i, s); else bismarckCaptain(g, i);

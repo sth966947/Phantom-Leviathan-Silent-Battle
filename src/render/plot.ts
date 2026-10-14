@@ -3,7 +3,7 @@
 // at any time compression.
 
 import { Application, Container, Graphics, Text } from 'pixi.js';
-import { BAFFLE_HALF, WEAPONS, arrayActive, isFriendlyClass, type Contact, type Game } from '../sim/sim';
+import { BAFFLE_HALF, RADAR, WEAPONS, arrayActive, isFriendlyClass, type Contact, type Game } from '../sim/sim';
 import { CLASSES } from '../sim/classes';
 import { angDiff, dist, fmtBrg, offset, type Vec } from '../sim/math';
 
@@ -130,6 +130,24 @@ export class Plot {
       this.label('periscope range', cx, cy + VISUAL_RANGE * k - 9, COL.dim, 0.5);
     }
 
+    // Radar: classification ring and a sweeping trace.
+    if (own.radar) {
+      d.circle(cx, cy, RADAR.classify * k).stroke({ width: 1, color: COL.friend, alpha: 0.35 });
+      this.label('radar ID 15 nm', cx, cy - RADAR.classify * k + 9, COL.friend, 0.5);
+      const sw = ((now / 1000) * 90) % 360;
+      for (let i = 0; i < 12; i++) {
+        const e = ray(sw - i * 2.5, Math.min(R, RADAR.horizon * k));
+        d.moveTo(cx, cy).lineTo(e.x, e.y).stroke({ width: 2, color: COL.friend, alpha: 0.28 * (1 - i / 12) });
+      }
+    }
+
+    // Sonobuoys we heard splash, as small squares.
+    for (const b of g.buoys) {
+      if (!b.heard && !over) continue;
+      const q = scr(b);
+      d.rect(q.x - 2.5, q.y - 2.5, 5, 5).stroke({ width: 1, color: COL.threat, alpha: 0.6 });
+    }
+
     // Baffles, or the towed array astern when it is working.
     if (arrayActive(g)) {
       const tail = ray(own.hdg + 180, Math.min(0.6 * k, 40));
@@ -160,9 +178,10 @@ export class Plot {
         d.moveTo(n.x, n.y).lineTo(f.x, f.y).stroke({ width: 7, color: col, alpha: 0.22 * alpha, cap: 'round' });
       }
       const s = sel ? 8 : 6;
-      d.poly([e.x, e.y - s, e.x + s, e.y, e.x, e.y + s, e.x - s, e.y]).stroke({ width: 2, color: col, alpha: c.held && sel ? pulse : alpha });
+      const shape = c.air ? [e.x - s, e.y + s * 0.6, e.x, e.y - s, e.x + s, e.y + s * 0.6] : [e.x, e.y - s, e.x + s, e.y, e.x, e.y + s, e.x - s, e.y];
+      d.poly(shape).stroke({ width: 2, color: col, alpha: c.held && sel ? pulse : alpha });
       if (sel && c.held) d.circle(e.x, e.y, 12 + 5 * (1 - pulse)).stroke({ width: 1, color: col, alpha: 0.3 * pulse });
-      this.label(tag(c) + (v.alive ? '' : ' (sunk)'), e.x + 11, e.y - 9, col);
+      this.label(tag(c) + (v.alive ? '' : c.air ? ' (down)' : ' (sunk)'), e.x + 11, e.y - 9, col);
       this.markers.push({ id: c.id, x: e.x, y: e.y });
     }
 
@@ -210,7 +229,7 @@ export class Plot {
         d.fill({ color: col, alpha: 0.5 });
         const q = scr(v);
         d.circle(q.x, q.y, 7).stroke({ width: 2, color: col });
-        this.label(`${v.name}${v.alive ? '' : ' (sunk)'}`, q.x + 11, q.y + 10, col);
+        this.label(`${v.name}${v.alive ? '' : v.cls.kind === 'air' ? ' (down)' : ' (sunk)'}`, q.x + 11, q.y + 10, col);
       }
     }
 

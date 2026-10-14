@@ -1,5 +1,6 @@
-/* Layout: a fire-control console. Tactical plot left, sonar waterfall under it,
-   ship's status and orders in a narrow panel right; stacks on phones. */
+/* Layout: a fire-control console. On a landscape desktop: helm, time and log on the left,
+   tactical plot and sonar in the middle, contacts, weapons and sensors on the right, all
+   inside one screen with no page scroll. Narrower windows stack; phones get one column. */
 :root {
   --sea: #071624;        /* page and plot water */
   --panel: #0d2133;      /* console panels */
@@ -22,9 +23,33 @@ body {
   font: 15px/1.4 var(--f-body);
 }
 .app {
-  display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 14px;
-  max-width: 1280px; margin: 0 auto; padding-block: 14px; padding-inline: 16px;
-  box-sizing: border-box;
+  display: grid; gap: 12px; margin: 0 auto; padding-block: 12px; padding-inline: 16px; box-sizing: border-box;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-areas: "head head" "main combat" "helm combat";
+  max-width: 1280px;
+}
+header { grid-area: head; }
+.main { grid-area: main; }
+.helm { grid-area: helm; }
+.combat { grid-area: combat; }
+@media (min-width: 1180px) and (orientation: landscape) {
+  .app {
+    grid-template-columns: 300px minmax(0, 1fr) 330px; grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas: "head head head" "helm main combat";
+    max-width: 1800px; height: 100vh; overflow: hidden;
+  }
+  .helm, .combat { min-height: 0; overflow: hidden; }
+  .logcard { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  .logcard .log { flex: 1 1 auto; max-height: none; }
+  .main .plot-wrap { max-width: min(100%, calc(100vh - 80px)); }
+  /* Weapons and sensors always stay in view; the contact card gives up space and scrolls inside. */
+  .combat > .contact { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+  .combat > section:not(.contact), .helm > section:not(.logcard) { flex: none; }
+  section.card { padding: 8px 10px; }
+  .card h2 { margin-bottom: 6px; }
+  .wlabel { margin: 6px 0 3px; }
+  button { padding: 6px 9px; }
+  .row + .row { margin-top: 5px; }
 }
 header {
   grid-column: 1 / -1; display: flex; align-items: baseline; justify-content: space-between;
@@ -35,9 +60,9 @@ h1 {
 }
 h1 span { color: var(--dim); font-weight: 500; }
 .clock { font: 600 15px var(--f-data); color: var(--ink); font-variant-numeric: tabular-nums; }
-.left { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.main { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; position: relative; }
 .plot-wrap {
-  position: relative; width: 100%; max-width: min(100%, calc(100vh - 260px)); min-width: min(100%, 320px);
+  position: relative; width: 100%; max-width: min(100%, calc(100vh - 110px)); min-width: min(100%, 320px);
   aspect-ratio: 1 / 1; align-self: center; border: 1px solid var(--rule);
   background: radial-gradient(circle at 50% 50%, #0b2236 0%, var(--sea) 70%);
   cursor: crosshair; overflow: hidden;
@@ -49,7 +74,6 @@ canvas { display: block; width: 100%; height: 100%; }
   pointer-events: none; z-index: 1;
 }
 .zoom { position: absolute; right: 8px; top: 8px; display: flex; gap: 4px; z-index: 1; }
-.sonar { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 10px; }
 .wf-wrap, .sig-wrap { border: 1px solid var(--rule); background: #020a12; position: relative; min-width: 0; }
 .sig-wrap canvas { height: 120px; image-rendering: pixelated; }
 .wf-wrap canvas { height: 120px; image-rendering: pixelated; }
@@ -62,6 +86,7 @@ canvas { display: block; width: 100%; height: 100%; }
   letter-spacing: 0.08em; text-transform: uppercase; pointer-events: none;
 }
 aside { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.sensors dd { color: var(--own); }
 section.card { background: var(--panel); border: 1px solid var(--rule); padding: 10px 12px; }
 .card h2 {
   font: 600 12px var(--f-display); letter-spacing: 0.14em; text-transform: uppercase;
@@ -115,7 +140,7 @@ kbd {
 .win h2 { color: var(--good); }
 .loss h2 { color: var(--threat); }
 @media (max-width: 860px) {
-  .app { grid-template-columns: minmax(0, 1fr); }
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "main" "combat" "helm"; }
   .plot-wrap { max-width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { .meter i { transition: none; } }
@@ -150,4 +175,68 @@ kbd {
 .mission .sub { margin: 0; }
 .mission button { margin-top: auto; flex: none; }
 .brief { max-width: 760px; }
-@media (max-width: 560px) { .sonar { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 560px) { .sol-sonar, .sol-body { grid-template-columns: minmax(0, 1fr); } }
+
+.wlabel { font-size: 11px; color: var(--dim, #6f8ea6); text-transform: uppercase; letter-spacing: 0.06em; margin: 10px 0 4px; }
+button.on-air { background: #1d4a3a; border-color: #2f7a5e; color: #d4ffe9; }
+.scope {
+  position: absolute; inset: 0; z-index: 2; background: rgba(4, 12, 20, 0.94); cursor: default;
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px; overflow-y: auto;
+}
+.scope[hidden] { display: none !important; }
+.scope canvas { position: static; width: min(100%, calc(100% - 150px), 440px); height: auto; aspect-ratio: 1; flex: none; }
+.scope-head { display: flex; justify-content: space-between; align-items: center; width: 100%; font: 600 13px var(--f-data); color: var(--ink); }
+.scope-head button { flex: none; }
+.scope-read { font: 12.5px var(--f-data); color: var(--good); text-align: center; }
+.scope-ref { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; width: 100%; }
+.scope-ref .ref { border: 1px solid var(--rule); padding: 4px 6px; display: grid; justify-items: center; gap: 2px; font-size: 12px; width: 162px; }
+.scope-ref .ref.chosen { border-color: var(--good); }
+.scope-ref .ref canvas { width: 150px; height: 46px; aspect-ratio: auto; }
+.scope-ref .ref button { padding: 2px 10px; font-size: 12px; }
+.scope-ref .done { color: var(--good); font-size: 11px; }
+
+/* Solution window: covers the plot column while open. */
+.solution {
+  position: absolute; inset: 0; z-index: 3; background: var(--panel); border: 1px solid var(--rule);
+  display: grid; grid-template-rows: auto minmax(150px, 38%) minmax(0, 1fr); gap: 8px; padding: 8px 10px;
+  box-sizing: border-box; overflow: hidden;
+}
+.sol-head { display: flex; justify-content: space-between; align-items: center; font: 600 13px var(--f-data); }
+.sol-head button { flex: none; }
+.sol-sonar { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 8px; min-height: 0; }
+.sol-sonar .wf-wrap, .sol-sonar .sig-wrap { display: flex; flex-direction: column; }
+.sol-sonar canvas { flex: 1 1 auto; height: auto; min-height: 0; image-rendering: pixelated; }
+.sol-body { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(260px, 1fr); gap: 10px; min-height: 0; }
+.sol-feed { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.sol-sensed { display: flex; flex-wrap: wrap; gap: 4px 6px; font: 12px var(--f-data); color: var(--contact); }
+.sol-sensed span { border: 1px solid var(--rule); background: #0a1b2b; padding: 1px 6px; }
+.sol-sensed .dim { color: var(--dim); border: 0; background: none; padding: 0; }
+.sol-table { overflow: auto; min-height: 0; flex: 1 1 auto; border: 1px solid var(--rule); }
+.sol-table table { width: 100%; border-collapse: collapse; font: 12.5px var(--f-data); }
+.sol-table th { position: sticky; top: 0; background: #10273b; color: var(--dim); font-weight: 400; text-align: left; padding: 4px 6px; }
+.sol-table td { padding: 4px 6px; border-top: 1px solid rgba(31, 59, 84, 0.6); color: var(--contact); white-space: nowrap; }
+.sol-table tr[data-key] { cursor: pointer; }
+.sol-table tr[data-key]:hover td { background: rgba(122, 167, 255, 0.08); }
+.sol-table tr.sel td { background: rgba(243, 176, 75, 0.16); }
+.sol-table tr.friend td { color: var(--good); }
+.sol-table .empty { color: var(--dim); white-space: normal; }
+.sol-detail { overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--rule); background: #071521; padding: 6px 8px; }
+.sol-detail .wlabel { margin-top: 2px; }
+.sol-detail canvas { width: 100%; height: auto; display: block; }
+#clsPic { aspect-ratio: 420 / 96; background: linear-gradient(#0d2236, #0a1b2b 82%, #08263a 82%); }
+#clsSig { aspect-ratio: 420 / 64; image-rendering: pixelated; }
+.cls-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font: 600 14px var(--f-data); color: var(--contact); }
+.cls-head small { color: var(--dim); font-weight: 400; }
+.cls-head button { flex: none; padding: 3px 10px; font-size: 12px; }
+#clsFacts { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 4px 0 0; font-size: 12.5px; }
+#clsFacts dt { color: var(--dim); }
+#clsFacts dd { margin: 0; color: var(--ink, #d6e4ef); }
+.sol-btn { width: 100%; margin: 6px 0 4px; background: #1d3f5e; border-color: var(--own); }
+#clsFacts dd { text-align: left; }
+.sol-table td:nth-child(n+4), .sol-table th:nth-child(n+4) { text-align: right; }
+@media (max-width: 1600px) { .sol-table table { font-size: 12px; } .sol-table td, .sol-table th { padding: 4px 5px; } }
+.sol-table td:first-child { white-space: normal; min-width: 9em; }
+@media (max-width: 1600px) { .sol-table td:nth-child(3), .sol-table th:nth-child(3) { display: none; } }
+.cls-photo { margin: 0; }
+.cls-photo img { width: 100%; max-height: 180px; object-fit: cover; display: block; border: 1px solid var(--rule); }
+.cls-photo figcaption { font-size: 11px; color: var(--dim); margin-top: 2px; }

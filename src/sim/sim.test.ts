@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { create, excess, orders, tick, vesselSL, type Game, type Vessel } from './sim';
+import { create, excess, inPeriscope, orders, tick, vesselSL, JATM_PER_CANISTER, type Game, type Vessel } from './sim';
 import { angDiff, offset } from './math';
 import { CLASSES, LIBRARY } from './classes';
 import { matchClasses, signatureView } from './signature';
@@ -84,7 +84,7 @@ describe('duel', () => {
 describe('Sink the Bismarck', () => {
   it('starts with the German group ahead and the British shadowing astern of it', () => {
     const g = create('bismarck', 3);
-    expect(g.vessels.map((v) => v.name)).toEqual(['USS Tang (SSN-805)', 'Bismarck', 'Prinz Eugen', 'HMS Suffolk', 'HMS Norfolk']);
+    expect(g.vessels.map((v) => v.name)).toEqual(['USS Tang (SSN-805)', 'Bismarck', 'Prinz Eugen', 'HMS Suffolk', 'HMS Norfolk', 'Arado Ar 196']);
     expect(vesselSL(g.vessels[1])).toBeGreaterThan(vesselSL(g.own));
   });
   it('hears the battleship group at long range', () => {
@@ -128,5 +128,203 @@ describe('Sink the Bismarck', () => {
     run(g, 600);
     expect(g.over?.win).toBe(false);
     expect(g.stats.blueOnBlue).toBeGreaterThan(0);
+  });
+});
+
+/** Bring Tang to periscope depth at once and put the radar up. */
+const radarUp = (g: Game) => { g.own.depthT = 0; orders.depth(g, 0); orders.radar(g, true); };
+const contactOf = (g: Game, v: Vessel) => g.contacts.find((c) => c.vid === v.id);
+
+describe('radar', () => {
+  it('only works at periscope depth', () => {
+    const g = create('bismarck', 3);
+    orders.radar(g, true);
+    expect(g.own.radar).toBe(false);
+    radarUp(g);
+    expect(g.own.radar).toBe(true);
+    orders.depth(g, 2);
+    run(g, 30);
+    expect(g.own.radar).toBe(false);
+  });
+  it('classifies a ship inside 15 nm within a couple of sweeps', () => {
+    const g = create('bismarck', 3);
+    const bis = g.vessels[1];
+    Object.assign(bis, offset(g.own, 40, 12)); freeze(bis, 10);
+    radarUp(g);
+    run(g, 10);
+    const c = contactOf(g, bis)!;
+    expect(c.classified).toBe('bismarck');
+    expect(Math.hypot(c.est!.x - bis.x, c.est!.y - bis.y)).toBeLessThan(0.5);
+  });
+  it('sees ships out to 25 nm without identifying them, and nothing beyond', () => {
+    const g = create('bismarck', 3);
+    const bis = g.vessels[1];
+    Object.assign(bis, offset(g.own, 40, 21)); freeze(bis, 0);
+    g.vessels.slice(2).forEach((v) => { v.alive = false; });
+    radarUp(g);
+    run(g, 20);
+    const c = contactOf(g, bis)!;
+    expect(c.held).toBe(true);
+    expect(c.classified).toBeNull();
+    const far = create('bismarck', 3);
+    Object.assign(far.vessels[1], offset(far.own, 40, 27)); freeze(far.vessels[1], 0);
+    far.vessels.slice(2).forEach((v) => { v.alive = false; });
+    radarUp(far);
+    run(far, 20);
+    expect(contactOf(far, far.vessels[1])?.held ?? false).toBe(false);
+  });
+  it('sees a low helicopter only inside 15 nm, a high patrol plane out to 100 nm', () => {
+    const setup = (key: string, range: number) => {
+      const g = duel(30);
+      const v = g.vessels.find((x) => x.cls.key === key)!;
+      g.vessels.forEach((x) => { if (x !== g.own && x !== v) x.alive = false; });
+      Object.assign(v, offset(g.own, 0, range)); v.ai = null; v.spd = v.ordSpd = 0;
+      radarUp(g);
+      run(g, 8);
+      return contactOf(g, v);
+    };
+    expect(setup('ka27', 20)?.held ?? false).toBe(false);
+    expect(setup('ka27', 12)?.classified).toBe('ka27');
+    expect(setup('il38', 90)?.held).toBe(true);
+    expect(setup('il38', 110)?.held ?? false).toBe(false);
+  });
+});
+
+describe('ASROC', () => {
+  it('drops a Mk 54 on the solution that sinks a sub', () => {
+    const g = duel(9, 90);
+    freeze(g.vessels[1], 4);
+    g.vessels[2].alive = false;
+    orders.ping(g);
+    orders.fire(g, 'asroc');
+    expect(g.stats.fired.asroc).toBe(1);
+    run(g, 600);
+    expect(g.over?.win).toBe(true);
+  });
+  it('refuses solutions outside 1 to 15 nm', () => {
+    const g = duel(20, 90);
+    freeze(g.vessels[1], 25);
+    run(g, 20);
+    const c = g.contacts[0];
+    c.est = { x: g.vessels[1].x, y: g.vessels[1].y, t: 0 };
+    orders.fire(g, 'asroc');
+    expect(c.held).toBe(true);
+    expect(g.stats.fired.asroc).toBe(0);
+  });
+});
+
+describe('air defense', () => {
+  const plane = (g: Game, range: number) => {
+    const il = g.vessels[2];
+    g.vessels[3].alive = false; // keep the helicopter out of these tests
+    Object.assign(il, offset(g.own, 0, range));
+    il.ai = null; il.hdg = il.ordHdg = 90; il.spd = il.ordSpd = 230;
+    return il;
+  };
+  it('is fire and forget: no target in the cone, it flies off until the fuel runs out', () => {
+    const g = duel(30);
+    plane(g, 15);
+    g.own.depthT = 0; orders.depth(g, 0);
+    g.own.hdg = g.own.ordHdg = 180; // aircraft dead astern, outside the ±45° cone
+    orders.fire(g, 'jatm');
+    expect(g.stats.fired.jatm).toBe(1);
+    run(g, 200);
+    expect(g.vessels[2].alive).toBe(true);
+    expect(g.weapons.some((w) => w.type === 'jatm')).toBe(false);
+  });
+  it('fired down a bearing without radar, it finds the aircraft itself', () => {
+    const g = duel(30);
+    const il = plane(g, 30);
+    g.own.depthT = 0; orders.depth(g, 0);
+    g.own.hdg = g.own.ordHdg = 20; // within 45° of the aircraft's bearing (000)
+    for (let i = 0; i < 3 && il.alive; i++) { orders.fire(g, 'sm6'); run(g, 80); }
+    expect(il.alive).toBe(false);
+  });
+  it('JATM shoots down the Il-38, seven rounds to a vertical tube', () => {
+    const g = duel(30);
+    const il = plane(g, 15);
+    radarUp(g);
+    run(g, 10);
+    const c = contactOf(g, il)!;
+    expect(c.classified).toBe('il38');
+    g.selected = c.id;
+    for (let i = 0; i < 3 && il.alive; i++) { orders.fire(g, 'jatm'); run(g, 40); }
+    expect(il.alive).toBe(false);
+    expect(g.own.vls.filter((x) => x > 0).length).toBe(1);
+    expect(g.own.jatm).toBe(JATM_PER_CANISTER - g.stats.fired.jatm);
+  });
+  it('SM-6 reaches farther', () => {
+    const g = duel(30);
+    const il = plane(g, 35);
+    radarUp(g);
+    run(g, 10);
+    g.selected = contactOf(g, il)!.id;
+    for (let i = 0; i < 3 && il.alive; i++) { orders.fire(g, 'sm6'); run(g, 80); }
+    expect(il.alive).toBe(false);
+  });
+});
+
+describe('Il-38', () => {
+  it('our radar on its ESM brings it in and cues Kazan', () => {
+    const g = create('duel', 7);
+    const il = g.vessels[2];
+    Object.assign(il, offset(g.own, 0, 60));
+    radarUp(g);
+    run(g, 20);
+    expect(il.ai!.mode).toBe('prosecute');
+    expect(g.vessels[1].ai!.knows).not.toBeNull();
+  });
+});
+
+describe('modern ASW aircraft can be heard', () => {
+  it('a sonobuoy splash gives a bearing to the aircraft that dropped it', () => {
+    const g = create('duel', 7);
+    const il = g.vessels[2];
+    g.vessels[3].alive = false;
+    Object.assign(il, offset(g.own, 60, 3));
+    il.ai!.mode = 'search'; il.ai!.center = { x: il.x, y: il.y }; il.ai!.wp = offset(il, 90, 10); il.ai!.buoyT = 0;
+    run(g, 3);
+    const c = contactOf(g, il)!;
+    expect(c?.held).toBe(true);
+    expect(c.air).toBe(true);
+    expect(Math.abs(angDiff(c.bearing!, 60))).toBeLessThan(15);
+  });
+  it('a hovering Ka-27 with its sonar in the water is a sonar contact with its own signature', () => {
+    const g = create('duel', 7);
+    const ka = g.vessels[3];
+    g.vessels[2].alive = false;
+    Object.assign(ka, offset(g.own, 90, 3));
+    ka.ai!.wp = { x: ka.x, y: ka.y };
+    run(g, 120);
+    expect(ka.ai!.mode).toBe('dip');
+    const c = contactOf(g, ka)!;
+    expect(c.held).toBe(true);
+    expect(c.name.startsWith('Sierra')).toBe(true);
+    expect(c.matches[0]?.key).toBe('ka27');
+  });
+});
+
+describe('1941 aircraft and the periscope', () => {
+  it('the Arado is invisible except on radar', () => {
+    const g = create('bismarck', 3);
+    const ar = g.vessels[5];
+    Object.assign(ar, offset(g.own, 0, 6)); ar.ai = null; ar.spd = ar.ordSpd = 0;
+    g.own.depthT = 0; orders.depth(g, 0);
+    run(g, 60);
+    expect(contactOf(g, ar)).toBeUndefined();
+    orders.radar(g, true);
+    run(g, 10);
+    expect(contactOf(g, ar)?.held).toBe(true);
+  });
+  it('seeing a ship through the periscope fixes it but leaves the identification to the player', () => {
+    const g = create('bismarck', 3);
+    const bis = g.vessels[1];
+    Object.assign(bis, offset(g.own, 40, 5)); freeze(bis, 0);
+    g.own.depthT = 0; orders.depth(g, 0);
+    run(g, 5);
+    const c = contactOf(g, bis)!;
+    expect(c.spotted).toBe(true);
+    expect(c.classified).toBeNull();
+    expect(inPeriscope(g, c)).toBe(bis);
   });
 });

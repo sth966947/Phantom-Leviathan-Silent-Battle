@@ -1,11 +1,13 @@
 import 'pixi.js/unsafe-eval'; // no eval(), so the game runs under strict content security policies
 import './style.css';
-import { SCENARIOS, create, orders, tick, type Depth, type Game, type ScenarioKey } from './sim/sim';
+import { SCENARIOS, WEAPONS, contactById, create, inPeriscope, orders, tick, type Depth, type Game, type ScenarioKey, type WeaponKey } from './sim/sim';
 import { Plot, SPANS } from './render/plot';
 import { Waterfall } from './ui/waterfall';
 import { SignatureDisplay } from './ui/signature';
 import { addLog, updatePanel } from './ui/panel';
 import { play, unlockAudio } from './ui/audio';
+import { Periscope } from './ui/periscope';
+import { Solution } from './ui/solution';
 
 const $ = (id: string) => document.getElementById(id)!;
 
@@ -24,6 +26,12 @@ let overShown = false;
 const plot = new Plot();
 const waterfall = new Waterfall($('waterfall') as HTMLCanvasElement);
 const signature = new SignatureDisplay($('signature') as HTMLCanvasElement);
+const periscope = new Periscope($('scopeView') as HTMLCanvasElement, () => g);
+const solution = new Solution(() => g);
+function togglePeriscope() {
+  const why = periscope.toggle();
+  if (why) addLog(g, { t: g.t, kind: 'warn', text: why });
+}
 
 // ---- Controls ---------------------------------------------------------------
 function buttonRow(host: HTMLElement, items: [number, string][], fmt: (v: number, l: string) => string, onClick: (v: number) => void) {
@@ -44,6 +52,12 @@ on('right', () => orders.turn(g, 10));
 on('fireMk48', () => orders.fire(g, 'mk48'));
 on('fireHarpoon', () => orders.fire(g, 'harpoon'));
 on('fireMst', () => orders.fire(g, 'mst'));
+on('fireAsroc', () => orders.fire(g, 'asroc'));
+on('fireJatm', () => orders.fire(g, 'jatm'));
+on('fireSm6', () => orders.fire(g, 'sm6'));
+on('radar', () => orders.radar(g));
+on('scopeBtn', togglePeriscope);
+on('solBtn', () => solution.toggle());
 on('ping', () => orders.ping(g));
 on('decoy', () => orders.decoy(g));
 on('zoomIn', () => { plot.zoom = Math.max(0, plot.zoom - 1); });
@@ -63,9 +77,14 @@ $('matches').addEventListener('click', (ev) => {
 
 const wrap = $('plotWrap');
 wrap.addEventListener('click', (ev) => {
-  if (!running || g.over || (ev.target as HTMLElement).closest('button')) return;
+  if (!running || g.over || (ev.target as HTMLElement).closest('button, .scope')) return;
   const picked = plot.pick(ev.clientX, ev.clientY);
-  if (picked !== null) return orders.select(g, picked);
+  if (picked !== null) {
+    orders.select(g, picked);
+    // Clicking a contact you can see brings up the periscope view on it.
+    if (inPeriscope(g, contactById(g, picked))) periscope.show();
+    return;
+  }
   const b = plot.bearingAt(ev.clientX, ev.clientY);
   if (b !== null) orders.heading(g, b);
 });
@@ -93,6 +112,8 @@ document.addEventListener('keydown', (ev) => {
     e: () => orders.depth(g, Math.min(2, g.own.ordDepth + 1) as Depth),
     l: () => orders.layer(g),
     f: () => orders.fire(g, 'mk48'), h: () => orders.fire(g, 'harpoon'), t: () => orders.fire(g, 'mst'),
+    g: () => orders.fire(g, 'asroc'), j: () => orders.fire(g, 'jatm'), m: () => orders.fire(g, 'sm6'),
+    r: () => orders.radar(g), v: togglePeriscope, b: () => solution.toggle(), escape: () => { if (periscope.open) periscope.close(); else solution.close(); },
     p: () => orders.ping(g), c: () => orders.decoy(g),
     tab: () => orders.cycleContact(g), k: acceptTop,
     ' ': () => { timeScale = timeScale ? 0 : 30; },
@@ -112,6 +133,8 @@ function newGame(key: ScenarioKey) {
   waterfall.clear();
   signature.clear();
   plot.reset(key === 'bismarck' ? 3 : 2);
+  periscope.close();
+  solution.close();
   overShown = false;
   acc = 0;
   addLog(g, {
@@ -132,7 +155,7 @@ function start(key: ScenarioKey) {
 function showResult() {
   const o = g.over!;
   const brief = $('brief');
-  const fired = Object.entries(g.stats.fired).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${k === 'mst' ? 'Tomahawk' : k === 'mk48' ? 'Mk 48' : k === 'harpoon' ? 'Harpoon' : k}`).join(', ') || 'no weapons';
+  const fired = Object.entries(g.stats.fired).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${WEAPONS[k as WeaponKey].short}`).join(', ') || 'no weapons';
   brief.className = 'brief ' + (o.win ? 'win' : 'loss');
   brief.innerHTML = `
     <h2>${o.win ? 'Mission accomplished' : 'Mission failed'}</h2>
@@ -157,11 +180,13 @@ function frame(now: number) {
   for (const ev of g.events) { addLog(g, ev); if (ev.sound) play(ev.sound); }
   g.events.length = 0;
   plot.draw(g, now);
+  periscope.draw(g, now);
   waterfall.draw(g);
   signature.draw(g);
   if (now - panelT > 150) {
     panelT = now;
     updatePanel(g);
+    solution.update(g);
     for (const b of $('speeds').children as HTMLCollectionOf<HTMLElement>) b.classList.toggle('on', +b.dataset.v! === g.own.ordSpd);
     for (const b of $('depths').children as HTMLCollectionOf<HTMLElement>) b.classList.toggle('on', +b.dataset.v! === g.own.ordDepth);
     for (const b of $('times').children as HTMLCollectionOf<HTMLElement>) b.classList.toggle('on', +b.dataset.v! === timeScale);
@@ -179,3 +204,5 @@ async function boot() {
   requestAnimationFrame(frame);
 }
 void boot();
+// Dev builds expose the game for screenshot checks.
+if (import.meta.env.DEV) (window as unknown as { game: () => Game }).game = () => g;

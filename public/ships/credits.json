@@ -1,0 +1,74 @@
+{
+  "bismarck": {
+    "file": "bismarck.jpg",
+    "credit": "Bismarck in Grimstadfjord, Norway, May 1941. Photo: Paul S. Schmalenbach, via Wikimedia Commons",
+    "license": "Public domain",
+    "source_url": "https://commons.wikimedia.org/wiki/File:German_Battleship_Bismarck_in_the_Grimstadfjord.jpg"
+  },
+  "hipper": {
+    "file": "hipper.jpg",
+    "credit": "Admiral Hipper off Norway, 1942. Photo: U.S. Navy, via Wikimedia Commons",
+    "license": "Public domain",
+    "source_url": "https://commons.wikimedia.org/wiki/File:German_cruiser_Admiral_Hipper_off_Norway_1942.jpg"
+  },
+  "county": {
+    "file": "county.jpg",
+    "credit": "HMS Suffolk (County-class cruiser). Photo: Royal Navy official photographer, via Wikimedia Commons",
+    "license": "Public domain (UK Crown Copyright expired)",
+    "source_url": "https://commons.wikimedia.org/wiki/File:HMS_Suffolk_%2855%29.jpg"
+  },
+  "admiral": {
+    "file": "admiral.jpg",
+    "credit": "HMS Hood, 17 March 1924. Photo: Allan C. Green (State Library of Victoria); restoration by Adam Cuerden, via Wikimedia Commons",
+    "license": "Public domain",
+    "source_url": "https://commons.wikimedia.org/wiki/File:HMS_Hood_%2851%29_-_March_17%2C_1924.jpg"
+  },
+  "kgv": {
+    "file": "kgv.jpg",
+    "credit": "HMS King George V, 1941. Photo: Royal Navy, via Wikimedia Commons",
+    "license": "Public domain (UK Crown Copyright expired)",
+    "source_url": "https://commons.wikimedia.org/wiki/File:HMS_King_George_V_in_1941.jpg"
+  },
+  "merchant": {
+    "file": "merchant.jpg",
+    "credit": "Cargo ship Empire Halley on sea trials, 1940s. Photo: Tyne & Wear Archives & Museums, via Wikimedia Commons",
+    "license": "No known copyright restrictions (Flickr Commons)",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Sea_trials_of_the_%27Empire_Halley%27_%2815868816280%29.jpg"
+  },
+  "yasen": {
+    "file": "yasen.jpg",
+    "credit": "K-560 Severodvinsk (Yasen class). Photo: Ministry of Defence of the Russian Federation (mil.ru), via Wikimedia Commons",
+    "license": "CC BY 4.0",
+    "source_url": "https://commons.wikimedia.org/wiki/File:%D0%9A-560_%C2%AB%D0%A1%D0%B5%D0%B2%D0%B5%D1%80%D0%BE%D0%B4%D0%B2%D0%B8%D0%BD%D1%81%D0%BA%C2%BB.jpg"
+  },
+  "akula": {
+    "file": "akula.jpg",
+    "credit": "Akula-class submarine. Photo: U.S. Navy, via Wikimedia Commons",
+    "license": "Public domain",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Akula_class_submarine.JPG"
+  },
+  "virginia": {
+    "file": "virginia.jpg",
+    "credit": "PCU Virginia (SSN 774), 2004. U.S. Navy photo by General Dynamics Electric Boat, via Wikimedia Commons",
+    "license": "Public domain",
+    "source_url": "https://commons.wikimedia.org/wiki/File:US_Navy_040730-N-1234E-002_PCU_Virginia_%28SSN_774%29_returns_to_the_General_Dynamics_Electric_Boat_shipyard.jpg"
+  },
+  "ka27": {
+    "file": "ka27.jpg",
+    "credit": "Kamov Ka-27 (Ukrainian Navy). Photo: U.S. Navy, via Wikimedia Commons",
+    "license": "Public domain",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Kamov_Ka-27_helicopter%2C_Ukrainian_Navy_%28variant%29.jpg"
+  },
+  "il38": {
+    "file": "il38.jpg",
+    "credit": "Ilyushin Il-38 \"May\" in flight. Photo: unknown (U.S. government), via Wikimedia Commons",
+    "license": "Public domain",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Il-38_May.jpg"
+  },
+  "ar196": {
+    "file": "ar196.jpg",
+    "credit": "Arado Ar 196A-2 taxiing, 1940. Photo: unknown author, via Wikimedia Commons",
+    "license": "Public domain",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Arado_Ar_196A-2_taxiing_1940.jpg"
+  }
+}
