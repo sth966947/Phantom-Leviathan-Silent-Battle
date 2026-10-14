@@ -156,18 +156,37 @@ describe('radar', () => {
     expect(c.classified).toBe('bismarck');
     expect(Math.hypot(c.est!.x - bis.x, c.est!.y - bis.y)).toBeLessThan(0.5);
   });
-  it('is slower and patchier beyond 15 nm', () => {
-    let fast = 0;
-    for (let seed = 1; seed <= 20; seed++) {
-      const g = create('bismarck', seed);
-      const bis = g.vessels[1];
-      Object.assign(bis, offset(g.own, 40, 21)); freeze(bis, 0);
-      g.vessels[2].alive = g.vessels[3].alive = g.vessels[4].alive = g.vessels[5].alive = false;
+  it('sees ships out to 25 nm without identifying them, and nothing beyond', () => {
+    const g = create('bismarck', 3);
+    const bis = g.vessels[1];
+    Object.assign(bis, offset(g.own, 40, 21)); freeze(bis, 0);
+    g.vessels.slice(2).forEach((v) => { v.alive = false; });
+    radarUp(g);
+    run(g, 20);
+    const c = contactOf(g, bis)!;
+    expect(c.held).toBe(true);
+    expect(c.classified).toBeNull();
+    const far = create('bismarck', 3);
+    Object.assign(far.vessels[1], offset(far.own, 40, 27)); freeze(far.vessels[1], 0);
+    far.vessels.slice(2).forEach((v) => { v.alive = false; });
+    radarUp(far);
+    run(far, 20);
+    expect(contactOf(far, far.vessels[1])?.held ?? false).toBe(false);
+  });
+  it('sees a low helicopter only inside 15 nm, a high patrol plane out to 100 nm', () => {
+    const setup = (key: string, range: number) => {
+      const g = duel(30);
+      const v = g.vessels.find((x) => x.cls.key === key)!;
+      g.vessels.forEach((x) => { if (x !== g.own && x !== v) x.alive = false; });
+      Object.assign(v, offset(g.own, 0, range)); v.ai = null; v.spd = v.ordSpd = 0;
       radarUp(g);
-      run(g, 10);
-      if (contactOf(g, bis)?.classified === 'bismarck') fast++;
-    }
-    expect(fast).toBeLessThan(10);
+      run(g, 8);
+      return contactOf(g, v);
+    };
+    expect(setup('ka27', 20)?.held ?? false).toBe(false);
+    expect(setup('ka27', 12)?.classified).toBe('ka27');
+    expect(setup('il38', 90)?.held).toBe(true);
+    expect(setup('il38', 110)?.held ?? false).toBe(false);
   });
 });
 

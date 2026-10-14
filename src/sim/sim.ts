@@ -117,10 +117,11 @@ const VISUAL_RANGE = 8;         // nm, through May snow squalls in the Denmark S
 const AIR_VISUAL_RANGE = 10;    // nm, aircraft against the sky
 
 // ---- Radar ---------------------------------------------------------------------------
-// Mast radar, periscope depth only. Big ships inside 15 nm are fixed and classified
-// within a sweep or two; beyond that, out to the radar horizon, returns get patchy and
-// classification slow. Aircraft show out to 40 nm.
-export const RADAR = { classify: 15, horizon: 24, air: 40, airClassify: 20, sweep: 4, esm: 100 };
+// Mast radar, periscope depth only.
+/** Mast radar, nm. Ships: identified inside 15, seen out to 25. Aircraft: low fliers (helicopters, attack runs) inside 15, high fliers out to 100, identified inside 15. */
+export const RADAR = { classify: 15, horizon: 25, airLow: 15, airHigh: 100, sweep: 4, esm: 100 };
+/** Helicopters stay down on the water; fixed-wing aircraft come down only to attack. */
+export const flyingLow = (v: Vessel) => v.cls.kind === 'air' && (v.cls.key === 'ka27' || v.ai?.mode === 'prosecute');
 const PD_MAX = 0.3; // depthT at or above which masts are out of the water
 
 // ---- Acoustics ---------------------------------------------------------------------
@@ -677,9 +678,6 @@ function ownSensors(g: Game, dt: number) {
 }
 
 // ---- Radar, ESM and eyes on aircraft ----------------------------------------------------------
-/** Probability a sweep paints a ship at range r: certain inside 15 nm, fading to the horizon. */
-const radarPaint = (r: number) => (r <= RADAR.classify ? 1 : r >= RADAR.horizon ? 0 : 0.8 * (1 - (r - RADAR.classify) / (RADAR.horizon - RADAR.classify)));
-
 function fixContact(g: Game, c: Contact, v: Vessel, err: number) {
   const o = g.own;
   const b = norm(brg(o, v) + gauss(g.r) * 0.5);
@@ -718,15 +716,13 @@ function radarAndAir(g: Game) {
     const r = dist(o, v);
     const air = v.cls.kind === 'air';
     if (sweep) {
-      const p = air ? (r < RADAR.air ? 0.95 : 0) : radarPaint(r);
-      if (g.r() < p) {
+      const reach = air ? (flyingLow(v) ? RADAR.airLow : RADAR.airHigh) : RADAR.horizon;
+      if (r <= reach) {
         c = c ?? contactFor(g, v, 'Romeo');
         fixContact(g, c, v, r <= RADAR.classify ? 0.05 : 0.3);
         c.radarHits++;
-        // Inside 15 nm a ship is classified within a sweep or two; beyond, it takes luck.
-        const close = air ? r <= RADAR.airClassify : r <= RADAR.classify;
-        const pc = close ? (c.radarHits >= 2 ? 1 : 0) : air ? 0.15 : 0.25 * (1 - (r - RADAR.classify) / (RADAR.horizon - RADAR.classify));
-        if (!c.classified || c.classified !== v.cls.key) { if (g.r() < pc) classifyBy(g, c, v, 'Radar'); }
+        // Inside 15 nm the return is clear enough to identify; beyond, it is only a blip.
+        if (r <= RADAR.classify && c.classified !== v.cls.key) classifyBy(g, c, v, 'Radar');
       }
     }
     if (!air) continue;
