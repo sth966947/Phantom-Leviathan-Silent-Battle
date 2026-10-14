@@ -70,5 +70,77 @@
     "credit": "Arado Ar 196A-2 taxiing, 1940. Photo: unknown author, via Wikimedia Commons",
     "license": "Public domain",
     "source_url": "https://commons.wikimedia.org/wiki/File:Arado_Ar_196A-2_taxiing_1940.jpg"
+  },
+  "akagi": {
+    "file": "akagi.jpg",
+    "credit": "Akagi at anchor, late 1930s. NHHC photo NH 73058 (Japanese photograph, donated by Kazutoshi Hando)",
+    "license": "Public domain (Japanese photograph taken before 1946; donation of Kazutoshi Hando to NHHC)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-73000/NH-73058.html"
+  },
+  "kaga": {
+    "file": "kaga.jpg",
+    "credit": "Kaga underway, after reconstruction. NHHC photo NH 73060 (Japanese photograph, donated by Kazutoshi Hando)",
+    "license": "Public domain (Japanese photograph taken before 1946; donation of Kazutoshi Hando to NHHC)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-73000/NH-73060.html"
+  },
+  "soryu": {
+    "file": "soryu.jpg",
+    "credit": "Hiryu underway. NHHC photo NH 73063 (Japanese photograph, donated by Kazutoshi Hando)",
+    "license": "Public domain (Japanese photograph taken before 1946; donation of Kazutoshi Hando to NHHC)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-73000/NH-73063.html"
+  },
+  "shokaku": {
+    "file": "shokaku.jpg",
+    "credit": "Shokaku underway. NHHC photo NH 73066 (Japanese photograph, donated by Kazutoshi Hando)",
+    "license": "Public domain (Japanese photograph taken before 1946; donation of Kazutoshi Hando to NHHC)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-73000/NH-73066.html"
+  },
+  "kongo": {
+    "file": "kongo.jpg",
+    "credit": "Kirishima at anchor. NHHC photo NH 73076 (Japanese photograph, donated by Kazutoshi Hando)",
+    "license": "Public domain (Japanese photograph taken before 1946; donation of Kazutoshi Hando to NHHC)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-73000/NH-73076.html"
+  },
+  "yamato": {
+    "file": "yamato.jpg",
+    "credit": "Yamato on sea trials, October 1941. NHHC photo NH 73092 (Japanese photograph)",
+    "license": "Public domain (Japanese photograph taken before 1946; donation of Kazutoshi Hando to NHHC)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-73000/NH-73092.html"
+  },
+  "takao": {
+    "file": "takao.jpg",
+    "credit": "Chokai (Takao class). NHHC photo NH 73023 (Japanese photograph, donated by Kazutoshi Hando), cropped",
+    "license": "Public domain (Japanese photograph taken before 1946; donation of Kazutoshi Hando to NHHC)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-73000/NH-73023.html"
+  },
+  "kagero": {
+    "file": "kagero.jpg",
+    "credit": "Yukikaze (Kagero class). NHHC photo NH 73052 (Japanese photograph, donated by Kazutoshi Hando)",
+    "license": "Public domain (Japanese photograph taken before 1946; donation of Kazutoshi Hando to NHHC)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-73000/NH-73052.html"
+  },
+  "fletcher": {
+    "file": "fletcher.jpg",
+    "credit": "USS Johnston (DD-557), Fletcher class, 27 October 1943. NHHC photo NH 63495",
+    "license": "Public domain (U.S. Navy photograph)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-63000/NH-63495.html"
+  },
+  "wickes": {
+    "file": "wickes.jpg",
+    "credit": "USS Ward (DD-139), 26 February 1919. NHHC photo NH 63240",
+    "license": "Public domain (U.S. Navy photograph)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-63000/NH-63240.html"
+  },
+  "atlanta": {
+    "file": "atlanta.jpg",
+    "credit": "USS Atlanta (CL-51) at high speed, circa November 1941. NHHC photo NH 57455",
+    "license": "Public domain (U.S. Navy photograph)",
+    "source_url": "https://www.history.navy.mil/our-collections/photography/numerical-list-of-images/nhhc-series/nh-series/NH-57000/NH-57455.html"
+  },
+  "liberty": {
+    "file": "liberty.jpg",
+    "credit": "Liberty ship SS George Dewey, 6 September 1943. U.S. Navy photo 80-G-84349 via NHHC",
+    "license": "Public domain (U.S. Navy photograph)",
+    "source_url": "https://www.history.navy.mil/bin/imageDownload?image=/content/dam/nhhc/our-collections/photography/images/80-G-84000/80-G-84349&rendition=cq5dam.web.1280.1280.jpeg"
   }
 }

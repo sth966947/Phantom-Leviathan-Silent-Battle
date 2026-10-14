@@ -294,24 +294,28 @@ export const REFERENCE: Record<string, Reference> = {
     notes: 'Twin-float monoplane, catapulted from German heavy ships.',
   },
   akagi: {
+    photo: { file: 'akagi.jpg', credit: 'Akagi at anchor, late 1930s. NHHC photo NH 73058 (Japanese photograph, donated by Kazutoshi Hando) · Public domain · Naval History and Heritage Command' },
     displacement: '42,500 t full load',
     armament: ['6 × 20 cm guns in casemates', '12 × 12 cm AA guns in twin mounts', '28 × 25 mm AA guns', 'About 66 aircraft'],
     armor: '152 mm belt, 79 mm deck',
     notes: 'Converted battlecruiser hull. Small island on the port side, big funnel curving down to starboard below the flight deck. Four shafts.',
   },
   kaga: {
+    photo: { file: 'kaga.jpg', credit: 'Kaga underway, after reconstruction. NHHC photo NH 73060 (Japanese photograph, donated by Kazutoshi Hando) · Public domain · Naval History and Heritage Command' },
     displacement: '42,500 t full load',
     armament: ['10 × 20 cm guns in casemates', '16 × 12.7 cm AA guns in twin mounts', '22 × 25 mm AA guns', 'About 72 aircraft'],
     armor: '152 mm belt, 38 mm deck',
     notes: 'Converted battleship hull, slower than Akagi. Small starboard island, downturned funnel to starboard. Four shafts.',
   },
   soryu: {
+    photo: { file: 'soryu.jpg', credit: 'Hiryu underway. NHHC photo NH 73063 (Japanese photograph, donated by Kazutoshi Hando) · Public domain · Naval History and Heritage Command' },
     displacement: '19,800 t full load (Hiryū 20,250 t)',
     armament: ['12 × 12.7 cm AA guns in twin mounts', '28 to 31 × 25 mm AA guns', 'About 63 aircraft'],
     armor: 'Light: 41 mm belt over machinery, 55 mm over magazines',
     notes: 'Light, fast fleet carrier. Small island (port side on Hiryū), two small funnels curving down to starboard. Four shafts.',
   },
   shokaku: {
+    photo: { file: 'shokaku.jpg', credit: 'Shokaku underway. NHHC photo NH 73066 (Japanese photograph, donated by Kazutoshi Hando) · Public domain · Naval History and Heritage Command' },
     displacement: '32,100 t full load',
     armament: ['16 × 12.7 cm AA guns in twin mounts', '36 to 70 × 25 mm AA guns', 'About 72 aircraft'],
     armor: '46 to 215 mm belt over machinery and magazines, 65 to 170 mm deck',
@@ -330,18 +334,21 @@ export const REFERENCE: Record<string, Reference> = {
     notes: 'Third Yamato hull completed as a support carrier. Largest carrier of the war. Large island with raked funnel. Four shafts.',
   },
   kongo: {
+    photo: { file: 'kongo.jpg', credit: 'Kirishima at anchor. NHHC photo NH 73076 (Japanese photograph, donated by Kazutoshi Hando) · Public domain · Naval History and Heritage Command' },
     displacement: '37,200 t full load',
     armament: ['8 × 35.6 cm guns in four twin turrets', '14 × 15.2 cm secondary guns', '8 × 12.7 cm AA guns', '3 floatplanes'],
     armor: '203 mm belt, up to 120 mm deck',
     notes: 'Rebuilt battlecruisers, the fastest Japanese battleships. Tall pagoda foremast and two funnels. Four shafts.',
   },
   yamato: {
+    photo: { file: 'yamato.jpg', credit: 'Yamato on sea trials, October 1941. NHHC photo NH 73092 (Japanese photograph) · Public domain · Naval History and Heritage Command' },
     displacement: '72,800 t full load',
     armament: ['9 × 46 cm guns in three triple turrets', '6 to 12 × 15.5 cm secondary guns', '12 to 24 × 12.7 cm AA guns', 'Up to 7 floatplanes'],
     armor: '410 mm belt, 650 mm turret faces, 200 to 230 mm deck',
     notes: 'Largest battleships ever built. Compact tower bridge and one huge raked funnel. Four shafts.',
   },
   takao: {
+    photo: { file: 'takao.jpg', credit: 'Chokai (Takao class). NHHC photo NH 73023 (Japanese photograph, donated by Kazutoshi Hando), cropped · Public domain · Naval History and Heritage Command' },
     displacement: '15,800 t full load',
     armament: ['10 × 20.3 cm guns in five twin turrets', '4 × 12 cm AA guns', '16 × 61 cm torpedo tubes (Type 93)', '3 floatplanes'],
     armor: '102 mm belt, 35 mm deck',
@@ -354,6 +361,7 @@ export const REFERENCE: Record<string, Reference> = {
     notes: 'Destroyer-flotilla leader. Single large raked funnel. Four shafts.',
   },
   kagero: {
+    photo: { file: 'kagero.jpg', credit: 'Yukikaze (Kagero class). NHHC photo NH 73052 (Japanese photograph, donated by Kazutoshi Hando) · Public domain · Naval History and Heritage Command' },
     displacement: '2,500 t full load',
     armament: ['6 × 12.7 cm guns in three twin mounts', '8 × 61 cm torpedo tubes (Type 93), with reloads', 'Depth charges'],
     armor: 'None',
@@ -420,18 +428,21 @@ export const REFERENCE: Record<string, Reference> = {
     notes: 'Friendly. Large starboard island with tripod mast and a big flat-sided funnel. Four shafts.',
   },
   fletcher: {
+    photo: { file: 'fletcher.jpg', credit: 'USS Johnston (DD-557), Fletcher class, 27 October 1943. NHHC photo NH 63495 · Public domain · Naval History and Heritage Command' },
     displacement: '2,900 t full load',
     armament: ['5 × 5 in/38 guns in single mounts', '10 × 21 in torpedo tubes', '40 mm and 20 mm AA guns', 'Depth charges'],
     armor: 'Light splinter protection',
     notes: 'Friendly. Flush deck, two funnels, two gun mounts forward and three aft. Two shafts.',
   },
   wickes: {
+    photo: { file: 'wickes.jpg', credit: 'USS Ward (DD-139), 26 February 1919. NHHC photo NH 63240 · Public domain · Naval History and Heritage Command' },
     displacement: '1,250 t full load',
     armament: ['4 × 4 in/50 guns', '12 × 21 in torpedo tubes', 'Depth charges'],
     armor: 'None',
     notes: 'Friendly. World War I "four-piper": flush deck and four thin funnels. USS Ward fired the first shot at Pearl Harbor. Two shafts.',
   },
   atlanta: {
+    photo: { file: 'atlanta.jpg', credit: 'USS Atlanta (CL-51) at high speed, circa November 1941. NHHC photo NH 57455 · Public domain · Naval History and Heritage Command' },
     displacement: '8,300 t full load',
     armament: ['16 × 5 in/38 guns in eight twin mounts', '8 × 21 in torpedo tubes', '1.1 in and 20 mm AA guns'],
     armor: '95 mm belt, 32 mm deck',
@@ -444,6 +455,7 @@ export const REFERENCE: Record<string, Reference> = {
     notes: 'Friendly. Whale-catcher design: short, round-bottomed, single funnel and mast. Reciprocating engine, single screw.',
   },
   liberty: {
+    photo: { file: 'liberty.jpg', credit: 'Liberty ship SS George Dewey, 6 September 1943. U.S. Navy photo 80-G-84349 via NHHC · Public domain · Naval History and Heritage Command' },
     displacement: '14,250 t full load (7,176 GRT)',
     armament: ['1 × 4 in or 5 in gun aft', '1 × 3 in gun forward', '20 mm AA guns'],
     armor: 'None',
