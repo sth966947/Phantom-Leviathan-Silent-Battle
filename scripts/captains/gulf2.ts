@@ -13,14 +13,15 @@ const near = (g: Game, list: Contact[]) => list.sort((a, b) => dist(g.own, a.est
 
 /**
  * Torpedo evasion: when a torpedo we can hear is running within 4 nm of us, decoy, cross the layer where the
- * water allows, and run at 25 knots square across its track. True while running.
+ * water allows, and run square across its track: flat out in deep water, at 16 knots in the shallows,
+ * where there is no layer to hide under and a sprint only brings every frigate in earshot. True while running.
  */
-function evade(g: Game, i: number, s: CaptainState) {
+function evade(g: Game, i: number, s: CaptainState, spd = 25) {
   const torps = g.weapons.filter((w) => w.side === 'enemy' && !w.dead && dist(w, g.own) < 4);
   const t = torps.sort((a, b) => dist(a, g.own) - dist(b, g.own))[0];
   if (t && (s.sprintT < 0 || i - s.sprintT > 60)) {
     const tb = brg(g.own, t);
-    orders.decoy(g); orders.speed(g, 25); orders.layer(g);
+    orders.decoy(g); orders.speed(g, spd); orders.layer(g);
     orders.heading(g, tb + (angDiff(g.own.hdg, tb) > 0 ? 90 : -90)); s.sprintT = i;
   }
   if (s.sprintT < 0) return false;
@@ -96,7 +97,7 @@ function cueTo(g: Game, i: number, s: CaptainState, within: number, keep = 900) 
 const allied = (g: Game, name: string) => g.vessels.find((v) => v.name === name && v.alive) ?? null;
 
 captains.I5 = (g, i, s) => {
-  if (evade(g, i, s)) return true;
+  if (evade(g, i, s, 16)) return true;
   harpoonBoats(g, i, s, ['fac']);
   const threat = seen(g, ['ghadir', 'kilo'], 50).filter((c) => dist(g.own, c.est!) < (guess(c, 50) === 'kilo' ? 12 : 6));
   if (threat.length && subHunt(g, i, s, ['ghadir', 'kilo'])) return true;
@@ -106,7 +107,7 @@ captains.I5 = (g, i, s) => {
 };
 
 captains.I7 = (g, i, s) => {
-  if (evade(g, i, s)) return true;
+  if (evade(g, i, s, 16)) return true;
   const kharg = offset(O, 20, 32);
   // Hand over to the generic captain only to fight something close; it would waste Tomahawks from out here.
   const fight = seen(g, ['kilo', 'jamaran']).some((c) => dist(g.own, c.est!) < 7);
@@ -189,7 +190,7 @@ captains.I11 = (g, i, s) => {
 };
 
 captains.I22 = (g, i, s) => {
-  if (evade(g, i, s)) return true;
+  if (evade(g, i, s, 16)) return true;
   const mouth = offset(O, 0, 12);
   const done = (g.flags.laid ?? 0) >= 6;
   if (i % 30 === 0) {

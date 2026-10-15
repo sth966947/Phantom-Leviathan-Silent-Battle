@@ -57,6 +57,16 @@ function droneBoats(g: Game, boats: Vessel[], targets: Vessel[], dmg = 2) {
     for (let i = 0; i < dmg; i++) bombed(g, t, 'an explosive drone boat');
   }
 }
+/** Small boats jink hard at 30 to 40 knots: each of our anti-ship missiles that gets within 1 nm of one misses with chance `p`. */
+function jink(g: Game, boats: Vessel[], p = 0.35) {
+  for (const w of g.weapons) {
+    if (w.dead || w.side !== 'us' || (w.type !== 'harpoon' && w.type !== 'mst') || g.flags[`jk${w.id}`]) continue;
+    const b = boats.find((v) => v.alive && dist(v, w) < 1);
+    if (!b) continue;
+    g.flags[`jk${w.id}`] = 1;
+    if (g.r() < p) { w.dead = true; log(g, 'warn', `${w.label} missed ${b.name}: she jinked inside the seeker's turn.`); }
+  }
+}
 /** Launch a wave of drone boats from `from`. */
 function droneWave(g: Game, list: Vessel[], from: Vec, n: number, tag: string) {
   for (let i = 0; i < n; i++) list.push(add(g, 'droneboat', `Drone boat ${tag}${i + 1}`, 'enemy', offset(from, g.r() * 360, 0.5 + g.r()), 0, 40, go(0, 40, 1e9)));
@@ -89,14 +99,18 @@ function guns(g: Game, escorts: Vessel[], boats: Vessel[], p = 0.06) {
 }
 /**
  * Frigates carry 324 mm lightweight torpedoes, not heavyweights: shorter legs, a smaller seeker and a
- * warhead a Virginia can survive once. Each torpedo a surface ship has just fired becomes one.
+ * warhead a Virginia can survive once. Each torpedo a surface ship has just fired becomes one, and
+ * after `load` of them (two triple tubes and a short reload) the ship has none left.
  */
-function lightweights(g: Game) {
+function lightweights(g: Game, load = 4) {
   for (const w of g.weapons) {
     if (w.side !== 'enemy' || w.type !== 'ugst' || w.run > 0.1 || g.flags[`lw${w.id}`]) continue;
     g.flags[`lw${w.id}`] = 1;
-    if (!g.vessels.some((v) => v.alive && v.side === 'enemy' && v.cls.kind === 'surface' && dist(v, w) < 0.15)) continue;
+    const by = g.vessels.find((v) => v.alive && v.side === 'enemy' && v.cls.kind === 'surface' && dist(v, w) < 0.15);
+    if (!by) continue;
     Object.assign(w, { type: 'apr3', spd: 45, maxRun: 7, label: 'Lightweight torpedo' });
+    g.flags[`lt${by.id}`] = flag(g, `lt${by.id}`) + 1;
+    if (g.flags[`lt${by.id}`] >= load && by.ai) by.ai.cool = 1e9;
   }
 }
 /** Our own escorts never depth-charge Tang, even after a stray weapon of ours hits one of them: they stay on their jobs. */
@@ -171,7 +185,7 @@ missions.I5 = {
       }
       skirmish(gg, [denton], ghadirs, 4.5, 0.14, 0, 0.5);
       at(gg, 75 * 60, 'facs', () => facWave(gg, facs, offset(offset(c0, course, 14), 30, 18), ['Peykan', 'Joshan', 'Zoubin', 'Khadang']));
-      facRun(gg, facs, tankers, 9, () => (denton.alive ? 0.4 : 0.65), 'C-704', 3);
+      facRun(gg, facs, tankers, 9, () => (denton.alive ? 0.4 : 0.65), 'C-704', 3); jink(gg, facs, 0.3);
       guns(gg, [denton], facs, 0.02);
       if (through(gg, tankers, exit)) end(gg, true, 'The tankers are out in the Gulf of Oman. The strait is open and the oil is moving.');
     };
@@ -265,7 +279,7 @@ missions.I18 = {
       }
       at(gg, 30 * 60, 'w1', () => droneWave(gg, boats, offset(mouth, 40, 26), 4, 'A'));
       at(gg, 85 * 60, 'w2', () => droneWave(gg, boats, offset(mouth, 55, 26), 5, 'B'));
-      droneBoats(gg, boats, [...port, nunn]);
+      droneBoats(gg, boats, [...port, nunn]); jink(gg, boats);
       guns(gg, [nunn], boats, 0.015);
       skirmish(gg, [nunn], midgets, 3, 0.08, 0, 0.5);
     };
@@ -278,7 +292,7 @@ extras.I18 = (g, b) => [...b, watch('Don\'t let two midgets into the channel', f
 missions.I19 = {
   key: 'I19', title: 'Qatar Gas', era: '2029', place: 'Off Ras Laffan, Qatar', date: 'July 2029, 1400',
   library: ['lng', 'type26', 'fac', 'jamaran', 'tanker'],
-  brief: 'Europe needs Qatar\'s gas. Three Q-Max carriers, Mozah, Al Mayeda and Rasheeda, are leaving Ras Laffan with HMS Glasgow as escort, heading 060 for 28 nm to the safe water off the Emirates; Tang is out ahead of them. Iran has sown a minefield across the route about 12 nm out: find it with the HF sonar (10 knots or less) or a ping, and Glasgow\'s Merlin will blow each mine you mark. Iranian fast attack craft will come in waves from the islands to the north and fire C-704s from about 12 nm. Sink them before they get there. Lose no more than one carrier.',
+  brief: 'Europe needs Qatar\'s gas. Three Q-Max carriers, Mozah, Al Mayeda and Rasheeda, are leaving Ras Laffan with HMS Glasgow as escort, heading 060 for 28 nm to the safe water off the Emirates; Tang is out ahead of them. Iran has sown a minefield across the route about 12 nm out: find it with the HF sonar (10 knots or less) or a ping, and Glasgow\'s Merlin will blow each mine you mark. Iranian fast attack craft will come in waves from the islands to the north and fire C-704s from about 12 nm. Sink them before they get there. Bring all three carriers out.',
   build(g, r) {
     g.startClock = clock(14);
     g.timeLimit = 3.5 * 3600;
@@ -290,13 +304,13 @@ missions.I19 = {
     const glasgow = add(g, 'type26', 'HMS Glasgow', 'allied', offset(lead, course - 50, 2), course, 10, { mode: 'station', leader: lead.id, rel: -50, rng: 2 });
     mineField(g, offset(c0, course, 12 + r() * 2), 1.2, 16);
     const facs: Vessel[] = [];
-    const names = [['Tondar', 'Khanjar', 'Neyzeh', 'Fath'], ['Tabarzin', 'Gorz', 'Derafsh', 'Heydar'], ['Paykan', 'Gardouneh', 'Shamshir', 'Zolfaghar'], ['Sina', 'Kaman', 'Separ', 'Falakhon']];
-    setGoal(g, { protect: ids(ships), maxLosses: 1, lossText: 'Two gas carriers are burning off Ras Laffan.', timeout: 'The carriers are still in the Gulf at nightfall.' });
+    const names = [['Tondar', 'Khanjar', 'Neyzeh', 'Fath', 'Nasr'], ['Tabarzin', 'Gorz', 'Derafsh', 'Heydar', 'Qadir'], ['Paykan', 'Gardouneh', 'Shamshir', 'Zolfaghar', 'Kaman', 'Sina'], ['Separ', 'Falakhon', 'Khadang', 'Joshan', 'Zoubin', 'Shahid Nazeri']];
+    setGoal(g, { protect: ids(ships), maxLosses: 0, lossText: 'A gas carrier is burning off Ras Laffan, and the rest turn back.', timeout: 'The carriers are still in the Gulf at nightfall.' });
     g.script = (gg) => {
       lightweights(gg); noBlueHunt(gg);
       sweepMarked(gg, 'Glasgow\'s Merlin');
       names.forEach((n, i) => at(gg, (20 + i * 30) * 60, `fw${i}`, () => facWave(gg, facs, offset(lead, (gg.r() * 2 - 1) * 40, 26), n, 12)));
-      facRun(gg, facs, ships, 12, () => (glasgow.alive ? 0.35 : 0.6), 'C-704', 3);
+      facRun(gg, facs, ships, 12, () => (glasgow.alive ? 0.35 : 0.6), 'C-704', 3); jink(gg, facs, 0.3);
       guns(gg, [glasgow], facs, 0.02);
       if (through(gg, ships, exit)) end(gg, true, 'The carriers are off the Emirates under friendly air cover. Europe\'s gas is on its way.');
     };
@@ -330,12 +344,13 @@ missions.I6 = {
       const radar = hits(gg, 'Perim Island radar') > 0;
       for (const n of ['Mocha launcher site', 'Dhubab launcher site']) {
         const s = gg.sites.find((x) => x.name === n)!;
-        if (s.hits < 2 && gg.t >= 10 * 60 && (gg.t - 10 * 60) % (25 * 60) === (n.startsWith('M') ? 0 : 300)) missileSalvo(gg, n.replace(' site', ''), 'Ghader', 2, ships, radar ? 0.15 : 0.35, 2);
+        if (s.hits < 2 && gg.t >= 10 * 60 && (gg.t - 10 * 60) % (25 * 60) === (n.startsWith('M') ? 0 : 300)) missileSalvo(gg, n.replace(' site', ''), 'Ghader', 2, ships, radar ? 0.25 : 0.45, 2);
       }
       // From the coves on the Yemeni shore.
-      at(gg, 15 * 60, 'w1', () => droneWave(gg, boats, coast[0], 3, 'A'));
-      at(gg, 55 * 60, 'w2', () => droneWave(gg, boats, coast[1], 3, 'B'));
-      droneBoats(gg, boats, [...ships, lead]);
+      at(gg, 15 * 60, 'w1', () => droneWave(gg, boats, coast[0], 4, 'A'));
+      at(gg, 45 * 60, 'w2', () => droneWave(gg, boats, coast[1], 4, 'B'));
+      at(gg, 80 * 60, 'w3', () => droneWave(gg, boats, coast[0], 4, 'C'));
+      droneBoats(gg, boats, [...ships, lead]); jink(gg, boats);
       guns(gg, [lead], boats, 0.07);
       if (!dena.alive && gg.sites.filter((s) => s.name.includes('launcher')).every((s) => s.hits >= 2)) end(gg, true, 'The launchers are wrecked and Dena is on the bottom. Bab-el-Mandeb is open.');
     };
@@ -353,13 +368,13 @@ extras.I6 = (g, b) => [
 missions.I20 = {
   key: 'I20', title: 'Haifa', era: '2029', place: 'Eastern Mediterranean, off Haifa', date: 'July 2029, 2300', night: true,
   library: ['kilo', 'reis', 'type209', 'boxship', 'tanker'],
-  brief: 'Iran has struck Israel, and a Kilo that slipped through Suez before it closed is coming to finish the job: mines and torpedoes in Haifa\'s harbour mouth, about 14 nm east of you. It is somewhere to the west, on battery and quiet, snorting now and then. A P-8A is working the area and will radio rough positions when its buoys hear something. Sink the Kilo before it gets within 3 nm of the harbour. A Turkish Reis-class boat is also out here, neutral and minding its own business: sinking it fails the mission, so make sure of your target. Neutral merchants are using the anchorage.',
+  brief: 'Iran has struck Israel, and a Kilo that slipped through Suez before it closed is coming to finish the job: mines and torpedoes in Haifa\'s harbour mouth, about 13 nm east of you. It is somewhere to the west, on battery and quiet, snorting now and then. A P-8A is working the area and will radio a rough position, good to a few miles, about every half hour. Sink the Kilo before it gets within 3 nm of the harbour. A Turkish Reis-class boat is also out here, neutral and minding its own business: sinking it fails the mission, so make sure of your target. Neutral merchants are using the anchorage.',
   build(g, r, carry) {
     g.startClock = clock(23);
     g.timeLimit = 4.5 * 3600;
     g.own.hdg = g.own.ordHdg = 270;
-    const haifa = offset(g.own, 80 + r() * 20, 13 + r() * 2);
-    const kp = offset(g.own, 250 + r() * 40, 15 + r() * 3);
+    const haifa = offset(g.own, 80 + r() * 20, 12 + r() * 2);
+    const kp = offset(g.own, 240 + r() * 60, 17 + r() * 3);
     const [kn] = kilos(carry, 1);
     const kilo = add(g, 'kilo', kn, 'enemy', kp, brg(kp, haifa), 6, { mode: 'raider', goal: haifa, cruise: 6, decoys: 2 }, 1);
     const reisSpots = [offset(g.own, 200 + r() * 40, 6), offset(g.own, 320 + r() * 40, 7)];
@@ -372,18 +387,18 @@ missions.I20 = {
       if (!kilo.alive) return;
       // Snorting: 8 minutes in every 40 at 10 knots on the diesels, loud.
       kilo.ai!.cruise = gg.t % 2400 > 1920 ? 10 : 6;
-      if (gg.t % 1200 === 600) cue(gg, kilo, 'P-8A Poseidon', gg.t % 2400 > 1920 ? 1 : 3);
+      if (gg.t % 1800 === 900) cue(gg, kilo, 'P-8A Poseidon', 2 + gg.r() * 2);
       if (dist(kilo, haifa) < 3) end(gg, false, 'The Kilo reached Haifa\'s harbour mouth and laid its mines. The port is shut.');
     };
   },
 };
-extras.I20 = (g, b) => [...b, watch('Stop the Kilo short of Haifa\'s harbour mouth', !!g.over?.reason.includes('harbour mouth'), 'It needs to get within 3 nm of the harbour, about 14 nm east of where you started.')];
+extras.I20 = (g, b) => [...b, watch('Stop the Kilo short of Haifa\'s harbour mouth', !!g.over?.reason.includes('harbour mouth'), 'It needs to get within 3 nm of the harbour, about 13 nm east of where you started.')];
 
 // ---- I21 Eilat --------------------------------------------------------------------------------
 missions.I21 = {
   key: 'I21', title: 'Eilat', era: '2029', place: 'Gulf of Aqaba', date: 'July 2029, 0400',
   library: ['jamaran', 'droneboat', 'boxship', 'tanker', 'fac'],
-  brief: 'The Gulf of Aqaba is a 12-mile-wide slot with Egypt on one side and Saudi Arabia on the other. The Iranian frigate IRIS Jamaran has come up through the Strait of Tiran and is standing off 25 nm south of Eilat with two missile boats, launching drone boats at the port, 12 nm north-northeast of you (bearing 025), where a container ship and a tanker are alongside. Sink Jamaran to stop the waves; stop the boats she has already sent. Don\'t lose either ship in port. Stay in the gulf: more than 6 nm either side of its axis puts you in Egyptian or Saudi waters, and five minutes there ends the mission. Three hours.',
+  brief: 'The Gulf of Aqaba is a 12-mile-wide slot with Egypt on one side and Saudi Arabia on the other. The Iranian frigate IRIS Jamaran has come up through the Strait of Tiran and is standing off 30 to 35 nm south of Eilat with two missile boats, launching drone boats at the port, 12 nm north-northeast of you (bearing 025), where a container ship and a tanker are alongside. Sink Jamaran to stop the waves; stop the boats she has already sent. Don\'t lose either ship in port. Stay in the gulf: more than 6 nm either side of its axis puts you in Egyptian or Saudi waters, and five minutes there ends the mission. Three hours.',
   build(g, r) {
     g.startClock = clock(4);
     g.timeLimit = 3 * 3600;
@@ -391,8 +406,8 @@ missions.I21 = {
     g.own.hdg = g.own.ordHdg = axis + 180;
     const eilat = offset(g.own, axis, 12);
     const port = [moored(g, 'boxship', 'MV Zim Eilat', 'allied', offset(eilat, 300, 0.6), 200), moored(g, 'tanker', 'MT Eilat Star (EAPC terminal)', 'allied', offset(eilat, 160, 1.5), 200)];
-    const jamaran = add(g, 'jamaran', 'IRIS Jamaran', 'enemy', offset(g.own, axis + 180, 24 + r() * 4), axis, 12, { mode: 'patrol', legT: 1e9 });
-    const stand = offset(eilat, axis + 180, 26 + r() * 4);
+    const jamaran = add(g, 'jamaran', 'IRIS Jamaran', 'enemy', offset(g.own, axis + 180, 26 + r() * 4), axis, 12, { mode: 'patrol', legT: 1e9 });
+    const stand = offset(eilat, axis + 180, 32 + r() * 4);
     const escorts = screen(g, jamaran, 'fac', ['Gardouneh', 'Khanjar'], [[60, 1.5], [300, 1.5]]);
     const boats: Vessel[] = [];
     setGoal(g, { targets: [jamaran.id], need: 1, protect: ids(port), maxLosses: 0, win: 'Jamaran is sunk in the Gulf of Aqaba. Eilat is safe.', lossText: 'A ship is burning and sinking alongside in Eilat. Israel\'s Red Sea port is shut.', timeout: 'Jamaran is still out there launching drone boats.' });
@@ -407,14 +422,14 @@ missions.I21 = {
       pointDefence(gg, [jamaran, ...escorts], 0.6);
       if (jamaran.alive) {
         keepCourse(jamaran, dist(jamaran, stand) > 1 ? brg(jamaran, stand) : norm(gg.t / 4), dist(jamaran, stand) > 1 ? 12 : 5);
-        if (gg.t % (20 * 60) === 10 * 60) droneWave(gg, boats, jamaran, 3, `${gg.t / 1200 + 0.5}-`);
+        if (gg.t % (15 * 60) === 5 * 60) droneWave(gg, boats, jamaran, 4, `${(gg.t + 600) / 900}-`);
       }
-      droneBoats(gg, boats, port);
+      droneBoats(gg, boats, port); jink(gg, boats);
     };
   },
 };
 extras.I21 = (g, b) => [...b, watch('Stay inside the gulf (6 nm either side of the axis)', !!g.over?.reason.includes('neutral waters'), flag(g, 'outside') ? `Outside for ${mins(flag(g, 'outside'))}. Five minutes ends the mission.` : 'Inside.'),
-  { text: 'Stop the drone boats', state: 'open', detail: `${vs(g, 'droneboat').filter(isSunk).length} sunk, ${vs(g, 'droneboat').filter((v) => v.alive).length} running. A wave every 20 minutes while Jamaran is afloat.` }];
+  { text: 'Stop the drone boats', state: 'open', detail: `${vs(g, 'droneboat').filter(isSunk).length} sunk, ${vs(g, 'droneboat').filter((v) => v.alive).length} running. A wave every 15 minutes while Jamaran is afloat.` }];
 
 // ---- I11 Gulf of Oman -------------------------------------------------------------------------
 missions.I11 = {
