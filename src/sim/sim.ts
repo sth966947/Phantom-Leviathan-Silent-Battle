@@ -286,18 +286,29 @@ export function targetContact(g: Game, air = false): Contact | null {
 export const radarTracked = (g: Game, c: Contact) => c.held && g.t - c.radarT <= RADAR.sweep * 3;
 
 export const orders = {
-  heading(g: Game, hdg: number) { g.own.ordHdg = norm(Math.round(hdg)); },
-  turn(g: Game, delta: number) { g.own.ordHdg = norm(Math.round(g.own.ordHdg + delta)); },
-  speed(g: Game, kts: number) { g.own.ordSpd = clamp(kts, 0, g.own.cls.maxSpd); },
-  /** Set our speed to the selected contact's, from its solution. */
-  matchSpeed(g: Game) {
+  heading(g: Game, hdg: number) { stopSteering(g); g.own.ordHdg = norm(Math.round(hdg)); },
+  turn(g: Game, delta: number) { stopSteering(g); g.own.ordHdg = norm(Math.round(g.own.ordHdg + delta)); },
+  speed(g: Game, kts: number) {
+    if (g.flags.matchSpd) { g.flags.matchSpd = 0; log(g, 'info', 'No longer matching the target\'s speed.'); }
+    g.own.ordSpd = clamp(kts, 0, g.own.cls.maxSpd);
+  },
+  /**
+   * Toggles that keep following the selected contact until turned off or overridden: its speed, its
+   * course (steer parallel), or its bearing (steer straight at it). Course and bearing exclude each other.
+   */
+  match(g: Game, what: MatchKind) {
+    const key = MATCH_FLAG[what];
+    if (g.flags[key]) { g.flags[key] = 0; return log(g, 'info', `No longer matching the target's ${what}.`); }
     const c = contactById(g, g.selected);
-    if (!c) return log(g, 'warn', 'Match target: select a contact first.');
-    if (c.air) return log(g, 'warn', 'Match target: we can\'t keep pace with an aircraft.');
-    if (!c.held || !c.motion) return log(g, 'warn', `Match target: no speed on ${contactLabel(c)} yet. Keep tracking until the solution shows its course and speed.`);
-    const kts = Math.round(clamp(c.motion.spd, 0, g.own.cls.maxSpd));
-    orders.speed(g, kts);
-    log(g, 'info', `Matching ${contactLabel(c)}: ${kts} knots.`);
+    if (!c) return log(g, 'warn', `Match ${what}: select a contact first.`);
+    if (c.air) return log(g, 'warn', `Match ${what}: we can't follow an aircraft.`);
+    if (!c.held || (what !== 'bearing' && !c.motion)) return log(g, 'warn', `Match ${what}: no ${what} on ${contactLabel(c)} yet. Keep tracking until the solution shows its course and speed.`);
+    if (what === 'course' && g.flags.matchBrg) { g.flags.matchBrg = 0; log(g, 'info', 'No longer steering at the target\'s bearing.'); }
+    if (what === 'bearing' && g.flags.matchCrs) { g.flags.matchCrs = 0; log(g, 'info', 'No longer matching the target\'s course.'); }
+    g.flags[key] = c.id;
+    keepMatch(g);
+    const now = what === 'speed' ? `${g.own.ordSpd} knots` : `${String(Math.round(g.own.ordHdg)).padStart(3, '0')}°`;
+    log(g, 'info', `Matching ${contactLabel(c)}'s ${what}: ${now}. We'll keep following it until you turn this off or give another ${what === 'speed' ? 'speed' : 'heading'}.`);
   },
   depth(g: Game, d: Depth) {
     if (g.own.arraySide !== 'with') { g.own.arraySide = 'with'; g.own.arrayStableAt = g.t + ARRAY.settle; log(g, 'info', 'Towed array streaming with the boat again.'); }
@@ -1337,6 +1348,31 @@ function waterfallRow(g: Game): WaterfallRow {
 }
 
 // ---- Tick ----------------------------------------------------------------------------------------
+export type MatchKind = 'speed' | 'course' | 'bearing';
+const MATCH_FLAG: Record<MatchKind, string> = { speed: 'matchSpd', course: 'matchCrs', bearing: 'matchBrg' };
+/** Steering by hand ends any course or bearing match. */
+function stopSteering(g: Game) {
+  if (g.flags.matchCrs) { g.flags.matchCrs = 0; log(g, 'info', 'No longer matching the target\'s course.'); }
+  if (g.flags.matchBrg) { g.flags.matchBrg = 0; log(g, 'info', 'No longer steering at the target\'s bearing.'); }
+}
+/** Follow the matched contacts: speed and course from the solution, bearing from sonar. A contact lost for two minutes ends its match. */
+function keepMatch(g: Game) {
+  for (const what of ['speed', 'course', 'bearing'] as const) {
+    const key = MATCH_FLAG[what];
+    if (!g.flags[key]) continue;
+    const c = contactById(g, g.flags[key]);
+    // A contact that fades for a moment (the array settling after a turn) keeps its match; two minutes lost ends it.
+    if (c && !c.held && g.t - c.lastSeen <= 120 && vesselById(g, c.vid).alive) continue;
+    if (!c || !c.held || !vesselById(g, c.vid).alive || (what !== 'bearing' && !c.motion) || (what === 'bearing' && c.bearing === null)) {
+      g.flags[key] = 0;
+      if (!g.flags.matchSpd && !g.flags.matchCrs && !g.flags.matchBrg) log(g, 'warn', 'Lost the target we were matching. Holding present course and speed.');
+      continue;
+    }
+    if (what === 'speed') g.own.ordSpd = Math.round(clamp(c.motion!.spd, 0, g.own.cls.maxSpd));
+    else g.own.ordHdg = norm(Math.round(what === 'course' ? c.motion!.crs : c.bearing!));
+  }
+}
+
 export function tick(g: Game, dt = 1) {
   if (g.over) return;
   g.t += dt;
@@ -1362,6 +1398,14 @@ export function tick(g: Game, dt = 1) {
   if (g.wfTimer <= 0) { g.wfTimer = 3; g.waterfall = waterfallRow(g); updateSignatures(g); }
   depthCharges(g);
   updateMotion(g);
+  if (g.flags.matchSpd || g.flags.matchCrs || g.flags.matchBrg) {
+    // Selecting another contact ends every match, so the boat holds course and speed instead of swinging to the new one.
+    const on = [g.flags.matchSpd, g.flags.matchCrs, g.flags.matchBrg].find(Boolean);
+    if (g.selected !== on) {
+      g.flags.matchSpd = g.flags.matchCrs = g.flags.matchBrg = 0;
+      log(g, 'info', 'New target selected: match toggles off. Holding present course and speed.');
+    } else if (g.t % 5 === 0) keepMatch(g);
+  }
   g.script?.(g);
   checkGoal(g);
 }

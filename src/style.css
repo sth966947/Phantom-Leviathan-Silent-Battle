@@ -371,8 +371,7 @@ button.on-air { background: #1d4a3a; border-color: #2f7a5e; color: #d4ffe9; }
 .pause-card .obj .open .mk { color: var(--contact); }
 .pause-card .obj .failed .mk, .pause-card .obj .failed b { color: var(--threat); }
 .pause-card .row button { flex: 1; padding: 10px 14px; }
-/* Speeds: four on the first line; Full, Flank and Match target share the second */
-#speeds { display: grid; grid-template-columns: repeat(12, 1fr); }
-#speeds button { grid-column: span 3; }
-#speeds button:nth-child(n + 5) { grid-column: span 4; }
-#speeds button { white-space: nowrap; padding-left: 4px; padding-right: 4px; }
+/* Match course / bearing / speed toggles, one row of three */
+#follow { align-items: center; }
+#follow .lbl { font: 12px var(--f-data); color: var(--dim); letter-spacing: 0.08em; text-transform: uppercase; padding-right: 2px; }
+#follow button { flex: 1; white-space: nowrap; padding-left: 4px; padding-right: 4px; }

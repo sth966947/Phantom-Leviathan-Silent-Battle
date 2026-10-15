@@ -27,6 +27,37 @@ describe('missions', () => {
     expect(g.weapons.some((w) => w.type === 'tlam')).toBe(false);
     expect(g.t).toBeGreaterThan(60 * 60);
   });
+  it('Match toggles keep following the target until overridden', () => {
+    const g = create('duel', 4);
+    const kaz = g.vessels.find((v) => v.cls.key === 'yasen')!;
+    for (let i = 0; i < 3000 && !g.contacts.some((c) => c.vid === kaz.id && c.held && c.motion); i++) tick(g, 1);
+    const c = g.contacts.find((x) => x.vid === kaz.id && x.held && x.motion)!;
+    expect(c).toBeDefined();
+    g.selected = c.id;
+    orders.match(g, 'speed');
+    expect(g.flags.matchSpd).toBe(c.id);
+    c.motion = { crs: c.motion!.crs, spd: 17 };
+    for (let i = 0; i < 10; i++) tick(g, 1);
+    if (g.flags.matchSpd) expect(g.own.ordSpd).toBe(Math.round(c.motion!.spd));
+    orders.speed(g, 5);
+    expect(g.flags.matchSpd).toBe(0);
+    expect(g.own.ordSpd).toBe(5);
+    // Course and bearing can't both be on, and steering by hand ends them.
+    orders.match(g, 'course');
+    orders.match(g, 'bearing');
+    expect(g.flags.matchCrs).toBe(0);
+    expect(g.flags.matchBrg).toBe(c.id);
+    for (let i = 0; i < 5; i++) tick(g, 1);
+    if (g.flags.matchBrg) expect(Math.abs(((g.own.ordHdg - c.bearing! + 540) % 360) - 180)).toBeLessThan(8);
+    orders.turn(g, 10);
+    expect(g.flags.matchBrg).toBe(0);
+    // Switching targets turns every match off.
+    orders.match(g, 'speed');
+    orders.match(g, 'course');
+    g.selected = -1;
+    tick(g, 1);
+    expect([g.flags.matchSpd, g.flags.matchCrs, g.flags.matchBrg]).toEqual([0, 0, 0]);
+  });
   it('ships sunk earlier stay sunk', () => {
     const g = create('midway', 3, { sunk: ['Akagi', 'Kaga'] });
     const names = g.vessels.map((v) => v.name);
