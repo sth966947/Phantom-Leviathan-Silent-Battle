@@ -14,7 +14,7 @@ import { DepthView } from './ui/depth';
 import { Player, noteSelection, record as recordOrders, recording } from './replay';
 import { FRONTS, FRONT_NAMES, WAR_MAX, WAR_MIN, currentSlot, warLength, newsCard, resolve as resolveWar, warOver, type Ending, type WarState } from './sim/war';
 import { WAR_MISSIONS } from './sim/warData';
-import { PLAYABLE, currentWar, restartWar, saveWar } from './warSave';
+import { currentWar, playable, restartWar, saveWar } from './warSave';
 
 const $ = (id: string) => document.getElementById(id)!;
 const esc = (t: string) => t.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]!));
@@ -392,13 +392,13 @@ function frontsHTML(w: WarState) {
 
 function warMissionHTML(id: string, w: WarState, choice: boolean) {
   const m = WAR_MISSIONS[id];
-  const built = !!PLAYABLE[id];
+  const built = !!playable(id);
   return `<div class="war-mission">
     <p class="sub">${esc(m.where)} · ${esc(currentSlot(w)?.title ?? '')}</p>
     <h3>${esc(m.name)}</h3>
     <p><b>You face:</b> ${esc(m.face)}.</p>
     <p><b>Orders:</b> ${esc(m.goal)}.</p>
-    ${built ? `<p class="war-brief">${esc(MISSIONS[PLAYABLE[id]!].brief)}</p>` : ''}
+    ${built ? `<p class="war-brief">${esc(MISSIONS[playable(id)!].brief)}</p>` : ''}
     <p class="fx"><span class="ok">Win:</span> ${esc(m.winText)} · <span class="no">Loss:</span> ${esc(m.loseText)}</p>
     ${built ? `<button data-begin="${id}">${choice ? 'Take these orders' : 'Begin mission'}</button>`
       : `<p class="unbuilt">This mission isn't built yet. To try the story, mark how it went.</p><div class="row"><button data-mark="${id}" data-win="1">Count as won</button><button data-mark="${id}" data-win="0">Count as lost</button></div>`}
@@ -437,7 +437,7 @@ function showWar() {
     </div>`;
   wireModes();
   $('campList').querySelector('li.sel')?.scrollIntoView({ block: 'nearest' });
-  for (const b of brief.querySelectorAll<HTMLButtonElement>('[data-begin]')) b.addEventListener('click', () => start(PLAYABLE[b.dataset.begin!]!, b.dataset.begin!));
+  for (const b of brief.querySelectorAll<HTMLButtonElement>('[data-begin]')) b.addEventListener('click', () => start(playable(b.dataset.begin!)!, b.dataset.begin!));
   for (const b of brief.querySelectorAll<HTMLButtonElement>('[data-mark]')) b.addEventListener('click', () => {
     resolveWar(w, b.dataset.mark!, b.dataset.win === '1');
     saveWar();

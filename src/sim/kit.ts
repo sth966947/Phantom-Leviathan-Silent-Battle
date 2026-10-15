@@ -14,6 +14,8 @@ export interface Mission {
   key: MissionKey; title: string; era: '1941' | '2029'; place: string; date: string;
   night?: boolean; library: string[]; brief: string;
   build: (g: Game, r: () => number, carry: Carry) => void;
+  /** Which modern mission file it lives in (set by modern/index.ts). */
+  file?: string;
 }
 /** Extra or replacement objectives for one mission, given the ones read from its goal. */
 export type ObjectiveFn = (g: Game, base: Objective[]) => Objective[];

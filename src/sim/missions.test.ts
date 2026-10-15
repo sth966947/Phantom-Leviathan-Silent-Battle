@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { create, orders, tick } from './sim';
 import { CAMPAIGN, MISSIONS, MODERN, PREQUELS, objectives } from './missions';
+import { MODERN_MISSIONS } from './modern';
 import { CLASSES } from './classes';
 
 describe('missions', () => {
-  for (const key of [...CAMPAIGN, ...PREQUELS, ...MODERN]) {
+  for (const key of [...CAMPAIGN, ...PREQUELS, ...MODERN, ...Object.keys(MODERN_MISSIONS)]) {
     it(`${key} builds and runs for an hour`, () => {
       const g = create(key, 11);
       expect(g.goal.targets.length + g.sites.length + g.goal.protect.length + (g.script ? 1 : 0)).toBeGreaterThan(0);
