@@ -27,6 +27,12 @@ export function evade(g: Game, i: number, s: CaptainState, snap = true) {
   if (s.sprintT >= 0) { if (i - s.sprintT > 150) { s.sprintT = -1; orders.speed(g, 6); } return true; }
   return false;
 }
+/** While a patrol plane of one of these classes is alive: up to periscope depth for a minute and a half in every ten, so evade's JATM can find it. True while going up or there. */
+export function airWatch(g: Game, i: number, classes: string[]) {
+  if (!g.vessels.some((v) => v.alive && v.side === 'enemy' && classes.includes(v.cls.key))) return false;
+  if (i % 600 < 90) { if (i % 30 === 0) { orders.depth(g, 0); orders.speed(g, 6); } return true; }
+  return false;
+}
 /** Steer for a point, turning away from any mine we have found close ahead. */
 export function steerTo(g: Game, i: number, p: Vec, spd: number) {
   if (i % 20) return;
@@ -72,18 +78,21 @@ export const captains: Record<string, Captain> = {
   CS1: (g, i, s) => {
     if (evade(g, i, s)) return true;
     // The frigates are round the anchorage, 24 nm south: go ahead of the convoy to find them.
-    if (!threat(g, ['tamandare'], 30) && !g.contacts.some((c) => c.held && c.classified === 'tamandare')) { steerTo(g, i, offset({ x: 0, y: 0 }, 170, 18), 10); if (i % 900 === 450) orders.depth(g, 0); if (i % 900 === 600) orders.depth(g, 1); if (atPeriscopeDepth(g)) orders.radar(g, true); return true; }
-    // Frigates gone: back to the convoy, on its eastern side where the raiding Riachuelo comes from, pinging for her.
-    if (!g.vessels.some((v) => v.cls.key === 'tamandare' && v.alive)) {
-      const lead = g.vessels.find((v) => v.alive && v.side === 'allied' && ['type26', 'tanker', 'boxship'].includes(v.cls.key));
-      if (threat(g, ['riachuelo'], 8) || !lead) return { extra: ['riachuelo'] };
+    if (!threat(g, ['tamandare'], 30) && !g.contacts.some((c) => c.held && c.classified === 'tamandare')) { steerTo(g, i, offset({ x: 0, y: 0 }, 170, 18), 8); if (i % 900 === 450) orders.depth(g, 0); if (i % 900 === 600) orders.depth(g, 1); if (atPeriscopeDepth(g)) orders.radar(g, true); return true; }
+    // After the first hour, or with the frigates gone: back to the convoy, on its eastern side where the raiding
+    // Riachuelo comes from, pinging for her, and a Tomahawk now and then at any frigate still held.
+    const lead = g.vessels.find((v) => v.alive && v.side === 'allied' && ['type26', 'tanker', 'boxship'].includes(v.cls.key));
+    if (lead && (g.t > 60 * 60 || !g.vessels.some((v) => v.cls.key === 'tamandare' && v.alive))) {
+      if (threat(g, ['riachuelo'], 8)) return { extra: ['riachuelo'] };
+      const f = g.contacts.find((c) => c.held && c.est && c.classified === 'tamandare' && g.vessels.find((v) => v.id === c.vid)!.alive && dist(g.own, c.est) < 30);
+      if (f && i - (s.m.mst ?? -1e9) > 300) { s.m.mst = i; const keep = g.selected; g.selected = f.id; orders.fire(g, 'mst'); g.selected = keep; }
       if (i % 300 === 150) orders.ping(g);
       steerTo(g, i, offset(lead, 120, 3), dist(g.own, offset(lead, 120, 3)) > 2 ? 12 : 8);
       return true;
     }
     return { extra: ['tamandare'] };
   },
-  CA2: (g, i, s) => evade(g, i, s) || { extra: ['yasen', 'udaloy', 'gorshkov'] },
+  CA2: (g, i, s) => evade(g, i, s) || airWatch(g, i, ['tu142']) || { extra: ['yasen', 'udaloy', 'gorshkov'] },
   CP2: (g, i, s) => evade(g, i, s) || { extra: ['type055', 'type052d', 'type093b', 'type039'] },
   CG2: (g, i, s) => {
     if (evade(g, i, s)) return true;
@@ -115,6 +124,7 @@ export const captains: Record<string, Captain> = {
     if (evade(g, i, s)) return true;
     // Hits on the empty shiplift (the generic captain fires at every site) don't count.
     if (g.t <= 3600) s.m.pre = g.sites[0].hits;
+    if (airWatch(g, i, ['p3am'])) return true;
     if (i % 60 === 0 && g.own.ordDepth !== 1) orders.depth(g, 1);
     strike(g, g.t > 3600 ? { [-1]: (s.m.pre ?? 0) + 2, [-2]: 2 } : { [-2]: 2 }, 2);
     if (threat(g, ['riachuelo', 'tamandare'], 8)) return { extra: ['riachuelo', 'tamandare'] };

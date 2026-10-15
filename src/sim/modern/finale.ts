@@ -367,7 +367,7 @@ export const missions: Record<MissionKey, Mission> = {
         skirmish(gg, [heyer], kilos, 3, 0.15, 0, 0.5);
         if (gg.t % 1200 === 600) for (const c of corv) {
           const near = ships.filter((v) => v.alive && dist(v, c) < 25);
-          if (c.alive && near.length) missileSalvo(gg, c.name, 'Uran', 2, near, 0.3, 2);
+          if (c.alive && near.length) missileSalvo(gg, c.name, 'Uran', 2, near, 0.3, 2, 'the evacuation ships');
         }
         at(gg, 50 * 60, 'backfires', () => raid(gg, raids, offset(heyer, 40, 150), ships.filter((v) => v.alive), 'tu22m3', ['Backfire 1', 'Backfire 2', 'Backfire 3'], 520));
         at(gg, 130 * 60, 'backfires2', () => raid(gg, raids, offset(heyer, 30, 150), ships.filter((v) => v.alive), 'tu22m3', ['Backfire 4', 'Backfire 5', 'Backfire 6'], 520));

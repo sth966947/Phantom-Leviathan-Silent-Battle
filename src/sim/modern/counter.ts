@@ -2,7 +2,7 @@
 // on each front (CA Atlantic, CP Pacific, CG Gulf and Indian Ocean, CS South Atlantic), each a bigger
 // fight than the last, with allied boats and ships fighting alongside Tang.
 import { brg, dist, norm, offset, type Vec } from '../math';
-import { depthT, end, log, WEAPONS, type Game, type Vessel } from '../sim';
+import { depthT, end, log, WEAPONS, type Game, type Site, type SiteKind, type Vessel } from '../sim';
 import { CLASSES } from '../classes';
 import {
   add, alive, at, clock, flag, go, ids, isSunk, keepCourse, mins, missileSalvo, pointDefence, pressRaids, raid, screen,
@@ -17,8 +17,8 @@ export function fresh(carry: Carry, names: string[], n = names.length) {
   return [...up, ...names.filter((x) => !up.includes(x))].slice(0, n);
 }
 /** A land target for TLAMs. */
-export function site(g: Game, name: string, p: Vec) {
-  const s = { id: -(g.sites.length + 1), name, x: p.x, y: p.y, hits: 0 };
+export function site(g: Game, name: string, p: Vec, kind?: SiteKind) {
+  const s: Site = { id: -(g.sites.length + 1), name, x: p.x, y: p.y, hits: 0, ...(kind ? { kind } : {}) };
   g.sites.push(s);
   return s;
 }
@@ -104,7 +104,7 @@ export const missions: Record<MissionKey, Mission> = {
   CA1: {
     key: 'CA1', title: 'Second Bear Gap', era: '2029', place: 'Bear Island Gap, Barents Sea', date: 'January 2030, 0100', night: true,
     library: ['yasen', 'akula', 'oscar', 'kilo', 'nansen', 'type26', 'il38'],
-    brief: 'Russia is sending its last wave of submarines west through the Bear Island Gap: two Yasen-Ms, two Akulas and an Oscar II, in two waves. The Yasens and the Oscar are running for it; the Akulas are there to fight. The first three are about 15 nm east of you now; the last two are expected in about 50 minutes, running faster. If three boats get past a line 20 nm west of you, the breakout has worked. Hold the gap for four hours, or sink all five. HNoMS Fridtjof Nansen and HMS Glasgow hold the southern end of the gap, about 14 nm south of you, and will fight anything that comes near them. They are friendly: check what you shoot at. An Il-38 is working the gap for the Russians.',
+    brief: 'Russia is sending its last wave of submarines west through the Bear Island Gap: two Yasen-Ms, two Akulas and an Oscar II, in two waves. The Yasens and the Oscar are running for it; the Akulas are there to fight. The first three are about 15 nm east of you now; the last two are expected in about 50 minutes, running faster. If three boats get past a line 20 nm west of you, the breakout has worked. Hold the gap for four hours, sinking at least two of them yourself, or sink all five. HNoMS Fridtjof Nansen and HMS Glasgow hold the southern end of the gap, about 14 nm south of you, and will fight anything that comes near them. They are friendly: check what you shoot at. An Il-38 is working the gap for the Russians.',
     build(g, r, carry) {
       g.startClock = clock(1);
       g.timeLimit = 4 * 3600;
@@ -137,6 +137,9 @@ export const missions: Record<MissionKey, Mission> = {
         through(gg, boats.map((b) => b.v), (v) => v.x < -20, 'through', (v) => `${v.name} is past the line and into the Norwegian Sea.`);
         skirmish(gg, allies, boats.map((b) => b.v), 5, 0.12, 0.06, 0.5);
         if (flag(gg, 'through') >= 3) end(gg, false, 'Three boats broke through the Bear Island Gap. The breakout has worked.');
+        // Holding the gap means fighting for it: at the four-hour mark, Tang must have sunk two of them herself.
+        if (gg.t >= gg.timeLimit - 1 && gg.sunk.filter((v) => v.by === 'us' && v.side === 'enemy' && v.cls !== 'il38').length < 2)
+          end(gg, false, 'Four hours, and Tang hardly fired a shot. The Norwegians and the British held the gap without us, and paid for it.');
       };
     },
   },
@@ -217,7 +220,7 @@ export const missions: Record<MissionKey, Mission> = {
   CS1: {
     key: 'CS1', title: 'Ascension Relief', era: '2029', place: 'Off Ascension Island', date: 'January 2030, 0700',
     library: ['tamandare', 'riachuelo', 'type209', 'p3am', 'type26', 'tanker', 'boxship'],
-    brief: 'Ascension has been under siege since the autumn: three Brazilian Tamandaré frigates and two Riachuelos hold the sea around it. A British relief convoy, RFA Tideforce with MV Hurst Point and MV Eddystone, escorted by HMS Cardiff, is 4 nm behind you, heading 170 for the anchorage at Clarence Bay, about 24 nm south of you. Break the siege: get the convoy to the anchorage, losing no more than one ship. The frigates fire MANSUP anti-ship missiles at the convoy about every 25 minutes while it is inside 20 nm of them, and one Riachuelo is coming in from the east to torpedo it, and the other is hunting for you: sink the frigates first if you can. A P-3AM is up.',
+    brief: 'Ascension has been under siege since the autumn: three Brazilian Tamandaré frigates and two Riachuelos hold the sea around it. A British relief convoy, RFA Tideforce with MV Hurst Point and MV Eddystone, escorted by HMS Cardiff, is 4 nm behind you, heading 170 for the anchorage at Clarence Bay, about 24 nm south of you. Break the siege: get the convoy to the anchorage, losing no more than one ship. The frigates fire MANSUP anti-ship missiles at the convoy about every 25 minutes while it is inside 20 nm of them, and one Riachuelo is coming in from the east to torpedo it, and the other lies quiet off the frigates\' line and will come hunting for you once one of them is hit. Sink the frigates if you can, but keep an eye on the convoy. A P-3AM is up.',
     build(g, r, carry) {
       g.startClock = clock(7);
       g.timeLimit = 4 * 3600;
@@ -228,7 +231,7 @@ export const missions: Record<MissionKey, Mission> = {
       const frig = fresh(carry, ['Tamandaré (F200)', 'Jerônimo de Albuquerque (F201)', 'Cunha Moreira (F202)', 'Mariz e Barros (F203)'], 3)
         .map((n, i) => add(g, 'tamandare', n, 'enemy', offset(anch, 250 + i * 70 + r() * 30, 12 + r() * 4), r() * 360, 8, { mode: 'patrol', legT: 500 }));
       const subs = fresh(carry, ['Riachuelo (S40)', 'Humaitá (S41)', 'Tonelero (S42)', 'Angostura (S43)'], 2)
-        .map((n, i) => add(g, 'riachuelo', n, 'enemy', offset(anch, i ? 60 + r() * 30 : 300 + r() * 30, i ? 16 : 13), 0, 4, i ? { mode: 'raider', cruise: 6, decoys: 2, torps: 4 } : { mode: 'patrol', legT: 500, decoys: 2 }, 1));
+        .map((n, i) => add(g, 'riachuelo', n, 'enemy', offset(anch, i ? 60 + r() * 30 : 270 + r() * 30, i ? 16 : 14), 0, 4, i ? { mode: 'raider', cruise: 6, decoys: 2, torps: 4 } : { mode: 'patrol', legT: 500, decoys: 2 }, 1));
       add(g, 'p3am', 'P-3AM Orion', 'enemy', offset(anch, r() * 360, 40), 0, 230, { mode: 'search', center: anch, wp: anch, buoyT: 0, torps: 2, datum: null });
       setGoal(g, { targets: [], protect: ids(convoy), maxLosses: 1, lossText: 'Two relief ships are gone. Ascension stays under siege.', win: '', timeout: 'The convoy never made the anchorage. Ascension stays under siege.' });
       g.script = (gg) => {
@@ -238,6 +241,8 @@ export const missions: Record<MissionKey, Mission> = {
         for (const v of convoy) if (v.alive && v.ai!.mode === 'transit') { v.ai!.baseCourse = brg(v, anch); v.ai!.cruise = 9; }
         through(gg, convoy, (v) => dist(v, anch) < 4, 'arrived', (v) => `${v.name} is in Clarence Bay, under the island's guns.`);
         skirmish(gg, [card], subs, 4, 0.15, 0.08, 0.5);
+        // The second Riachuelo holds the frigates' line quietly until one of them is hit.
+        screenSub(subs[0], frig, offset(anch, 300, 10), 4);
         // Each frigate inside 25 nm of the convoy gets a MANSUP off every 20 minutes.
         if (gg.t % 1500 === 750) for (const f of frig) {
           const near = convoy.filter((v) => v.alive && dist(v, f) < 20);
@@ -288,8 +293,8 @@ export const missions: Record<MissionKey, Mission> = {
       g.startClock = clock(2);
       g.timeLimit = 4 * 3600;
       g.own.hdg = g.own.ordHdg = 0;
-      const tunnel = site(g, 'Yulin submarine tunnel entrance', { x: 0, y: 70 });
-      const piers = site(g, 'Yulin submarine piers', offset(tunnel, 100, 1.2));
+      const tunnel = site(g, 'Yulin submarine tunnel entrance', { x: 0, y: 70 }, 'subpens');
+      const piers = site(g, 'Yulin submarine piers', offset(tunnel, 100, 1.2), 'docks');
       const dir = r() < 0.5 ? 90 : 270;
       const lead = add(g, 'type055', 'Yan\'an', 'enemy', { x: (r() * 2 - 1) * 8, y: 32 }, dir, 14, go(dir, 14, 1e9));
       const dd = screen(g, lead, 'type052d', ['Hohhot', 'Nanning'], [[90, 3], [270, 3]]);
@@ -328,7 +333,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.startClock = clock(3);
       g.timeLimit = 4 * 3600;
       g.own.hdg = g.own.ordHdg = 0;
-      const dock = site(g, 'Bandar Abbas dry dock', { x: 0, y: 55 });
+      const dock = site(g, 'Bandar Abbas dry dock', { x: 0, y: 55 }, 'shipyard');
       const pier = site(g, 'Bandar Abbas submarine pier', offset(dock, 90, 1.5));
       mineLine(g, { x: -9, y: 28 }, { x: -1.6, y: 28 }, 12);
       mineLine(g, { x: 1.6, y: 28 }, { x: 9, y: 28 }, 12);
@@ -420,8 +425,8 @@ export const missions: Record<MissionKey, Mission> = {
       g.own.depthT = g.own.ordDepth = depthT(300);
       const p1 = { ...offset(g.own, 150, 10), r: 1.6 }, p2 = { ...offset(g.own, 200, 22), r: 2 };
       g.env.ice = true; g.env.polynyas = [p1, p2];
-      const hall = site(g, 'Sevmash building hall', offset(g.own, 160, 50));
-      const basin = site(g, 'Sevmash fitting-out basin', offset(hall, 90, 1));
+      const hall = site(g, 'Sevmash building hall', offset(g.own, 160, 50), 'shipyard');
+      const basin = site(g, 'Sevmash fitting-out basin', offset(hall, 90, 1), 'docks');
       const yasen = add(g, 'yasen', fresh(carry, ['Arkhangelsk (K-564)', 'Perm (K-575)'], 1)[0], 'enemy', offset(p1, r() * 360, 4 + r() * 2), r() * 360, 6, { mode: 'patrol', legT: 500, decoys: 2 }, 2);
       const akula = add(g, 'akula', fresh(carry, AKULA, 1)[0], 'enemy', offset(p2, r() * 360, 5), r() * 360, 6, { mode: 'patrol', legT: 500, decoys: 2 }, 1);
       add(g, 'arktika', 'Sibir', 'enemy', offset(g.own, 120, 8), 200, 6, { mode: 'wander', center: offset(g.own, 170, 12), rng: 6, cruise: 7 });
@@ -525,8 +530,8 @@ export const missions: Record<MissionKey, Mission> = {
       g.startClock = clock(21);
       g.timeLimit = 3 * 3600;
       g.own.hdg = g.own.ordHdg = 0;
-      const slip = site(g, 'Itaguaí shiplift', { x: 0, y: 50 });
-      const shed = site(g, 'Itaguaí submarine hall', offset(slip, 80, 0.8));
+      const slip = site(g, 'Itaguaí shiplift', { x: 0, y: 50 }, 'shipyard');
+      const shed = site(g, 'Itaguaí submarine hall', offset(slip, 80, 0.8), 'shipyard');
       const subs = fresh(carry, ['Humaitá (S41)', 'Tonelero (S42)', 'Angostura (S43)', 'Riachuelo (S40)'], 2)
         .map((n, i) => add(g, 'riachuelo', n, 'enemy', i ? offset(slip, 180 + (r() * 2 - 1) * 20, 14) : offset(g.own, r() * 360, 20), r() * 360, 4, { mode: 'patrol', legT: 500, decoys: 2 }, 1));
       add(g, 'tamandare', fresh(carry, ['Jerônimo de Albuquerque (F201)', 'Cunha Moreira (F202)', 'Mariz e Barros (F203)'], 1)[0], 'enemy', offset(g.own, r() * 60 - 30, 18), 180, 10, { mode: 'patrol', legT: 600 });
