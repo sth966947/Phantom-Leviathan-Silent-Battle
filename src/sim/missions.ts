@@ -910,7 +910,10 @@ export const MISSIONS: Record<MissionKey, Mission> = {
         if (!ak.alive) return;
         // Every 20 minutes the Akula changes course a little and changes depth: a real trail, not a straight line.
         keepCourse(ak, norm(course + Math.sin(gg.t / 1200) * 30), gg.t % 2400 < 1800 ? 8 : 12);
-        if (!gg.flags.blown && (ak.ai!.mode === 'attack' || ak.ai!.mode === 'evade')) {
+        // Weapons free only if the Akula turns on us of its own accord: it heard us before we fired, or it shoots first.
+        // If we fire first, whatever it does next is our doing: sinking it still fails the mission.
+        const weFired = Object.values(gg.stats.fired).some((n) => n > 0);
+        if (!gg.flags.blown && !weFired && (ak.ai!.mode === 'attack' || gg.stats.enemyFired > 0)) {
           gg.flags.blown = 1;
           gg.goal.protect = []; gg.goal.targets = [ak.id]; gg.goal.need = 1;
           gg.goal.win = 'The Akula turned on us and we sank it. The report went out with the kill.';
