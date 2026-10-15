@@ -201,7 +201,7 @@ export const LAYER_FT = depthFeet(LAYER_AT);
 export const depthT = (ft: number) => (ft <= 150 ? (ft - 60) / 90 : 1 + (ft - 150) / 550);
 export const MIN_FT = 60, MAX_FT = 800;
 /** Typical cruising height in feet. Low fliers stay down where radar sees them only close in. */
-const CRUISE_FT: Record<string, number> = { il38: 8000, tu142: 25000, tu22m3: 30000, ar196: 1500, kate: 10000, mavis: 6000, jake: 2500, fw200: 3000 };
+const CRUISE_FT: Record<string, number> = { il38: 8000, kq200: 8000, p8i: 7000, p8a: 7000, p3am: 6000, h6k: 28000, h6j: 25000, tu142: 25000, tu22m3: 30000, ar196: 1500, kate: 10000, mavis: 6000, jake: 2500, fw200: 3000 };
 export const altitudeFt = (v: Vessel) => (flyingLow(v) ? (HELOS.has(v.cls.key) ? 300 : 600) : CRUISE_FT[v.cls.key] ?? 8000);
 const PD_MAX = 0.3; // depthT at or above which masts are out of the water
 
