@@ -126,14 +126,14 @@ export function arrive(g: Game, v: Vessel, p: Vec, within: number) {
   return true;
 }
 /** Anti-ship missiles at a group: each gets through the escorts' air defence with chance `p`; a hit does `dmg`. */
-export function missileSalvo(g: Game, from: string, missile: string, n: number, targets: Vessel[], p: number, dmg: number) {
-  log(g, 'danger', `Vampire, vampire! ${from} has fired ${n} ${missile} missiles at the convoy.`, 'alarm');
+export function missileSalvo(g: Game, from: string, missile: string, n: number, targets: Vessel[], p: number, dmg: number, at = 'the convoy') {
+  log(g, 'danger', `Vampire, vampire! ${from} has fired ${n} ${missile} missiles at ${at}.`, 'alarm');
   for (let i = 0; i < n; i++) {
     const live = targets.filter((t) => t.alive);
     if (!live.length) return;
-    if (g.r() > p) { log(g, 'info', `The escorts shot down a ${missile}.`); continue; }
+    if (g.r() > p) { log(g, 'info', `The escorts shot down ${/^[aeiou]/i.test(missile) ? 'an' : 'a'} ${missile}.`); continue; }
     const t = live[Math.floor(g.r() * live.length)];
-    for (let k = 0; k < dmg; k++) bombed(g, t, `a ${missile}`);
+    for (let k = 0; k < dmg; k++) bombed(g, t, `${/^[aeiou]/i.test(missile) ? 'an' : 'a'} ${missile}`);
   }
 }
 /** Modern warships' close-in air defence: each of our anti-ship missiles that gets within 3 nm of one is shot down with chance `p`. */

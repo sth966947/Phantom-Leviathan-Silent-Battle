@@ -185,7 +185,8 @@ const AIR_VISUAL_RANGE = 10;    // nm, aircraft against the sky
 /** Mast radar, nm. Ships: identified inside 15, seen out to 25. Aircraft: low fliers (helicopters, attack runs) inside 15, high fliers out to 100, identified inside 15. */
 export const RADAR = { classify: 15, horizon: 25, airLow: 15, airHigh: 100, sweep: 4, esm: 100 };
 /** Helicopters stay down on the water; fixed-wing aircraft come down only to attack. */
-export const flyingLow = (v: Vessel) => v.cls.kind === 'air' && (v.cls.key === 'ka27' || v.ai?.mode === 'prosecute');
+const HELOS = new Set(['ka27', 'ka28']);
+export const flyingLow = (v: Vessel) => v.cls.kind === 'air' && (HELOS.has(v.cls.key) || v.ai?.mode === 'prosecute');
 /** Feet below the surface for a depth setting: periscope depth 60 ft, 150 ft, 700 ft. */
 export const depthFeet = (depthT: number) => (depthT <= 1 ? 60 + 90 * depthT : 150 + 550 * (depthT - 1));
 export const LAYER_FT = depthFeet(LAYER_AT);
@@ -194,7 +195,7 @@ export const depthT = (ft: number) => (ft <= 150 ? (ft - 60) / 90 : 1 + (ft - 15
 export const MIN_FT = 60, MAX_FT = 800;
 /** Typical cruising height in feet. Low fliers stay down where radar sees them only close in. */
 const CRUISE_FT: Record<string, number> = { il38: 8000, tu142: 25000, tu22m3: 30000, ar196: 1500, kate: 10000, mavis: 6000, jake: 2500, fw200: 3000 };
-export const altitudeFt = (v: Vessel) => (flyingLow(v) ? (v.cls.key === 'ka27' ? 300 : 600) : CRUISE_FT[v.cls.key] ?? 8000);
+export const altitudeFt = (v: Vessel) => (flyingLow(v) ? (HELOS.has(v.cls.key) ? 300 : 600) : CRUISE_FT[v.cls.key] ?? 8000);
 const PD_MAX = 0.3; // depthT at or above which masts are out of the water
 
 // ---- Acoustics ---------------------------------------------------------------------
@@ -465,7 +466,7 @@ export const orders = {
       run: 0, maxRun: w.maxRun, enableAt: Infinity, enabled: false, deep: false, wire: false,
       aim: { x: site.x, y: site.y }, contactId: site.id, target: null, rolled: new Set(), trail: [],
     });
-    log(g, 'good', `VLS tube ${tube + 1} fired. ${label} for ${site.name}, ${fmtRng(range)}, about ${Math.round(range / w.spd * 60)} minutes' flight. Terrain matching only: no GPS in 1942.`, 'missile');
+    log(g, 'good', `VLS tube ${tube + 1} fired. ${label} for ${site.name}, ${fmtRng(range)}, about ${Math.round(range / w.spd * 60)} minutes' flight. ${g.era === '1941' ? 'Terrain matching only: no GPS in 1942.' : g.flags.jammed ? 'GPS jammed: terrain matching only.' : 'GPS and terrain matching.'}`, 'missile');
     transient(g, o, 'us');
     launchSeen(g);
   },
@@ -496,10 +497,11 @@ export const orders = {
         c.est = { x: v.x, y: v.y, t: g.t }; c.estErr = 0;
         log(g, 'contact', `Ping return: ${contactLabel(c)} bearing ${fmtBrg(b)}, range ${fmtRng(r)}.`);
       }
-      // Anyone with sonar within 60 nm hears the ping and knows where it came from.
+      // Anyone with sonar within 60 nm hears the ping. Close in that is a fix; far off only a rough bearing and range.
       if (v.ai && v.cls.threshold !== null && r < 60) {
-        v.ai.knows = { x: o.x, y: o.y, t: g.t, deep: o.depthT > LAYER_AT, exact: true };
-        v.ai.holdT = Math.max(v.ai.holdT, 120);
+        const near = r < 15, e = near ? 0 : r * 0.06;
+        v.ai.knows = { x: o.x + gauss(g.r) * e, y: o.y + gauss(g.r) * e, t: g.t, deep: o.depthT > LAYER_AT, exact: near };
+        v.ai.holdT = Math.max(v.ai.holdT, near ? 120 : 40);
         if (v.ai.mode === 'patrol') v.ai.mode = 'attack';
       }
     }
@@ -765,7 +767,7 @@ function hit(g: Game, w: Weapon, v: Vessel) {
     log(g, 'good', sunk ? `${w.label} hit ${who}. Breaking-up noises: ${v.name} is sinking.` : `${w.label} hit ${who}. Secondary explosions; she is slowing.`, 'boom');
   }
   // The whole group knows it is under attack and runs from the threat; escorts come hunting.
-  alertGroup(g, norm(brg(w, v)), v.side, v);
+  if (v.side === 'enemy') alertGroup(g, norm(brg(w, v)), v.side, v);
   checkGoal(g);
 }
 
@@ -820,6 +822,12 @@ function alertGroup(g: Game, fleeHdg: number, side: Side, near?: Vessel) {
       if (near && dist(v, near) > 15) continue;
       if (v.ai.mode !== 'hunt') v.ai.home = v.ai.mode;
       const e = 0.6 + dist(o, near ?? v) * 0.1;
+      // Modern sub hunters prosecute with sonar and torpedoes, not WWII depth-charge runs.
+      if (v.cls.threshold !== null) {
+        v.ai.mode = 'attack'; v.ai.holdT = 0;
+        v.ai.knows = { x: o.x + gauss(g.r) * e, y: o.y + gauss(g.r) * e, t: g.t, deep: o.depthT > LAYER_AT };
+        continue;
+      }
       v.ai.mode = 'hunt'; v.ai.alertT = 1500; v.ai.cool = 0;
       v.ai.datum = { x: o.x + gauss(g.r) * e, y: o.y + gauss(g.r) * e, t: g.t, deep: false };
       v.ai.wp = { x: v.ai.datum.x, y: v.ai.datum.y };
@@ -1054,7 +1062,7 @@ function airAI(g: Game, v: Vessel, dt: number) {
     }
     return;
   }
-  if (v.cls.key === 'ka27') return heloAI(g, v, dt);
+  if (HELOS.has(v.cls.key)) return heloAI(g, v, dt);
   // Il-38: search the box laying sonobuoys; on a datum, seed buoys round it and attack.
   v.ordSpd = ai.mode === 'prosecute' ? 300 : 230;
   if (dist(v, ai.wp!) < 1.5) {
@@ -1157,7 +1165,9 @@ function heloAI(g: Game, v: Vessel, dt: number) {
 /** Sonobuoys listen for us; a few seconds of holding contact gives the aircraft a datum. */
 function updateBuoys(g: Game, dt: number) {
   const o = g.own;
-  const il = g.vessels.find((v) => v.alive && v.cls.key === 'il38');
+  // Whichever patrol aircraft is working the buoys (Il-38, KQ-200, P-8, Tu-142...) gets the datum.
+  const il = g.vessels.find((v) => v.alive && v.side === 'enemy' && v.cls.kind === 'air' && !HELOS.has(v.cls.key) && (v.ai?.mode === 'search' || v.ai?.mode === 'prosecute'))
+    ?? g.vessels.find((v) => v.alive && v.cls.key === 'il38');
   for (const b of g.buoys) {
     b.life -= dt;
     if (!il) continue;
