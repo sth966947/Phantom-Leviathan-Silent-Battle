@@ -153,14 +153,14 @@ function modernCaptain(g: Game, i: number, s: CaptainState) {
 }
 
 const only = process.argv[2];
-// A key, a comma-separated list of keys, or a mission file's name (act1, pacific, gulf, arctic, home, counter, chance).
+// A key, a comma-separated list of keys, or a mission file's name (act1, pacific, gulf, arctic, home, finale...). N=20 sets the runs per mission.
 const FILE_KEYS = (f: string) => Object.keys(MODERN_MISSIONS).filter((k) => MODERN_MISSIONS[k].file === f);
 const keys = only ? only.split(',').flatMap((k) => FILE_KEYS(k).length ? FILE_KEYS(k) : [k]) : ['duel', ...CAMPAIGN, ...PREQUELS, ...MODERN.filter((k) => k !== 'duel'), ...Object.keys(MODERN_MISSIONS)];
 for (const key of keys) {
 
   const res: Record<string, number> = {};
   const mins: number[] = [];
-  const n = key === 'duel' || key === 'bismarck' ? 100 : 30;
+  const n = Number(process.env.N) || (key === 'duel' || key === 'bismarck' ? 100 : 30);
   for (let seed = 1; seed <= n; seed++) {
     const g = create(key, seed);
     const s: CaptainState = { legs: 0, lastLeg: 0, sprintT: -1, deepT: -1e9, cutBrg: 0, cutT: -1, m: {} };

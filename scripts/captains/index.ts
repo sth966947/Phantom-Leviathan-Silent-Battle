@@ -5,10 +5,13 @@
 import type { Game } from '../../src/sim/sim';
 import * as act1 from './act1';
 import * as pacific from './pacific';
+import * as pacific2 from './pacific2';
 import * as gulf from './gulf';
+import * as gulf2 from './gulf2';
 import * as arctic from './arctic';
 import * as home from './home';
 import * as counter from './counter';
+import * as finale from './finale';
 import * as chance from './chance';
 
 export interface CaptainState {
@@ -18,4 +21,4 @@ export interface CaptainState {
 }
 export type Captain = (g: Game, i: number, s: CaptainState) => true | { extra?: string[]; minPct?: number } | void;
 
-export const CAPTAINS: Record<string, Captain> = Object.assign({}, ...[act1, pacific, gulf, arctic, home, counter, chance].map((f) => f.captains));
+export const CAPTAINS: Record<string, Captain> = Object.assign({}, ...[act1, pacific, pacific2, gulf, gulf2, arctic, home, counter, finale, chance].map((f) => f.captains));
