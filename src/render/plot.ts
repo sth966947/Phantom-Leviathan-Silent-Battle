@@ -150,7 +150,8 @@ export class Plot {
 
     // Pack ice: a pale wash over the plot, with the polynyas (open water) ringed and named.
     if (g.env.ice) {
-      d.circle(cx, cy, R).fill({ color: 0xdfeeff, alpha: 0.05 });
+      d.circle(cx, cy, R).fill({ color: 0xdfeeff, alpha: 0.1 });
+      this.label('pack ice overhead', cx, cy + R * 0.86, 0xdfeeff, 0.45, 10);
       for (const p of g.env.polynyas) {
         const q = scr(p);
         d.circle(q.x, q.y, p.r * k).fill({ color: 0x07121e, alpha: 0.55 }).stroke({ width: 1, color: 0xdfeeff, alpha: 0.45 });
