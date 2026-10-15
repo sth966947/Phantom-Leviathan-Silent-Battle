@@ -124,7 +124,8 @@ export class StrikeCam {
   draw(now: number) {
     const c = this.clip;
     if (!c) return;
-    const t = (now - c.t0) / 1000;
+    // The frame's timestamp can be a little older than the moment the clip was queued.
+    const t = Math.max(0, (now - c.t0) / 1000);
     if (t >= LENGTH) { this.skip(); return; }
     const f = this.fctx, ctx = this.ctx;
     let view: View | null = null, hud: () => void;
