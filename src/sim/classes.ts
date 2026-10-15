@@ -772,6 +772,7 @@ export const REFERENCE: Record<string, Reference> = {
     armament: ['12 × 6 in guns in four triple turrets', '8 × 4 in twin AA mounts', '2-pounder pom-poms', '6 × 21 in torpedo tubes', '2 to 3 Walrus amphibians'],
     armor: '114 mm belt, 32 to 76 mm deck',
     notes: 'Friendly. Two triple turrets forward and two aft, two widely spaced raked funnels with the hangars between bridge and fore funnel, tripod masts. Four shafts.',
+    photo: { file: 'town.jpg', credit: 'HMS Sheffield (C24), Town class, underway in Scapa Flow, 28 October 1941. Photo: Lt R.G.G. Coote, Royal Navy official photographer · Public domain (UK Crown Copyright expired) · Wikimedia Commons' },
   },
   deutschland: {
     displacement: '16,000 t full load',
