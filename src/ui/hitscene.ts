@@ -534,15 +534,16 @@ function drawAir(ctx: CanvasRenderingContext2D, W: number, H: number, s: ShotSpe
     if (age < 0) return;
     if (age < 0.12) flash = Math.max(flash, 0.8 * (1 - age / 0.12));
     // Proximity burst just ahead of the aircraft: a flash, a dark puff, fragments.
-    const b: V3 = [tgt[0] + 6, tgt[1] - 4, tgt[2] + 3];
-    if (age < 0.2) out.push(blob(b, 14 + age * 40, [255, 250, 220], [255, 255, 255], 1 - age / 0.2));
+    // Sized to the airframe: a helicopter is small and the camera is close, so its burst is too.
+    const bs = heli ? 0.45 : 1, b: V3 = [tgt[0] + 6 * bs, tgt[1] - 4 * bs, tgt[2] + 3 * bs];
+    if (age < 0.2) out.push(blob(b, (14 + age * 40) * bs, [255, 250, 220], [255, 255, 255], 1 - age / 0.2));
     const rr = mulberry32(s.seed + i * 7);
     for (let k = 0; k < 10; k++) {
-      const q: V3 = [b[0] + (rr() - 0.5) * 12 - age * 3, b[1] + (rr() - 0.5) * 8, b[2] + (rr() - 0.5) * 8 + age * 2];
+      const q: V3 = [b[0] + ((rr() - 0.5) * 12 - age * 3) * bs, b[1] + (rr() - 0.5) * 8 * bs, b[2] + ((rr() - 0.5) * 8 + age * 2) * bs];
       const heat = age * 1.6 + rr() * 0.3;
-      if (heat < 3) out.push(blob(q, 4 + age * 4 + rr() * 3, fireCol(Math.min(1, 0.3 + heat * 0.4)), heat < 0.5 ? fireCol(0.1) : null, 1 - heat / 3, null, k));
+      if (heat < 3) out.push(blob(q, (4 + age * 4 + rr() * 3) * bs, fireCol(Math.min(1, 0.3 + heat * 0.4)), heat < 0.5 ? fireCol(0.1) : null, 1 - heat / 3, null, k));
     }
-    debris(out, s.seed + i, b, 30, age, 20, 10);
+    debris(out, s.seed + i, b, 30 * bs, age, 20, 10);
   });
   if (t > last) {
     // Fire at the engines (or the whole airframe of a killed aircraft) and the smoke trail it leaves.
