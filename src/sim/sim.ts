@@ -7,6 +7,7 @@ import { angDiff, approach, brg, clamp, D2R, dist, fmtBrg, fmtRng, gauss, KT, mu
 import { CLASSES, type ClassCard } from './classes';
 import { MISSIONS, type Carry, type MissionKey } from './missions';
 import { matchClasses, signatureView, type Match, type SignatureView } from './signature';
+import { ambientDb, calmSea, pingMines, underIce, updateHazards, visibility, type Env, type Mine } from './hazards';
 
 export type Side = 'us' | 'allied' | 'enemy';
 /** Depth setting: 0 periscope depth (60 ft), 1 is 150 ft, 2 is 700 ft, and anything between or below. */
@@ -106,6 +107,10 @@ export interface Game {
   script: ((g: Game) => void) | null;
   /** Fixed targets ashore for land-attack Tomahawks, with hits landed on each. */
   sites: (Vec & { id: number; name: string; hits: number })[];
+  /** Minefields (see hazards.ts): enemy mines Tang must find and avoid, and any Tang has laid. */
+  mines: Mine[];
+  /** Sea state and pack ice for the mission (see hazards.ts). */
+  env: Env;
   t: number; r: () => number; seq: number;
   over: { win: boolean; t: number; reason: string } | null;
   /** A replay of a finished mission: the plot shows every ship where it really is. */
@@ -181,7 +186,9 @@ export const ARRAY = { name: 'TB-34 towed array', gain: 3, maxSpd: 12, settle: 9
 export const WF_BINS = 180;
 
 export const vesselSL = (v: Vessel) => v.cls.slBase + 1.5 * v.spd;
-export const selfNoise = (spd: number) => 70 + Math.max(0, spd - 5) * 1.2;
+/** Wave and ice noise for the mission under way, set each tick (see hazards.ts). */
+let ambient = 0;
+export const selfNoise = (spd: number) => 70 + ambient + Math.max(0, spd - 5) * 1.2;
 const deepOf = (o: { depthT?: number; deep?: boolean }) => (o.depthT !== undefined ? o.depthT > LAYER_AT : !!o.deep);
 export const inBaffles = (lis: { hdg: number }, bearing: number) => Math.abs(angDiff(bearing, lis.hdg + 180)) < BAFFLE_HALF;
 
@@ -229,7 +236,7 @@ export function create(scenario: ScenarioKey = 'bismarck', seed?: number, carry:
   const g = {
     scenario, era: m.era, startClock: 0, timeLimit: Infinity, library: m.library, night: !!m.night,
     goal: { targets: [], need: 1, protect: [], maxLosses: Infinity, surviveWin: false, win: '', timeout: '', lossText: '' },
-    sunk: [], flags: {}, script: null, sites: [],
+    sunk: [], flags: {}, script: null, sites: [], mines: [], env: calmSea(),
     t: 0, r, seq: 1, over: null, vessels: [], contacts: [], selected: null,
     weapons: [], decoys: [], buoys: [], charges: [], splashT: -1e9, heard: new Set(), sweeps: [], events: [], waterfall: null, wfTimer: 0, pings: [], blasts: [],
     stats: {
@@ -365,6 +372,7 @@ export const orders = {
     const o = g.own;
     if (g.over) return;
     const w = WEAPONS[type];
+    if (w.missile && underIce(g)) return log(g, 'warn', `${w.short}: ice overhead. Missiles need open water: find a polynya.`);
     if (w.missile && o.depthT > MISSILE_MAX_DEPTH) return log(g, 'warn', `${w.short}: come up to 150 feet or shallower to launch.`);
     // Maritime Strike Tomahawk needs satellite updates in flight to find a moving ship.
     if (type === 'mst' && g.flags.jammed) return log(g, 'warn', 'Tomahawk: satellite links are jammed. It can\'t get in-flight updates on a moving target. Harpoon and torpedoes still work.');
@@ -401,12 +409,26 @@ export const orders = {
     transient(g, o, 'us');
     if (w.missile) launchSeen(g);
   },
+  /** Lay a mine from a torpedo tube where Tang is now. Missions that send Tang out with mines set `minesAboard`. */
+  layMine(g: Game) {
+    const o = g.own;
+    if (g.over) return;
+    if (!g.flags.minesAboard) return log(g, 'warn', 'No mines aboard on this patrol.');
+    if (o.spd > 12) return log(g, 'warn', 'Mines: slow to 12 knots or less to lay a mine.');
+    const tube = o.tubes.findIndex((x) => x <= 0);
+    if (tube < 0) return log(g, 'warn', 'All torpedo tubes reloading.');
+    o.tubes[tube] = TUBE_RELOAD;
+    g.flags.minesAboard--;
+    g.mines.push({ id: g.seq++, side: 'us', found: true, x: o.x, y: o.y });
+    log(g, 'good', `Tube ${tube + 1}: mine laid. ${g.flags.minesAboard} left aboard.`);
+  },
   /** Land-attack Tomahawk at one of the mission's fixed sites ashore. */
   strike(g: Game, siteId: number) {
     const o = g.own, w = WEAPONS.tlam;
     if (g.over) return;
     const site = g.sites.find((x) => x.id === siteId);
     if (!site) return log(g, 'warn', 'TLAM: no target selected.');
+    if (underIce(g)) return log(g, 'warn', 'TLAM: ice overhead. Missiles need open water: find a polynya.');
     if (o.depthT > MISSILE_MAX_DEPTH) return log(g, 'warn', 'TLAM: come up to 150 feet or shallower to launch.');
     const range = dist(o, site);
     if (range > w.maxRun) return log(g, 'warn', `TLAM: ${site.name} is ${fmtRng(range)} away, beyond Tomahawk range.`);
@@ -436,6 +458,7 @@ export const orders = {
     if (g.over) return;
     g.stats.pings++;
     g.pings.push({ t: g.t });
+    pingMines(g);
     let returns = 0;
     for (const v of g.vessels) {
       if (v === o || !v.alive || v.cls.kind === 'air') continue;
@@ -793,7 +816,7 @@ function ownSensors(g: Game, dt: number) {
     if (!v.alive) { if (exists) exists.held = false; continue; }
     const se = excess(vesselSL(v), v, ears, o.cls.threshold!) + gauss(g.r) * 2;
     const r = dist(o, v);
-    const seen = atPD && v.cls.kind === 'surface' && r < VISUAL_RANGE;
+    const seen = atPD && v.cls.kind === 'surface' && r < VISUAL_RANGE * visibility(g.env);
     if (se <= 0 && !seen && !exists) continue;
     const c = contactFor(g, v, se > 0 ? 'Sierra' : 'Victor');
     c.se = se;
@@ -910,7 +933,7 @@ function radarAndAir(g: Game) {
     }
     if (!air) continue;
     // Eyes and ESM on aircraft, at periscope depth. In 1941 only radar finds aircraft.
-    if (g.era === '2029' && atPD && r < AIR_VISUAL_RANGE && g.r() < 0.05) {
+    if (g.era === '2029' && atPD && r < AIR_VISUAL_RANGE * visibility(g.env) && g.r() < 0.05) {
       c = c ?? contactFor(g, v, 'Victor');
       if (!c.held || !c.est || g.t - c.lastSeen > 10) log(g, 'contact', `Periscope: aircraft, bearing ${fmtBrg(brg(o, v))}. Raise the periscope view (V) to identify.`);
       c.held = true; c.ever = true; c.lastSeen = g.t; c.bearing = brg(o, v); c.spotted = true;
@@ -1043,6 +1066,7 @@ const DIP_THRESHOLD = 26; // a dipping sonar hears better than a buoy
 /** Sonobuoy splashes are audible, and give away where the aircraft is working. */
 function dropBuoy(g: Game, by: Vessel, at: Vec, deep: boolean) {
   const o = g.own;
+  if (underIce(g, at)) return; // nothing to drop a buoy into on the pack
   const heard = excess(SL_SPLASH, { x: at.x, y: at.y, depthT: 1 }, ownEars(g), o.cls.threshold!) + gauss(g.r) * 2 > 0;
   const r = dist(o, at);
   const b = norm(brg(o, at) + gauss(g.r) * 2);
@@ -1255,6 +1279,8 @@ function raiderAI(g: Game, v: Vessel, dt: number) {
 
 function subAI(g: Game, v: Vessel, dt: number) {
   const o = g.own, ai = v.ai!;
+  // Allied boats go where their mission script sends them; their fights are settled by `skirmish` in kit.ts.
+  if (v.side !== 'enemy') return;
   if (ai.mode === 'raider') return raiderAI(g, v, dt);
   const se = excess(vesselSL(o), o, v, v.cls.threshold!) + gauss(g.r) * 2;
   if (se > 0) {
@@ -1376,6 +1402,7 @@ function keepMatch(g: Game) {
 export function tick(g: Game, dt = 1) {
   if (g.over) return;
   g.t += dt;
+  ambient = ambientDb(g.env);
   const o = g.own;
   for (const v of g.vessels) {
     if (!v.alive) continue;
@@ -1390,6 +1417,7 @@ export function tick(g: Game, dt = 1) {
   g.decoys = g.decoys.filter((d) => d.life > 0);
   for (const w of g.weapons) if (!w.dead) updateWeapon(g, w, dt);
   g.weapons = g.weapons.filter((w) => { if (w.dead && w.deadAt === undefined) w.deadAt = g.t; return !w.dead || g.t - w.deadAt! < 1; });
+  updateHazards(g);
   if (g.over) return;
   ownSensors(g, dt);
   radarAndAir(g);
@@ -1427,8 +1455,8 @@ export function inPeriscope(g: Game, c: Contact | null): Vessel | null {
   const v = vesselById(g, c.vid);
   if (!v.alive) return null;
   const r = dist(g.own, v);
-  if (v.cls.kind === 'surface') return r < VISUAL_RANGE ? v : null;
-  if (v.cls.kind === 'air') return r < AIR_VISUAL_RANGE && c.held ? v : null;
+  if (v.cls.kind === 'surface') return r < VISUAL_RANGE * visibility(g.env) ? v : null;
+  if (v.cls.kind === 'air') return r < AIR_VISUAL_RANGE * visibility(g.env) && c.held ? v : null;
   return null;
 }
 export { VISUAL_RANGE, AIR_VISUAL_RANGE };

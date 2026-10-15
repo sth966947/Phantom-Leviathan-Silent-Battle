@@ -3,23 +3,15 @@
 // The WWII campaign runs in date order; ships sunk in earlier missions stay sunk (`Carry`).
 
 import { brg, dist, norm, offset, type Vec } from './math';
-import { atPeriscopeDepth, end, fireStraight, log, makeAI, makeVessel, shellfire, type AI, type Game, type Goal, type Side, type Vessel } from './sim';
+import { atPeriscopeDepth, end, fireStraight, log, makeVessel, shellfire, type Game, type Vessel } from './sim';
+import {
+  add, alive, arrive, at, baseObjectives, byId, clock, go, held, ids, isSunk, JP_DD, keepCourse, launchStrike, melee, missileSalvo,
+  mins, moored, named, flag, pointDefence, pressRaids, raid, RING, screen, setGoal, watch,
+  type Carry, type Mission, type MissionKey, type Objective, type ObjectiveFn, type Raid,
+} from './kit';
+import { MODERN_EXTRA, MODERN_MISSIONS } from './modern';
 
-export type MissionKey =
-  | 'bismarck' | 'midgets' | 'kidobutai' | 'forcez' | 'javasea' | 'sunda' | 'doolittle' | 'coralsea' | 'midway' | 'pq17'
-  | 'savo' | 'eastsol' | 'santacruz' | 'guadalcanal' | 'tassafaronga' | 'komandorski' | 'ons5' | 'northcape'
-  | 'philsea' | 'leyte' | 'shinano' | 'tengo'
-  | 'riverplate' | 'narvik' | 'calabria' | 'taranto' | 'matapan' | 'duel'
-  | 'vortex' | 'raiderloose' | 'eyes' | 'giuk' | 'bremerhaven' | 'cables' | 'darkwater' | 'lostsister';
-
-/** What earlier missions changed: the names of enemy ships Tang has already sunk. */
-export interface Carry { sunk: string[] }
-
-export interface Mission {
-  key: MissionKey; title: string; era: '1941' | '2029'; place: string; date: string;
-  night?: boolean; library: string[]; brief: string;
-  build: (g: Game, r: () => number, carry: Carry) => void;
-}
+export type { Carry, Mission, MissionKey, Objective };
 
 /** The WWII campaign, in date order. */
 export const CAMPAIGN: MissionKey[] = ['bismarck', 'midgets', 'kidobutai', 'forcez', 'javasea', 'sunda', 'doolittle', 'coralsea', 'midway', 'pq17',
@@ -29,139 +21,8 @@ export const PREQUELS: MissionKey[] = ['riverplate', 'narvik', 'calabria', 'tara
 /** The modern war's built missions, by the war mission they play (see war.ts). The duel plays Bear Gap. */
 export const MODERN: MissionKey[] = ['vortex', 'duel', 'raiderloose', 'eyes', 'giuk', 'bremerhaven', 'cables', 'darkwater', 'lostsister'];
 
-// ---- Building blocks ---------------------------------------------------------------------------
-function add(g: Game, cls: string, name: string, side: Side, p: Vec, hdg: number, spd: number, ai?: Partial<AI>, depth: 0 | 1 | 2 = 0): Vessel {
-  const v = makeVessel(g, cls, name, side, p, hdg, spd, depth);
-  if (ai) v.ai = makeAI(ai);
-  g.vessels.push(v);
-  return v;
-}
-/** Ships keeping station on a leader at the given relative bearings and ranges. */
-function screen(g: Game, lead: Vessel, cls: string, names: string[], spots: [number, number][], side: Side = lead.side) {
-  return names.map((n, i) => {
-    const [rel, rng] = spots[i % spots.length];
-    return add(g, cls, n, side, offset(lead, lead.hdg + rel, rng), lead.hdg, lead.spd, { mode: 'station', leader: lead.id, rel, rng });
-  });
-}
-const RING: [number, number][] = [[0, 3], [60, 3], [120, 3], [180, 3], [240, 3], [300, 3], [30, 5], [330, 5]];
-const setGoal = (g: Game, o: Partial<Goal>) => Object.assign(g.goal, o);
-const alive = (carry: Carry, name: string) => !carry.sunk.includes(name);
-const ids = (vs: Vessel[]) => vs.map((v) => v.id);
-const clock = (h: number, m = 0) => h * 3600 + m * 60;
-
-/** Each alive carrier puts a strike flight in the air toward `target`. */
-function launchStrike(g: Game, carriers: Vessel[], target: Vec, wave: string) {
-  const up = carriers.filter((c) => c.alive);
-  for (const c of up) {
-    const v = add(g, 'kate', `${wave} flight (${c.name})`, 'enemy', offset(c, brg(c, target), 1), brg(c, target), 140, { mode: 'strike', goal: target, cruise: 140 });
-    v.track = [];
-  }
-  if (up.length) log(g, 'warn', `Radio intercepts: the carriers are launching the ${wave.toLowerCase()}. ${up.length} strike flight${up.length > 1 ? 's' : ''} outbound. Radar at periscope depth will see them high up out to 100 nm.`);
-  g.flags.flightsLaunched = (g.flags.flightsLaunched ?? 0) + up.length;
-}
-/** Run the script once at time t. */
-const at = (g: Game, t: number, key: string, fn: () => void) => { if (g.t >= t && !g.flags[key]) { g.flags[key] = 1; fn(); } };
-
-const JP_DD = ['Kagerō', 'Shiranui', 'Isokaze', 'Hamakaze', 'Tanikaze', 'Urakaze', 'Arare', 'Kasumi', 'Yukikaze', 'Amatsukaze'];
-
-/** Hits from bombs or aircraft torpedoes: like gunfire, but the aircraft is already gone. */
-function bombed(g: Game, at: Vessel, by: string) {
-  if (!at.alive) return;
-  at.hp -= 1;
-  g.blasts.push({ x: at.x, y: at.y, t: g.t, missile: false });
-  if (at.hp > 0) return;
-  at.alive = false;
-  g.sunk.push({ name: at.name, cls: at.cls.key, side: at.side, by: 'enemy' });
-  log(g, at.side === 'enemy' ? 'good' : 'danger', `${at.name} has been hit by ${by} and is sinking.`, 'boom');
-}
-
-/** Strike flights sent at ships. Each homes on its ship and, if it gets there, scores hits. */
-interface Raid { flight: Vessel; target: Vessel; done: boolean }
-function raid(g: Game, raids: Raid[], from: Vec, targets: Vessel[], cls: string, names: string[], cruise = 170) {
-  const live = targets.filter((t) => t.alive);
-  if (!live.length) return;
-  names.forEach((n, i) => {
-    const target = live[i % live.length];
-    const p = offset(from, brg(from, target) + 90, (i - (names.length - 1) / 2) * 2);
-    const flight = add(g, cls, n, 'enemy', p, brg(p, target), cruise, { mode: 'strike', goal: { x: target.x, y: target.y }, cruise });
-    flight.track = [];
-    raids.push({ flight, target, done: false });
-  });
-  log(g, 'warn', `Radar and radio intercepts: ${names.length} enemy strike flights inbound, bearing ${Math.round(brg(g.own, from)).toString().padStart(3, '0')}. Radar at periscope depth sees them high up out to 100 nm; SM-6 and JATM can bring them down.`);
-}
-/** Run every tick: keep each flight homing on its ship; when one arrives, it drops `hits` with chance `p` each. */
-function pressRaids(g: Game, raids: Raid[], hits: number, p: number, by: string) {
-  for (const rd of raids) {
-    if (rd.done) continue;
-    if (rd.flight.alive && rd.target.alive) rd.flight.ai!.goal = { x: rd.target.x, y: rd.target.y };
-    if (!rd.flight.gone) { if (!rd.flight.alive) rd.done = true; continue; }
-    rd.done = true;
-    log(g, 'danger', `${rd.flight.name} is attacking ${rd.target.name}!`, 'alarm');
-    for (let i = 0; i < hits; i++) if (g.r() < p) bombed(g, rd.target, by);
-  }
-}
-
-/**
- * A gunnery and torpedo fight between two forces: every 20 s, ships within range trade fire.
- * `b` is usually the Allied side, scaled down so Tang still has the fight to win.
- */
-const GUN: Record<string, number> = { battleship: 0.22, battlecruiser: 0.2, 'heavy cruiser': 0.13, 'light cruiser': 0.1, destroyer: 0.07 };
-function melee(g: Game, a: Vessel[], b: Vessel[], range = 6, torpsA = false, torpsB = false, scaleA = 1, scaleB = 0.5) {
-  if (g.t % 20) return;
-  for (const x of a) for (const y of b) {
-    if (!x.alive || !y.alive) continue;
-    const d = dist(x, y);
-    if (d > range) continue;
-    const near = 1 - d / (range * 1.4);
-    shellfire(g, x, y, (GUN[x.cls.type] ?? 0.06) * near * scaleA);
-    shellfire(g, y, x, (GUN[y.cls.type] ?? 0.06) * near * scaleB);
-    for (const [s, t, ok] of [[x, y, torpsA], [y, x, torpsB]] as const) {
-      if (!ok || !/destroyer|cruiser/.test(s.cls.type) || d > 4 || g.flags[`tt${s.id}`]) continue;
-      g.flags[`tt${s.id}`] = 1;
-      fireStraight(g, s, offset(t, t.hdg, (t.spd * d) / 40));
-    }
-  }
-}
-/** Ships at anchor or stopped: they stay put until something sets them moving. */
-const moored = (g: Game, cls: string, name: string, side: Side, p: Vec, hdg: number) => add(g, cls, name, side, p, hdg, 0, { mode: 'transit', baseCourse: hdg, cruise: 0, legT: 1e9 });
-const go = (course: number, cruise: number, legT = 900): Partial<AI> => ({ mode: 'transit', baseCourse: course, cruise, legT });
-
-// ---- Modern war building blocks ---------------------------------------------------------------
-const held = (g: Game, v: Vessel) => !!g.contacts.find((c) => c.vid === v.id)?.held;
-/** A ship or aircraft that got where it was going: it leaves the area alive, not sunk. */
-function arrive(g: Game, v: Vessel, p: Vec, within: number) {
-  if (!v.alive || dist(v, p) >= within) return false;
-  v.alive = false; v.gone = true;
-  return true;
-}
-/** Anti-ship missiles at a group: each gets through the escorts' air defence with chance `p`; a hit does `dmg`. */
-function missileSalvo(g: Game, from: string, missile: string, n: number, targets: Vessel[], p: number, dmg: number) {
-  log(g, 'danger', `Vampire, vampire! ${from} has fired ${n} ${missile} missiles at the convoy.`, 'alarm');
-  for (let i = 0; i < n; i++) {
-    const live = targets.filter((t) => t.alive);
-    if (!live.length) return;
-    if (g.r() > p) { log(g, 'info', `The escorts shot down a ${missile}.`); continue; }
-    const t = live[Math.floor(g.r() * live.length)];
-    for (let k = 0; k < dmg; k++) bombed(g, t, `a ${missile}`);
-  }
-}
-/** Modern warships' close-in air defence: each of our anti-ship missiles that gets within 3 nm of one is shot down with chance `p`. */
-function pointDefence(g: Game, ships: Vessel[], p: number) {
-  for (const w of g.weapons) {
-    if (w.dead || w.side !== 'us' || (w.type !== 'harpoon' && w.type !== 'mst') || g.flags[`pd${w.id}`]) continue;
-    const by = ships.find((v) => v.alive && dist(v, w) < 3);
-    if (!by) continue;
-    g.flags[`pd${w.id}`] = 1;
-    if (g.r() < p) { w.dead = true; log(g, 'warn', `${by.name} shot down ${w.label}.`); }
-  }
-}
-/** Steer a patrolling submarine along a course while it doesn't know we're there. */
-function keepCourse(v: Vessel, course: number, spd: number) {
-  if (v.alive && v.ai?.mode === 'patrol') { v.ordHdg = course; v.ordSpd = spd; }
-}
-
 // ---- Missions ---------------------------------------------------------------------------------
-export const MISSIONS: Record<MissionKey, Mission> = {
+const BUILT: Record<MissionKey, Mission> = {
   bismarck: {
     key: 'bismarck', title: 'Sink the Bismarck', era: '1941', place: 'Denmark Strait', date: '24 May 1941, 0300',
     library: ['bismarck', 'hipper', 'county', 'admiral', 'kgv', 'merchant', 'ar196'],
@@ -1127,58 +988,12 @@ export const MISSIONS: Record<MissionKey, Mission> = {
   },
 };
 
+/** Every mission: the WWII campaign and prequels, Act 1's first missions, and the modern war's mission files. */
+export const MISSIONS: Record<MissionKey, Mission> = { ...BUILT, ...MODERN_MISSIONS };
+
 // ---- Objectives: what the pause screen lists, live ---------------------------------------------
-export interface Objective { text: string; state: 'done' | 'open' | 'failed'; detail?: string }
-
-const mins = (s: number) => {
-  const m = Math.max(0, Math.ceil(s / 60));
-  return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min` : `${m} min`;
-};
-const listNames = (vs: Vessel[]) => {
-  const names = vs.map((v) => v.name);
-  return names.length <= 4 ? names.join(', ').replace(/, ([^,]*)$/, ' and $1') : `${names.length} ships`;
-};
-const byId = (g: Game, ids: number[]) => ids.map((id) => g.vessels.find((v) => v.id === id)!).filter(Boolean);
-const isSunk = (v: Vessel) => !v.alive && !v.gone;
-
-/** Objectives read straight from the mission goal: what to sink, what to keep afloat, and the clock. */
-function baseObjectives(g: Game): Objective[] {
-  const gl = g.goal, out: Objective[] = [];
-  const tg = byId(g, gl.targets);
-  if (tg.length && gl.need <= tg.length) {
-    const sunk = tg.filter(isSunk).length, left = tg.filter((v) => v.alive).length;
-    const what = gl.need === tg.length ? (tg.length === 1 ? tg[0].name : `all of ${listNames(tg)}`) : `${gl.need} of ${listNames(tg)}`;
-    const away = tg.filter((v) => v.gone).length;
-    out.push({
-      text: `Sink ${what}`,
-      state: sunk >= gl.need ? 'done' : sunk + left < gl.need ? 'failed' : 'open',
-      detail: tg.length > 1 || gl.need > 1 ? `${sunk} of ${gl.need} sunk${away ? `, ${away} got away` : ''}. ${sunk >= gl.need ? '' : `${gl.need - sunk} more to go.`}` : sunk ? 'Sunk.' : 'Still afloat.',
-    });
-  }
-  const pr = byId(g, gl.protect).filter((v) => v.side !== 'enemy');
-  if (pr.length && Number.isFinite(gl.maxLosses)) {
-    const lost = pr.filter(isSunk).length;
-    out.push({
-      text: gl.maxLosses === 0 ? `Keep ${listNames(pr)} afloat` : `Lose no more than ${gl.maxLosses} of ${listNames(pr)}`,
-      state: lost > gl.maxLosses ? 'failed' : g.over?.win ? 'done' : 'open',
-      detail: lost ? `${lost} lost so far.${lost === gl.maxLosses ? ' One more and the mission fails.' : ''}` : 'None lost so far.',
-    });
-  }
-  if (Number.isFinite(g.timeLimit)) {
-    const left = g.timeLimit - g.t;
-    out.push(gl.surviveWin
-      ? { text: `Hold out for ${mins(g.timeLimit)}`, state: left <= 0 ? 'done' : 'open', detail: `${mins(left)} to go.` }
-      : { text: `Finish within ${mins(g.timeLimit)}`, state: left <= 0 && !g.over?.win ? 'failed' : 'open', detail: `${mins(left)} left.${gl.timeout ? ` If time runs out: ${gl.timeout}` : ''}` });
-  }
-  return out;
-}
-
-const watch = (text: string, failed: boolean, detail?: string): Objective => ({ text, state: failed ? 'failed' : 'open', detail });
-const flag = (g: Game, k: string) => g.flags[k] ?? 0;
-const named = (g: Game, cls: string) => g.vessels.find((v) => v.cls.key === cls && v.side === 'enemy');
-
 /** Objectives that missions' scripts add or change: escapes, reports, deadlines, trails. */
-const EXTRA: Partial<Record<MissionKey, (g: Game, base: Objective[]) => Objective[]>> = {
+const EXTRA: Record<MissionKey, ObjectiveFn> = {
   bismarck: (g, b) => [...b, watch('Keep within 60 nm of Bismarck', g.over?.reason.includes('broke out') ?? false, 'If she gets 60 nm away, she has broken out into the Atlantic.')],
   midgets: (g, b) => [...b, watch('Don\'t let two midgets into the harbour', flag(g, 'midgetsIn') >= 2, `${flag(g, 'midgetsIn')} of 2 have got in.`)],
   doolittle: (g, b) => [
@@ -1246,5 +1061,6 @@ const EXTRA: Partial<Record<MissionKey, (g: Game, base: Objective[]) => Objectiv
 /** The mission's objectives as they stand now. */
 export function objectives(g: Game): Objective[] {
   const base = baseObjectives(g);
-  return EXTRA[g.scenario]?.(g, base) ?? base;
+  const fn = EXTRA[g.scenario] ?? MODERN_EXTRA[g.scenario];
+  return fn ? fn(g, base) : base;
 }

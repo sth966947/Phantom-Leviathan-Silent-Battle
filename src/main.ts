@@ -12,7 +12,7 @@ import { Periscope } from './ui/periscope';
 import { Solution } from './ui/solution';
 import { DepthView } from './ui/depth';
 import { Player, noteSelection, record as recordOrders, recording } from './replay';
-import { FRONTS, FRONT_NAMES, WAR_LENGTH, currentSlot, newsCard, resolve as resolveWar, warOver, type Ending, type WarState } from './sim/war';
+import { FRONTS, FRONT_NAMES, WAR_MAX, WAR_MIN, currentSlot, warLength, newsCard, resolve as resolveWar, warOver, type Ending, type WarState } from './sim/war';
 import { WAR_MISSIONS } from './sim/warData';
 import { PLAYABLE, currentWar, restartWar, saveWar } from './warSave';
 
@@ -133,6 +133,7 @@ on('fireJatm', () => orders.fire(g, 'jatm'));
 on('fireSm6', () => orders.fire(g, 'sm6'));
 on('radar', () => orders.radar(g));
 on('fireTlam', () => orders.strike(g, Number(($('tlamSite') as HTMLSelectElement).value)));
+on('layMine', () => orders.layMine(g));
 on('scopeBtn', togglePeriscope);
 on('solBtn', () => { depthView.close(); solution.toggle(); });
 on('depthBtn', () => { solution.close(); depthView.toggle(); });
@@ -192,7 +193,7 @@ document.addEventListener('keydown', (ev) => {
     f: () => orders.fire(g, 'mk48'), h: () => orders.fire(g, 'harpoon'), t: () => orders.fire(g, 'mst'),
     g: () => orders.fire(g, 'asroc'), y: () => orders.strike(g, Number(($('tlamSite') as HTMLSelectElement).value)), j: () => orders.fire(g, 'jatm'), m: () => orders.fire(g, 'sm6'),
     r: () => orders.radar(g), v: togglePeriscope, b: () => { depthView.close(); solution.toggle(); }, x: () => { solution.close(); depthView.toggle(); }, escape: () => { if (replay && liveGame && !periscope.open && !depthView.open && !solution.open) exitReplay(); else if (periscope.open) periscope.close(); else if (depthView.open) depthView.close(); else solution.close(); },
-    p: () => orders.ping(g), c: () => orders.decoy(g), z: () => orders.match(g, 'speed'),
+    p: () => orders.ping(g), c: () => orders.decoy(g), z: () => orders.match(g, 'speed'), i: () => orders.layMine(g),
     tab: () => orders.cycleContact(g), k: acceptTop,
     ' ': togglePause,
     '1': () => { timeScale = 1; }, '2': () => { timeScale = 10; }, '3': () => { timeScale = 30; }, '4': () => { timeScale = 90; },
@@ -231,6 +232,7 @@ function setUp(key: ScenarioKey) {
   signature.clear();
   plot.reset(key === 'duel' ? 2 : 3);
   $('tlamRow').hidden = !g.sites.length;
+  $('mineRow').hidden = !g.flags.minesAboard;
   $('tlamSite').innerHTML = g.sites.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join('');
   periscope.close();
   solution.close();
@@ -371,6 +373,7 @@ function wireModes() {
 const ACTS: Record<string, string> = {
   '1': 'Act 1 · The North Atlantic and the Arctic',
   '2P': 'Act 2 · The Western Pacific', '2I': 'Act 2 · The Indian Ocean and the Gulf', '2': 'Act 2',
+  R: 'The Polar Front · under the ice with Japan',
   '3': 'Act 3 · Home, the South Atlantic and the end',
 };
 const ENDINGS: Record<Ending, [string, string]> = {
@@ -379,7 +382,7 @@ const ENDINGS: Record<Ending, [string, string]> = {
   Brink: ['The brink', 'For six days the world waited on the orders of a few missile subs. The crisis passed, at a price nobody will forget.'],
   Defeat: ['Defeat', 'The sea lanes are lost. With Europe cut off and the Pacific gone, NATO sues for peace.'],
 };
-const actKey = (w: WarState) => { const sl = currentSlot(w); return sl ? (sl.act === 2 ? `2${w.branch ?? ''}` : String(sl.act)) : '3'; };
+const actKey = (w: WarState) => { const sl = currentSlot(w); return sl ? (sl.branch === 'R' ? 'R' : sl.act === 2 ? `2${sl.branch ?? ''}` : String(sl.act)) : '3'; };
 
 function frontsHTML(w: WarState) {
   const bar = (v: number) => `<span class="fmeter">${[-3, -2, -1, 0, 1, 2, 3].map((n) => `<i class="${n === 0 ? 'mid ' : ''}${(v < 0 && n >= v && n < 0) ? 'neg' : (v > 0 && n <= v && n > 0) ? 'pos' : ''}"></i>`).join('')}</span>`;
@@ -412,14 +415,14 @@ function showWar() {
   const card = last && !over ? newsCard(last.news) : undefined;
   const rows = w.history.map((h, i) => `<li><span class="n">${i + 1}</span><span class="t">${esc(WAR_MISSIONS[h.id].name)}<small>${esc(h.news)}</small></span>${h.win ? '<span class="ok">✓</span>' : '<span class="no">✗</span>'}</li>`);
   if (!over) rows.push(`<li class="sel"><span class="n">${n + 1}</span><span class="t">${w.offer.map((id) => esc(WAR_MISSIONS[id].name)).join(' or ')}<small>Now</small></span></li>`);
-  for (let i = n + 2; i <= WAR_LENGTH; i++) rows.push(`<li class="locked"><span class="n">${i}</span><span class="t">?</span></li>`);
+  for (let i = n + 2; i <= warLength(w); i++) rows.push(`<li class="locked"><span class="n">${i}</span><span class="t">?</span></li>`);
   const ending = w.ending && over ? ENDINGS[w.ending] : null;
   brief.innerHTML = `
     <div class="modes"><button data-mode="ww2">WWII campaign</button><button data-mode="war">Modern war · 2029</button></div>
     <div class="camp-head">
       <div>
         <h2>The war of 2029</h2>
-        <p class="sub">${over ? 'The war is over' : `Mission ${n + 1} of ${WAR_LENGTH} · ${esc(ACTS[actKey(w)])}`}</p>
+        <p class="sub">${over ? 'The war is over' : `Mission ${n + 1} of ${warLength(w)} · ${esc(ACTS[actKey(w)])}`}</p>
       </div>
       <button id="restartWar" class="restart" title="Starts a new war with new dice">${over ? 'New war' : 'Restart war'}</button>
     </div>
@@ -427,7 +430,7 @@ function showWar() {
     <div class="camp">
       <ol class="camp-list war-list" id="campList">${rows.join('')}</ol>
       <div class="camp-detail" id="campDetail">
-        ${card ? `<div class="bulletin"><div class="wlabel">Radio bulletin</div><p><b>${esc(card.name)}.</b> ${esc(card.text)}</p></div>` : `<div class="bulletin"><div class="wlabel">March 2029</div><p>Tang is back from 1945, in a world at war: NATO against the BRICS Pact. Each mission's result, and the news between missions, decides where she is sent next. A war is ${WAR_LENGTH} missions.</p></div>`}
+        ${card ? `<div class="bulletin"><div class="wlabel">Radio bulletin</div><p><b>${esc(card.name)}.</b> ${esc(card.text)}</p></div>` : `<div class="bulletin"><div class="wlabel">March 2029</div><p>Tang is back from 1945, in a world at war: NATO against the BRICS Pact. Each mission's result, and the news between missions, decides where she is sent next. A war is ${WAR_MIN} to ${WAR_MAX} missions.</p></div>`}
         ${ending ? `<h3>${esc(ending[0])}</h3><p>${esc(ending[1])}</p>`
           : `${w.offer.length > 1 ? '<p class="sub">Choose your orders</p>' : ''}<div class="offers">${w.offer.map((id) => warMissionHTML(id, w, w.offer.length > 1)).join('')}</div>`}
       </div>

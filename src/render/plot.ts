@@ -148,6 +148,24 @@ export class Plot {
       d.rect(q.x - 2.5, q.y - 2.5, 5, 5).stroke({ width: 1, color: COL.threat, alpha: 0.6 });
     }
 
+    // Pack ice: a pale wash over the plot, with the polynyas (open water) ringed and named.
+    if (g.env.ice) {
+      d.circle(cx, cy, R).fill({ color: 0xdfeeff, alpha: 0.05 });
+      for (const p of g.env.polynyas) {
+        const q = scr(p);
+        d.circle(q.x, q.y, p.r * k).fill({ color: 0x07121e, alpha: 0.55 }).stroke({ width: 1, color: 0xdfeeff, alpha: 0.45 });
+        this.label('open water', q.x, q.y + p.r * k + 4, 0xdfeeff, 0.5, 10);
+      }
+    }
+
+    // Mines: enemy mines once sonar has found them (all of them in a replay), and our own.
+    for (const m of g.mines) {
+      if (!m.found && !over) continue;
+      const q = scr(m), s = 4;
+      d.moveTo(q.x, q.y - s).lineTo(q.x + s, q.y).lineTo(q.x, q.y + s).lineTo(q.x - s, q.y).closePath()
+        .stroke({ width: 1.2, color: m.side === 'us' ? COL.friend : COL.threat, alpha: m.found ? 0.9 : 0.45 });
+    }
+
     // Baffles, or the towed array astern when it is working.
     if (arrayActive(g)) {
       const tail = ray(own.hdg + 180, Math.min(0.6 * k, 40));
