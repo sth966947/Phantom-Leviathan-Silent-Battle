@@ -1,6 +1,6 @@
 import 'pixi.js/unsafe-eval'; // no eval(), so the game runs under strict content security policies
 import './style.css';
-import { WEAPONS, contactById, create, inPeriscope, orders, tick, type Depth, type Game, type ScenarioKey, type WeaponKey } from './sim/sim';
+import { WEAPONS, arrivingSoon, contactById, create, inPeriscope, orders, tick, type Depth, type Game, type ScenarioKey, type WeaponKey } from './sim/sim';
 import { CAMPAIGN, MISSIONS, PREQUELS, objectives, type MissionKey } from './sim/missions';
 import { carryFor, changedFor, interlude, record, resetCampaign, results, unlocked } from './campaign';
 import { Plot, SPANS } from './render/plot';
@@ -11,7 +11,7 @@ import { play, unlockAudio } from './ui/audio';
 import { Periscope } from './ui/periscope';
 import { Solution } from './ui/solution';
 import { DepthView } from './ui/depth';
-import { StrikeCam } from './ui/strikecam';
+import { StrikeCam, type Impact } from './ui/strikecam';
 import { Player, noteSelection, record as recordOrders, recording } from './replay';
 import { FRONTS, FRONT_NAMES, WAR_MAX, WAR_MIN, currentSlot, warLength, newsCard, resolve as resolveWar, warOver, type Ending, type WarState } from './sim/war';
 import { WAR_MISSIONS } from './sim/warData';
@@ -45,19 +45,35 @@ const periscope = new Periscope($('scopeView') as HTMLCanvasElement, () => g);
 const solution = new Solution(() => g);
 const depthView = new DepthView($('depthCanvas') as HTMLCanvasElement, () => g);
 const strikeCam = new StrikeCam();
-let strikesSeen = 0; // land-attack arrivals already handed to the strike camera
+let strikesSeen = 0; // land-attack arrivals already handed to the battle camera
+let hitsSeen = 0; // hits on vessels and aircraft already handed to it
+/** Arrivals waiting to play: held while more of our weapons are about to land, so they play as one reel. */
+let pending: Impact[] = [];
+let lastArrival = 0;
+/** Game seconds the camera waits after an arrival for others still in flight. */
+const HOLD = 60;
 
-/** Hands new Tomahawk arrivals to the strike camera (not in a replay: they've been seen). */
-function showStrikes() {
-  const date = MISSIONS[scenario].date.split(',')[0].toUpperCase();
-  if (!replay) for (const s of g.strikes.slice(strikesSeen)) {
-    strikeCam.add({
-      weapon: s.weapon, site: s.siteName, kind: s.kind, hit: s.hit, modern: g.era === '2029',
-      date, clock: g.startClock + s.t, seed: (s.t * 7919 + s.siteId * 104729 + g.stats.fired.tlam) | 0,
-    });
-  }
-  strikesSeen = g.strikes.length;
+/** Picks up new arrivals from the sim (not in a replay: they've been seen). True if there were any. */
+function collectArrivals(): boolean {
+  const fresh: Impact[] = replay ? [] : [
+    ...g.strikes.slice(strikesSeen).map((s): Impact => ({ type: 'land', t: s.t, weapon: s.weapon, site: s.siteName, siteId: s.siteId, kind: s.kind, hit: s.hit })),
+    ...g.hits.slice(hitsSeen).map((h): Impact => ({ type: 'hit', ...h })),
+  ];
+  strikesSeen = g.strikes.length; hitsSeen = g.hits.length;
+  if (!fresh.length) return false;
+  pending.push(...fresh.sort((a, b) => a.t - b.t));
+  lastArrival = g.t;
+  return true;
 }
+/** Still waiting for more weapons to land before showing what has. */
+const holding = () => pending.length > 0 && !g.over && g.t - lastArrival < HOLD && arrivingSoon(g, HOLD - (g.t - lastArrival));
+/** Hands the waiting arrivals to the battle camera as one reel. */
+function showArrivals() {
+  if (!pending.length) return;
+  strikeCam.add({ impacts: pending, modern: g.era === '2029', night: g.night, date: MISSIONS[scenario].date.split(',')[0].toUpperCase(), clock: g.startClock });
+  pending = [];
+}
+function forgetArrivals() { strikesSeen = g.strikes.length; hitsSeen = g.hits.length; pending = []; }
 function togglePeriscope() {
   const why = periscope.toggle();
   if (why) addLog(g, { t: g.t, kind: 'warn', text: why });
@@ -257,7 +273,7 @@ function setUp(key: ScenarioKey) {
   solution.close();
   depthView.close();
   strikeCam.close();
-  strikesSeen = g.strikes.length;
+  forgetArrivals();
   overShown = false;
   acc = 0;
 }
@@ -283,7 +299,7 @@ function exitReplay() {
   g = liveGame;
   liveGame = null;
   replay = null;
-  strikesSeen = g.strikes.length;
+  forgetArrivals();
   $('replayBar').hidden = true;
   $('overlay').hidden = false; // the results, as they were
   running = false;
@@ -512,17 +528,20 @@ let panelT = 0;
 function frame(now: number) {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
-  // The game waits while the strike camera plays, and stops the tick a Tomahawk arrives,
-  // so time compression can't run past the clip.
+  // The game waits while the battle camera plays. A weapon landing stops the tick there, so time
+  // compression can't run past it; if more of ours are about to land, the game runs on quickly
+  // until they have (or a minute has passed), and they all play as one reel.
   if (running && !g.over && !strikeCam.open) {
-    acc += dt * timeScale;
+    acc += dt * (pending.length && timeScale > 0 ? Math.max(timeScale, 16) : timeScale);
     for (let n = 0; acc >= 1 && n < 400 && !g.over; n++) {
       if (replay) replay.apply(); else noteSelection(g);
       tick(g, 1); acc -= 1;
-      if (g.strikes.length > strikesSeen && !replay) { acc = 0; break; }
+      collectArrivals();
+      if (pending.length && !holding()) { acc = 0; break; }
     }
   }
-  if (g.strikes.length > strikesSeen) showStrikes();
+  collectArrivals();
+  if (pending.length && !holding()) showArrivals();
   strikeCam.draw(now);
   for (const ev of g.events) { addLog(g, ev); if (ev.sound) play(ev.sound); }
   g.events.length = 0;

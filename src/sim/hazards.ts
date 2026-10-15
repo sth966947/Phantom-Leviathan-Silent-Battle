@@ -82,6 +82,7 @@ function blowMine(g: Game, m: Mine, v: Vessel) {
   }
   if (sunk) { v.alive = false; g.sunk.push({ name: v.name, cls: v.cls.key, side: v.side, by: m.side === 'us' ? 'us' : 'enemy' }); }
   const ours = m.side === 'us';
+  if (ours) g.hits.push({ t: g.t, vid: v.id, name: v.name, cls: v.cls.key, kind: v.cls.kind, weapon: 'mine', label: 'Mine', sunk });
   log(g, ours ? 'good' : 'danger', `Explosion on bearing ${fmtBrg(brg(g.own, v))}: ${v.name} has hit ${ours ? 'one of our mines' : 'a mine'}${sunk ? ' and is sinking' : ''}.`, 'boom');
 }
 

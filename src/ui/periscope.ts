@@ -20,9 +20,9 @@ type Part =
   // A Japanese carrier funnel that leaves the hull side under the flight deck and bends down,
   // its mouth at height m. Seen broadside it shows only where the hull is open around it.
   | { t: 'dfunnel'; x: number; w: number; h: number; m: number };
-interface ShipSil { kind: 'ship'; len: number; deck: [number, number][]; parts: Part[] }
-interface AirSil { kind: 'air'; len: number; alt: number; draw: (c: CanvasRenderingContext2D, L: number) => void }
-type Sil = ShipSil | AirSil;
+export interface ShipSil { kind: 'ship'; len: number; deck: [number, number][]; parts: Part[] }
+export interface AirSil { kind: 'air'; len: number; alt: number; draw: (c: CanvasRenderingContext2D, L: number) => void }
+export type Sil = ShipSil | AirSil;
 
 const T = (x: number, h: number, w = 0.045, gun = 0.07): Part => ({ t: 'turret', x, w, h, gun });
 const B = (x0: number, x1: number, h: number): Part => ({ t: 'box', x0, x1, h });
@@ -674,10 +674,10 @@ const AIR: Record<string, AirSil> = {
     },
   },
 };
-const silOf = (key: string): Sil | null => SHIPS[key] ?? AIR[key] ?? null;
+export const silOf = (key: string): Sil | null => SHIPS[key] ?? AIR[key] ?? null;
 
 /** Draw a silhouette with its waterline (or centre, for aircraft) at the origin, bow toward +x. */
-function drawSil(c: CanvasRenderingContext2D, sil: Sil, lenPx: number, foreshorten: number, ppm: number) {
+export function drawSil(c: CanvasRenderingContext2D, sil: Sil, lenPx: number, foreshorten: number, ppm: number) {
   const L = lenPx * foreshorten;
   if (sil.kind === 'air') {
     c.save(); c.translate(-L / 2, 0); c.scale(foreshorten, 1); sil.draw(c, lenPx); c.restore();
