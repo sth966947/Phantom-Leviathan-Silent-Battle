@@ -376,3 +376,18 @@ button.on-air { background: #1d4a3a; border-color: #2f7a5e; color: #d4ffe9; }
 #follow { align-items: center; }
 #follow .lbl { font: 12px var(--f-data); color: var(--dim); letter-spacing: 0.08em; text-transform: uppercase; padding-right: 2px; }
 #follow button { flex: 1; white-space: nowrap; padding-left: 4px; padding-right: 4px; }
+
+/* Strike camera: a Tomahawk's seeker video and battle damage view, over everything while it plays. */
+.strikecam {
+  position: fixed; inset: 0; z-index: 30; background: rgba(2, 7, 13, 0.9);
+  display: grid; place-items: center; padding: 12px;
+}
+.sc-frame {
+  display: flex; flex-direction: column; gap: 6px; background: var(--panel); border: 1px solid var(--rule); padding: 8px;
+  width: min(100%, 980px, calc((100vh - 70px) * 4 / 3)); box-sizing: border-box;
+}
+.sc-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; font: 600 13px var(--f-data); color: var(--ink); }
+.sc-head > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-btns { display: flex; gap: 6px; flex: none; }
+.sc-btns button { flex: none; padding: 4px 10px; }
+.sc-frame canvas { width: 100%; height: auto; aspect-ratio: 4 / 3; background: #000; image-rendering: pixelated; }

@@ -1,4 +1,4 @@
-// The modern war: 25 missions per war, drawn from about 110. Each slot of the war offers a pool of
+// The modern war: 30 to 38 missions per war, drawn from about 120. Each slot of the war offers a pool of
 // missions; your last result, the four fronts and the escalation meter narrow the pool, and a seeded
 // dice roll picks from what is left. After every mission a news card is drawn that can move a front,
 // unlock a mission or swap in a surprise one. Everything is decided from the war's seed, so
@@ -10,7 +10,8 @@ export type Ending = 'Victory' | 'Stalemate' | 'Brink' | 'Defeat';
 export const FRONTS: Front[] = ['N', 'P', 'I', 'S'];
 export const FRONT_NAMES: Record<Front, string> = { N: 'Atlantic', P: 'Pacific', I: 'Gulf', S: 'South Atlantic' };
 
-export interface Slot { act: 1 | 2 | 3; title: string; branch: 'P' | 'I' | null; ids: string[] }
+/** A slot of the war. `branch` P or I is one Act 2 theater; R is the Polar Front under the ice, played in every war. */
+export interface Slot { act: 1 | 2 | 3; title: string; branch: 'P' | 'I' | 'R' | null; ids: string[] }
 export interface WarMission {
   id: string; name: string; where: string; face: string; goal: string;
   /** Plain words for when the mission can come up, and the rule the game uses for it. */
@@ -29,6 +30,12 @@ export interface WarState {
   drawn: string[];
   history: Step[];
   branch: 'P' | 'I' | null;
+  /**
+   * The other Act 2 theater, when the war sends Tang there too after the first: because that front
+   * is losing, or because she did so well in the first that the fleet wants her there. Null when
+   * she goes straight on to the Polar Front; absent until the first theater is done.
+   */
+  second?: 'P' | 'I' | null;
   /** The counteroffensive's front, set when Act 3 reaches it. */
   front: Front | null;
   ending: Ending | null;
@@ -38,8 +45,9 @@ export interface WarState {
   surprise: string | null;
 }
 
-export const WAR_LENGTH = 25;
 export const HUBS = ['A11', 'P9', 'I5'];
+/** The shortest and longest wars: one Act 2 theater, or both (less the second's long way round). */
+export const WAR_MIN = 30, WAR_MAX = 38;
 
 // ---- Dice ---------------------------------------------------------------------------------------
 /** A fresh generator for one decision, so each step's rolls depend only on the seed and the step. */
@@ -164,25 +172,39 @@ export const NEWS: NewsCard[] = [
 export const newsCard = (name: string) => NEWS.find((n) => n.name === name);
 
 // ---- The war -------------------------------------------------------------------------------------
-/** The slots this war plays: Act 2 is the Pacific or the Gulf, never both. */
+const theater = (b: 'P' | 'I') => SLOTS.filter((sl) => sl.branch === b);
+/**
+ * The slots this war plays, in order: Act 1, the first Act 2 theater, the second if the war sends
+ * Tang there (without its long way round, since she is already east of Suez or west of Panama),
+ * the Polar Front, then Act 3.
+ */
 function slots(s: WarState): Slot[] {
-  return SLOTS.filter((sl) => !sl.branch || sl.branch === (s.branch ?? sl.branch));
+  const first = s.branch ?? 'P';
+  const second = s.second ? theater(s.second).slice(1) : [];
+  return [
+    ...SLOTS.filter((sl) => sl.act === 1),
+    ...theater(first), ...second,
+    ...SLOTS.filter((sl) => sl.branch === 'R'),
+    ...SLOTS.filter((sl) => sl.act === 3 && sl.branch !== 'R'),
+  ];
 }
+/** Missions in this war as it stands. It grows by eight if Tang is sent to the second theater. */
+export const warLength = (s: WarState) => slots(s).length;
 export function currentSlot(s: WarState): Slot | undefined {
-  if (s.history.length >= WAR_LENGTH) return undefined;
-  if (!s.branch) {
-    // Until Act 2 is decided, count only the slots that don't belong to a branch, plus the first branch.
-    const plain = SLOTS.filter((sl) => !sl.branch || sl.branch === 'P');
-    return plain[s.history.length];
-  }
   return slots(s)[s.history.length];
+}
+/** After the first theater: does the war send Tang to the other one too? */
+function secondTheater(s: WarState): 'P' | 'I' | null {
+  const first = s.branch!, other = first === 'P' ? 'I' : 'P';
+  return s.meters[other] < 0 || s.meters[first] >= 2 ? other : null;
 }
 
 /** Gets the next slot ready: Act 2's front, the counteroffensive, the ending, and the mission on offer. */
 function prepare(s: WarState) {
   const n = s.history.length;
   s.offer = [];
-  if (n >= WAR_LENGTH) return;
+  if (s.branch && s.second === undefined && n >= SLOTS.filter((sl) => sl.act === 1).length + theater(s.branch).length) s.second = secondTheater(s);
+  if (!currentSlot(s)) return;
   let slot = currentSlot(s)!;
   if (slot.branch && !s.branch) {
     const r = dice(s.seed, n, 1);
@@ -192,8 +214,8 @@ function prepare(s: WarState) {
   if (slot.title === 'Counteroffensive 1') s.front = weakest(s, dice(s.seed, n, 2));
   if (slot.title === 'The end') s.ending = endingFor(s);
   const afterHub = n > 0 && HUBS.includes(s.history[n - 1].id);
-  // Surprises never replace the first mission, a hub, the choice after a hub, the counteroffensive or the end.
-  const fixed = n === 0 || afterHub || slot.title.startsWith('Counteroffensive') || slot.title === 'The end' || slot.ids.some((id) => HUBS.includes(id));
+  // Surprises never replace the first mission, a hub, the choice after a hub, the fight at the Pole, the counteroffensive or the end.
+  const fixed = n === 0 || afterHub || slot.title.startsWith('Counteroffensive') || slot.title === 'The end' || slot.ids.some((id) => HUBS.includes(id) || id === 'R7');
   if (s.surprise && !fixed) {
     s.offer = [s.surprise];
     s.surprise = null;
@@ -245,4 +267,4 @@ export function resolve(s: WarState, id: string, win: boolean): NewsCard {
   return card;
 }
 
-export const warOver = (s: WarState) => s.history.length >= WAR_LENGTH;
+export const warOver = (s: WarState) => !currentSlot(s);

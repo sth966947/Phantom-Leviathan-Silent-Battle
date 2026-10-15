@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { create, orders, tick } from './sim';
+import { create, orders, siteKind, tick } from './sim';
 import { CAMPAIGN, MISSIONS, MODERN, PREQUELS, objectives } from './missions';
+import { MODERN_MISSIONS } from './modern';
 import { CLASSES } from './classes';
 
 describe('missions', () => {
-  for (const key of [...CAMPAIGN, ...PREQUELS, ...MODERN]) {
+  for (const key of [...CAMPAIGN, ...PREQUELS, ...MODERN, ...Object.keys(MODERN_MISSIONS)]) {
     it(`${key} builds and runs for an hour`, () => {
       const g = create(key, 11);
       expect(g.goal.targets.length + g.sites.length + g.goal.protect.length + (g.script ? 1 : 0)).toBeGreaterThan(0);
@@ -26,6 +27,19 @@ describe('missions', () => {
     for (let i = 0; i < 6000 && !g.weapons.every((w) => w.type !== 'tlam'); i++) tick(g, 1);
     expect(g.weapons.some((w) => w.type === 'tlam')).toBe(false);
     expect(g.t).toBeGreaterThan(60 * 60);
+    // The strike camera's record of the arrival.
+    expect(g.strikes).toHaveLength(1);
+    expect(g.strikes[0]).toMatchObject({ siteId: g.sites[0].id, siteName: 'Yokosuka naval yard', kind: 'shipyard', weapon: 'TLAM 1' });
+    expect(g.strikes[0].hit).toBe(g.sites[0].hits === 1);
+  });
+  it('a site with no kind gets one from its name', () => {
+    const at = { x: 0, y: 0, id: 1, hits: 0 };
+    expect(siteKind({ ...at, name: 'Harbour submarine pens' })).toBe('subpens');
+    expect(siteKind({ ...at, name: 'Coastal radar station' })).toBe('radar');
+    expect(siteKind({ ...at, name: 'Tank farm and refinery' })).toBe('oil');
+    expect(siteKind({ ...at, name: 'Naval air base runway' })).toBe('airfield');
+    expect(siteKind({ ...at, name: 'Hilltop' })).toBe('base');
+    expect(siteKind({ ...at, name: 'Yokohama docks', kind: 'factory' })).toBe('factory');
   });
   it('Match toggles keep following the target until overridden', () => {
     const g = create('duel', 4);

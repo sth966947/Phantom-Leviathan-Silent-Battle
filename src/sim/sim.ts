@@ -7,6 +7,7 @@ import { angDiff, approach, brg, clamp, D2R, dist, fmtBrg, fmtRng, gauss, KT, mu
 import { CLASSES, type ClassCard } from './classes';
 import { MISSIONS, type Carry, type MissionKey } from './missions';
 import { matchClasses, signatureView, type Match, type SignatureView } from './signature';
+import { ambientDb, calmSea, pingMines, underIce, updateHazards, visibility, type Env, type Mine } from './hazards';
 
 export type Side = 'us' | 'allied' | 'enemy';
 /** Depth setting: 0 periscope depth (60 ft), 1 is 150 ft, 2 is 700 ft, and anything between or below. */
@@ -87,6 +88,30 @@ export interface Contact {
 
 export interface WaterfallRow { row: Float32Array; baffle: Uint8Array; t: number }
 
+/** What stands at a land-attack site: the strike camera draws the scene to suit it. */
+export type SiteKind = 'shipyard' | 'docks' | 'factory' | 'airfield' | 'radar' | 'subpens' | 'oil' | 'base' | 'bunker';
+/** A fixed target ashore for land-attack Tomahawks, with hits landed on it. */
+export interface Site extends Vec { id: number; name: string; hits: number; kind?: SiteKind }
+/** One land-attack Tomahawk's arrival, for the strike camera. */
+export interface Strike { t: number; siteId: number; siteName: string; kind: SiteKind; hit: boolean; weapon: string }
+/** One hit by Tang's weapons (or a mine Tang laid) on a ship, submarine or aircraft, for the battle camera. */
+export interface Hit {
+  t: number; vid: number; name: string; cls: string; kind: ClassCard['kind'];
+  weapon: WeaponKey | 'mine'; label: string; sunk: boolean;
+}
+
+/** A site's kind as set by its mission, or else guessed from its name. */
+export function siteKind(site: Site): SiteKind {
+  if (site.kind) return site.kind;
+  const n = site.name.toLowerCase();
+  const by: [RegExp, SiteKind][] = [
+    [/sub(marine)? pens?|u-boat/, 'subpens'], [/radar|early warning/, 'radar'], [/oil|fuel|tank farm|refiner/, 'oil'],
+    [/air ?(field|base|port|station)|runway/, 'airfield'], [/naval yard|shipyard|dockyard|slipway/, 'shipyard'], [/\b(docks?|port|harbou?r|wharf|piers?)\b/, 'docks'],
+    [/bunker|command|headquarters|\bhq\b/, 'bunker'], [/works|factory|arsenal|plant|steel|mill/, 'factory'],
+  ];
+  return by.find(([re]) => re.test(n))?.[1] ?? 'base';
+}
+
 /**
  * What a mission asks. Sinking `need` of `targets` wins at once. Losing more than `maxLosses` of
  * `protect` loses. At the time limit the mission is won if `surviveWin`, else lost with `timeout`.
@@ -105,7 +130,15 @@ export interface Game {
   /** Mission script run every tick: waves launching, pickets reporting, midgets reaching harbour. */
   script: ((g: Game) => void) | null;
   /** Fixed targets ashore for land-attack Tomahawks, with hits landed on each. */
-  sites: (Vec & { id: number; name: string; hits: number })[];
+  sites: Site[];
+  /** Every land-attack Tomahawk's arrival, hit or miss, in order. */
+  strikes: Strike[];
+  /** Every hit by Tang's weapons on a vessel or aircraft, in order. */
+  hits: Hit[];
+  /** Minefields (see hazards.ts): enemy mines Tang must find and avoid, and any Tang has laid. */
+  mines: Mine[];
+  /** Sea state and pack ice for the mission (see hazards.ts). */
+  env: Env;
   t: number; r: () => number; seq: number;
   over: { win: boolean; t: number; reason: string } | null;
   /** A replay of a finished mission: the plot shows every ship where it really is. */
@@ -159,7 +192,8 @@ const AIR_VISUAL_RANGE = 10;    // nm, aircraft against the sky
 /** Mast radar, nm. Ships: identified inside 15, seen out to 25. Aircraft: low fliers (helicopters, attack runs) inside 15, high fliers out to 100, identified inside 15. */
 export const RADAR = { classify: 15, horizon: 25, airLow: 15, airHigh: 100, sweep: 4, esm: 100 };
 /** Helicopters stay down on the water; fixed-wing aircraft come down only to attack. */
-export const flyingLow = (v: Vessel) => v.cls.kind === 'air' && (v.cls.key === 'ka27' || v.ai?.mode === 'prosecute');
+const HELOS = new Set(['ka27', 'ka28']);
+export const flyingLow = (v: Vessel) => v.cls.kind === 'air' && (HELOS.has(v.cls.key) || v.ai?.mode === 'prosecute');
 /** Feet below the surface for a depth setting: periscope depth 60 ft, 150 ft, 700 ft. */
 export const depthFeet = (depthT: number) => (depthT <= 1 ? 60 + 90 * depthT : 150 + 550 * (depthT - 1));
 export const LAYER_FT = depthFeet(LAYER_AT);
@@ -167,8 +201,8 @@ export const LAYER_FT = depthFeet(LAYER_AT);
 export const depthT = (ft: number) => (ft <= 150 ? (ft - 60) / 90 : 1 + (ft - 150) / 550);
 export const MIN_FT = 60, MAX_FT = 800;
 /** Typical cruising height in feet. Low fliers stay down where radar sees them only close in. */
-const CRUISE_FT: Record<string, number> = { il38: 8000, tu142: 25000, tu22m3: 30000, ar196: 1500, kate: 10000, mavis: 6000, jake: 2500, fw200: 3000 };
-export const altitudeFt = (v: Vessel) => (flyingLow(v) ? (v.cls.key === 'ka27' ? 300 : 600) : CRUISE_FT[v.cls.key] ?? 8000);
+const CRUISE_FT: Record<string, number> = { il38: 8000, kq200: 8000, p8i: 7000, p8a: 7000, p3am: 6000, h6k: 28000, h6j: 25000, tu142: 25000, tu22m3: 30000, ar196: 1500, kate: 10000, mavis: 6000, jake: 2500, fw200: 3000 };
+export const altitudeFt = (v: Vessel) => (flyingLow(v) ? (HELOS.has(v.cls.key) ? 300 : 600) : CRUISE_FT[v.cls.key] ?? 8000);
 const PD_MAX = 0.3; // depthT at or above which masts are out of the water
 
 // ---- Acoustics ---------------------------------------------------------------------
@@ -181,7 +215,9 @@ export const ARRAY = { name: 'TB-34 towed array', gain: 3, maxSpd: 12, settle: 9
 export const WF_BINS = 180;
 
 export const vesselSL = (v: Vessel) => v.cls.slBase + 1.5 * v.spd;
-export const selfNoise = (spd: number) => 70 + Math.max(0, spd - 5) * 1.2;
+/** Wave and ice noise for the mission under way, set each tick (see hazards.ts). */
+let ambient = 0;
+export const selfNoise = (spd: number) => 70 + ambient + Math.max(0, spd - 5) * 1.2;
 const deepOf = (o: { depthT?: number; deep?: boolean }) => (o.depthT !== undefined ? o.depthT > LAYER_AT : !!o.deep);
 export const inBaffles = (lis: { hdg: number }, bearing: number) => Math.abs(angDiff(bearing, lis.hdg + 180)) < BAFFLE_HALF;
 
@@ -229,7 +265,7 @@ export function create(scenario: ScenarioKey = 'bismarck', seed?: number, carry:
   const g = {
     scenario, era: m.era, startClock: 0, timeLimit: Infinity, library: m.library, night: !!m.night,
     goal: { targets: [], need: 1, protect: [], maxLosses: Infinity, surviveWin: false, win: '', timeout: '', lossText: '' },
-    sunk: [], flags: {}, script: null, sites: [],
+    sunk: [], flags: {}, script: null, sites: [], strikes: [], hits: [], mines: [], env: calmSea(),
     t: 0, r, seq: 1, over: null, vessels: [], contacts: [], selected: null,
     weapons: [], decoys: [], buoys: [], charges: [], splashT: -1e9, heard: new Set(), sweeps: [], events: [], waterfall: null, wfTimer: 0, pings: [], blasts: [],
     stats: {
@@ -250,7 +286,8 @@ const vesselById = (g: Game, id: number) => g.vessels.find((v) => v.id === id)!;
 export const contactById = (g: Game, id: number | null) => (id === null ? null : g.contacts.find((c) => c.id === id) ?? null);
 /** What the player calls a contact: its accepted class if classified, else its sonar designation. */
 export const contactLabel = (c: Contact) => (c.classified ? `${c.name} · ${CLASSES[c.classified].name}` : c.name);
-export const isFriendlyClass = (key: string | null) => !!key && ['UK', 'US', 'Netherlands'].includes(CLASSES[key].nation);
+export const isFriendlyClass = (key: string | null) =>
+  !!key && (['UK', 'US', 'Netherlands', 'Australia', 'Norway'].includes(CLASSES[key].nation) || !!CLASSES[key].friendly);
 
 // ---- Movement -------------------------------------------------------------------------
 function moveVessel(v: Vessel, dt: number) {
@@ -365,6 +402,7 @@ export const orders = {
     const o = g.own;
     if (g.over) return;
     const w = WEAPONS[type];
+    if (w.missile && underIce(g)) return log(g, 'warn', `${w.short}: ice overhead. Missiles need open water: find a polynya.`);
     if (w.missile && o.depthT > MISSILE_MAX_DEPTH) return log(g, 'warn', `${w.short}: come up to 150 feet or shallower to launch.`);
     // Maritime Strike Tomahawk needs satellite updates in flight to find a moving ship.
     if (type === 'mst' && g.flags.jammed) return log(g, 'warn', 'Tomahawk: satellite links are jammed. It can\'t get in-flight updates on a moving target. Harpoon and torpedoes still work.');
@@ -401,12 +439,26 @@ export const orders = {
     transient(g, o, 'us');
     if (w.missile) launchSeen(g);
   },
+  /** Lay a mine from a torpedo tube where Tang is now. Missions that send Tang out with mines set `minesAboard`. */
+  layMine(g: Game) {
+    const o = g.own;
+    if (g.over) return;
+    if (!g.flags.minesAboard) return log(g, 'warn', 'No mines aboard on this patrol.');
+    if (o.spd > 12) return log(g, 'warn', 'Mines: slow to 12 knots or less to lay a mine.');
+    const tube = o.tubes.findIndex((x) => x <= 0);
+    if (tube < 0) return log(g, 'warn', 'All torpedo tubes reloading.');
+    o.tubes[tube] = TUBE_RELOAD;
+    g.flags.minesAboard--;
+    g.mines.push({ id: g.seq++, side: 'us', found: true, x: o.x, y: o.y });
+    log(g, 'good', `Tube ${tube + 1}: mine laid. ${g.flags.minesAboard} left aboard.`);
+  },
   /** Land-attack Tomahawk at one of the mission's fixed sites ashore. */
   strike(g: Game, siteId: number) {
     const o = g.own, w = WEAPONS.tlam;
     if (g.over) return;
     const site = g.sites.find((x) => x.id === siteId);
     if (!site) return log(g, 'warn', 'TLAM: no target selected.');
+    if (underIce(g)) return log(g, 'warn', 'TLAM: ice overhead. Missiles need open water: find a polynya.');
     if (o.depthT > MISSILE_MAX_DEPTH) return log(g, 'warn', 'TLAM: come up to 150 feet or shallower to launch.');
     const range = dist(o, site);
     if (range > w.maxRun) return log(g, 'warn', `TLAM: ${site.name} is ${fmtRng(range)} away, beyond Tomahawk range.`);
@@ -421,7 +473,7 @@ export const orders = {
       run: 0, maxRun: w.maxRun, enableAt: Infinity, enabled: false, deep: false, wire: false,
       aim: { x: site.x, y: site.y }, contactId: site.id, target: null, rolled: new Set(), trail: [],
     });
-    log(g, 'good', `VLS tube ${tube + 1} fired. ${label} for ${site.name}, ${fmtRng(range)}, about ${Math.round(range / w.spd * 60)} minutes' flight. Terrain matching only: no GPS in 1942.`, 'missile');
+    log(g, 'good', `VLS tube ${tube + 1} fired. ${label} for ${site.name}, ${fmtRng(range)}, about ${Math.round(range / w.spd * 60)} minutes' flight. ${g.era === '1941' ? 'Terrain matching only: no GPS in 1942.' : g.flags.jammed ? 'GPS jammed: terrain matching only.' : 'GPS and terrain matching.'}`, 'missile');
     transient(g, o, 'us');
     launchSeen(g);
   },
@@ -436,6 +488,7 @@ export const orders = {
     if (g.over) return;
     g.stats.pings++;
     g.pings.push({ t: g.t });
+    pingMines(g);
     let returns = 0;
     for (const v of g.vessels) {
       if (v === o || !v.alive || v.cls.kind === 'air') continue;
@@ -451,10 +504,11 @@ export const orders = {
         c.est = { x: v.x, y: v.y, t: g.t }; c.estErr = 0;
         log(g, 'contact', `Ping return: ${contactLabel(c)} bearing ${fmtBrg(b)}, range ${fmtRng(r)}.`);
       }
-      // Anyone with sonar within 60 nm hears the ping and knows where it came from.
+      // Anyone with sonar within 60 nm hears the ping. Close in that is a fix; far off only a rough bearing and range.
       if (v.ai && v.cls.threshold !== null && r < 60) {
-        v.ai.knows = { x: o.x, y: o.y, t: g.t, deep: o.depthT > LAYER_AT, exact: true };
-        v.ai.holdT = Math.max(v.ai.holdT, 120);
+        const near = r < 15, e = near ? 0 : r * 0.06;
+        v.ai.knows = { x: o.x + gauss(g.r) * e, y: o.y + gauss(g.r) * e, t: g.t, deep: o.depthT > LAYER_AT, exact: near };
+        v.ai.holdT = Math.max(v.ai.holdT, near ? 120 : 40);
         if (v.ai.mode === 'patrol') v.ai.mode = 'attack';
       }
     }
@@ -561,7 +615,9 @@ function updateWeapon(g: Game, w: Weapon, dt: number) {
     if (dist(w, w.aim) <= step) {
       w.dead = true;
       const site = g.sites.find((x) => x.id === w.contactId);
-      if (site && g.r() < 0.85) {
+      const hit = !!site && g.r() < 0.85;
+      if (site) g.strikes.push({ t: g.t, siteId: site.id, siteName: site.name, kind: siteKind(site), hit, weapon: w.label });
+      if (site && hit) {
         site.hits++; g.flags.landHits = (g.flags.landHits ?? 0) + 1;
         log(g, 'good', `${w.label}: impact on ${site.name}.`, 'boom');
       } else log(g, 'warn', `${w.label}: no impact report from ${site?.name ?? 'the target'}. Probably a miss.`);
@@ -700,8 +756,11 @@ function hit(g: Game, w: Weapon, v: Vessel) {
     if (v.hp <= 0) { v.alive = false; log(g, 'danger', 'Torpedo hit. Flooding aft. We are lost.', 'boom'); return end(g, false, 'USS Tang was sunk.'); }
     return log(g, 'danger', 'Torpedo hit! Flooding, but holding.', 'boom');
   }
-  if (w.side === 'us') g.stats.hits++;
   const sunk = v.hp <= 0;
+  if (w.side === 'us') {
+    g.stats.hits++;
+    g.hits.push({ t: g.t, vid: v.id, name: v.name, cls: v.cls.key, kind: v.cls.kind, weapon: w.type, label: w.label, sunk });
+  }
   if (sunk) { v.alive = false; g.sunk.push({ name: v.name, cls: v.cls.key, side: v.side, by: w.side }); }
   const c = g.contacts.find((x) => x.vid === v.id);
   if (v.cls.kind === 'air') { log(g, 'good', `${w.label} hit. Splash one ${v.cls.name}.`, 'boom'); return checkGoal(g); }
@@ -718,8 +777,25 @@ function hit(g: Game, w: Weapon, v: Vessel) {
     log(g, 'good', sunk ? `${w.label} hit ${who}. Breaking-up noises: ${v.name} is sinking.` : `${w.label} hit ${who}. Secondary explosions; she is slowing.`, 'boom');
   }
   // The whole group knows it is under attack and runs from the threat; escorts come hunting.
-  alertGroup(g, norm(brg(w, v)), v.side, v);
+  if (v.side === 'enemy') alertGroup(g, norm(brg(w, v)), v.side, v);
   checkGoal(g);
+}
+
+/**
+ * True when one of our weapons in flight looks set to arrive within `secs`: a torpedo or missile
+ * homing on a target, an anti-ship missile or Tomahawk flying to its aim point, an ASROC about to drop.
+ * The battle camera waits for these so that hits close together play as one clip.
+ */
+export function arrivingSoon(g: Game, secs: number): boolean {
+  for (const w of g.weapons) {
+    if (w.dead || w.side !== 'us') continue;
+    const role = WEAPONS[w.type].role;
+    const to = w.target && w.targetKind === 'vessel' ? w.target : role === 'land' || role === 'antiship' || role === 'asw' ? w.aim : null;
+    if (!to || w.spd <= 0) continue;
+    const eta = dist(w, to) / (w.spd * KT) + (role === 'asw' ? 30 : 0);
+    if (eta <= secs) return true;
+  }
+  return false;
 }
 
 /**
@@ -750,7 +826,11 @@ function checkGoal(g: Game) {
 export function end(g: Game, win: boolean, reason: string) { if (!g.over) g.over = { win, t: g.t, reason }; }
 
 const isEscort = (v: Vessel) => /destroyer|corvette/.test(v.cls.type);
-const ADJ: Record<string, string> = { Germany: 'German', Japan: 'Japanese', Russia: 'Russian', UK: 'British', US: 'US' };
+const ADJ: Record<string, string> = {
+  Germany: 'German', Japan: 'Japanese', Russia: 'Russian', UK: 'British', US: 'US', Italy: 'Italian', Netherlands: 'Dutch',
+  China: 'Chinese', India: 'Indian', Iran: 'Iranian', Brazil: 'Brazilian', 'South Africa': 'South African', Venezuela: 'Venezuelan',
+  Australia: 'Australian', Norway: 'Norwegian', Turkey: 'Turkish', Pakistan: 'Pakistani', Liberia: 'merchant',
+};
 /** "The German group", "The Japanese force": how the log names the enemy. */
 export const groupName = (g: Game) => {
   const e = g.vessels.find((v) => v.side === 'enemy' && v.cls.kind === 'surface');
@@ -793,7 +873,7 @@ function ownSensors(g: Game, dt: number) {
     if (!v.alive) { if (exists) exists.held = false; continue; }
     const se = excess(vesselSL(v), v, ears, o.cls.threshold!) + gauss(g.r) * 2;
     const r = dist(o, v);
-    const seen = atPD && v.cls.kind === 'surface' && r < VISUAL_RANGE;
+    const seen = atPD && v.cls.kind === 'surface' && r < VISUAL_RANGE * visibility(g.env);
     if (se <= 0 && !seen && !exists) continue;
     const c = contactFor(g, v, se > 0 ? 'Sierra' : 'Victor');
     c.se = se;
@@ -910,7 +990,7 @@ function radarAndAir(g: Game) {
     }
     if (!air) continue;
     // Eyes and ESM on aircraft, at periscope depth. In 1941 only radar finds aircraft.
-    if (g.era === '2029' && atPD && r < AIR_VISUAL_RANGE && g.r() < 0.05) {
+    if (g.era === '2029' && atPD && r < AIR_VISUAL_RANGE * visibility(g.env) && g.r() < 0.05) {
       c = c ?? contactFor(g, v, 'Victor');
       if (!c.held || !c.est || g.t - c.lastSeen > 10) log(g, 'contact', `Periscope: aircraft, bearing ${fmtBrg(brg(o, v))}. Raise the periscope view (V) to identify.`);
       c.held = true; c.ever = true; c.lastSeen = g.t; c.bearing = brg(o, v); c.spotted = true;
@@ -1003,7 +1083,7 @@ function airAI(g: Game, v: Vessel, dt: number) {
     }
     return;
   }
-  if (v.cls.key === 'ka27') return heloAI(g, v, dt);
+  if (HELOS.has(v.cls.key)) return heloAI(g, v, dt);
   // Il-38: search the box laying sonobuoys; on a datum, seed buoys round it and attack.
   v.ordSpd = ai.mode === 'prosecute' ? 300 : 230;
   if (dist(v, ai.wp!) < 1.5) {
@@ -1043,6 +1123,7 @@ const DIP_THRESHOLD = 26; // a dipping sonar hears better than a buoy
 /** Sonobuoy splashes are audible, and give away where the aircraft is working. */
 function dropBuoy(g: Game, by: Vessel, at: Vec, deep: boolean) {
   const o = g.own;
+  if (underIce(g, at)) return; // nothing to drop a buoy into on the pack
   const heard = excess(SL_SPLASH, { x: at.x, y: at.y, depthT: 1 }, ownEars(g), o.cls.threshold!) + gauss(g.r) * 2 > 0;
   const r = dist(o, at);
   const b = norm(brg(o, at) + gauss(g.r) * 2);
@@ -1105,7 +1186,9 @@ function heloAI(g: Game, v: Vessel, dt: number) {
 /** Sonobuoys listen for us; a few seconds of holding contact gives the aircraft a datum. */
 function updateBuoys(g: Game, dt: number) {
   const o = g.own;
-  const il = g.vessels.find((v) => v.alive && v.cls.key === 'il38');
+  // Whichever patrol aircraft is working the buoys (Il-38, KQ-200, P-8, Tu-142...) gets the datum.
+  const il = g.vessels.find((v) => v.alive && v.side === 'enemy' && v.cls.kind === 'air' && !HELOS.has(v.cls.key) && (v.ai?.mode === 'search' || v.ai?.mode === 'prosecute'))
+    ?? g.vessels.find((v) => v.alive && v.cls.key === 'il38');
   for (const b of g.buoys) {
     b.life -= dt;
     if (!il) continue;
@@ -1170,7 +1253,11 @@ function huntAI(g: Game, v: Vessel, dt: number) {
   v.ordSpd = dist(v, ai.wp) > 1 ? Math.min(25, v.cls.maxSpd) : 15;
   if (dist(v, ai.wp) < 0.15) {
     const d = ai.datum;
-    if (d?.exact && g.t - d.t < 150 && ai.cool <= 0) {
+    // A modern escort on a fix drops a lightweight torpedo instead of rolling depth charges.
+    if (d?.exact && g.t - d.t < 150 && ai.cool <= 0 && g.era !== '1941') {
+      enemyFire(g, v, d, d.deep, false);
+      d.exact = false;
+    } else if (d?.exact && g.t - d.t < 150 && ai.cool <= 0) {
       ai.cool = 90; g.flags.patterns = (g.flags.patterns ?? 0) + 1;
       for (let i = 0; i < 5; i++) g.charges.push({ ...offset(d, i * 72, i ? 0.08 : 0), t: g.t + 18 + i });
       d.exact = false;
@@ -1255,6 +1342,8 @@ function raiderAI(g: Game, v: Vessel, dt: number) {
 
 function subAI(g: Game, v: Vessel, dt: number) {
   const o = g.own, ai = v.ai!;
+  // Allied boats go where their mission script sends them; their fights are settled by `skirmish` in kit.ts.
+  if (v.side !== 'enemy') return;
   if (ai.mode === 'raider') return raiderAI(g, v, dt);
   const se = excess(vesselSL(o), o, v, v.cls.threshold!) + gauss(g.r) * 2;
   if (se > 0) {
@@ -1376,6 +1465,7 @@ function keepMatch(g: Game) {
 export function tick(g: Game, dt = 1) {
   if (g.over) return;
   g.t += dt;
+  ambient = ambientDb(g.env);
   const o = g.own;
   for (const v of g.vessels) {
     if (!v.alive) continue;
@@ -1390,6 +1480,7 @@ export function tick(g: Game, dt = 1) {
   g.decoys = g.decoys.filter((d) => d.life > 0);
   for (const w of g.weapons) if (!w.dead) updateWeapon(g, w, dt);
   g.weapons = g.weapons.filter((w) => { if (w.dead && w.deadAt === undefined) w.deadAt = g.t; return !w.dead || g.t - w.deadAt! < 1; });
+  updateHazards(g);
   if (g.over) return;
   ownSensors(g, dt);
   radarAndAir(g);
@@ -1427,8 +1518,8 @@ export function inPeriscope(g: Game, c: Contact | null): Vessel | null {
   const v = vesselById(g, c.vid);
   if (!v.alive) return null;
   const r = dist(g.own, v);
-  if (v.cls.kind === 'surface') return r < VISUAL_RANGE ? v : null;
-  if (v.cls.kind === 'air') return r < AIR_VISUAL_RANGE && c.held ? v : null;
+  if (v.cls.kind === 'surface') return r < VISUAL_RANGE * visibility(g.env) ? v : null;
+  if (v.cls.kind === 'air') return r < AIR_VISUAL_RANGE * visibility(g.env) && c.held ? v : null;
   return null;
 }
 export { VISUAL_RANGE, AIR_VISUAL_RANGE };

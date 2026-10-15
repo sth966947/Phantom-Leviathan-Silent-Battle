@@ -20,9 +20,9 @@ type Part =
   // A Japanese carrier funnel that leaves the hull side under the flight deck and bends down,
   // its mouth at height m. Seen broadside it shows only where the hull is open around it.
   | { t: 'dfunnel'; x: number; w: number; h: number; m: number };
-interface ShipSil { kind: 'ship'; len: number; deck: [number, number][]; parts: Part[] }
-interface AirSil { kind: 'air'; len: number; alt: number; draw: (c: CanvasRenderingContext2D, L: number) => void }
-type Sil = ShipSil | AirSil;
+export interface ShipSil { kind: 'ship'; len: number; deck: [number, number][]; parts: Part[] }
+export interface AirSil { kind: 'air'; len: number; alt: number; draw: (c: CanvasRenderingContext2D, L: number) => void }
+export type Sil = ShipSil | AirSil;
 
 const T = (x: number, h: number, w = 0.045, gun = 0.07): Part => ({ t: 'turret', x, w, h, gun });
 const B = (x0: number, x1: number, h: number): Part => ({ t: 'box', x0, x1, h });
@@ -328,7 +328,201 @@ const SHIPS: Record<string, ShipSil> = {
     parts: [T(0.1, 6.5, 0.035, 0.045), T(0.18, 8.5, 0.035, 0.045), F(0.42, 0.04, 12, 0.012), F(0.53, 0.045, 13, 0.012),
       M(0.66, 22), B(0.68, 0.76, 11), T(0.82, 9, 0.035, 0.045), T(0.88, 7.5, 0.035, 0.045)],
   },
+
+  // ---- Modern war, 2029 ----
+  // Modern warships: hangar aft, a block superstructure with an enclosed or pyramid mast,
+  // one small stealthy gun forward. VLS cells sit flush and don't show.
+  kirov: {
+    kind: 'ship', len: 252, deck: [[0, 7], [0.5, 8], [0.85, 9], [1, 11]],
+    parts: [T(0.1, 10.5, 0.035, 0.04), B(0.16, 0.3, 12), B(0.3, 0.64, 15), B(0.36, 0.46, 24), F(0.41, 0.05, 31), M(0.44, 40),
+      B(0.52, 0.63, 26), B(0.54, 0.61, 34), M(0.575, 50), B(0.63, 0.67, 18)],
+  },
+  gorshkov: {
+    kind: 'ship', len: 135, deck: [[0, 5], [0.6, 6], [0.85, 7], [1, 8]],
+    parts: [B(0.08, 0.3, 10), B(0.3, 0.66, 12), F(0.4, 0.05, 17), B(0.5, 0.66, 18), B(0.55, 0.63, 25), M(0.59, 36), T(0.82, 9, 0.03, 0.05)],
+  },
+  steregushchiy: {
+    kind: 'ship', len: 105, deck: [[0, 4], [0.6, 5], [0.85, 6], [1, 7]],
+    parts: [B(0.12, 0.62, 10), F(0.3, 0.04, 13), B(0.42, 0.62, 15), B(0.48, 0.56, 22), M(0.52, 28), T(0.8, 8, 0.03, 0.04)],
+  },
+  ropucha: {
+    kind: 'ship', len: 112, deck: [[0, 7], [0.5, 8], [1, 10]],
+    parts: [B(0.22, 0.52, 14), B(0.28, 0.48, 18), F(0.26, 0.04, 17), M(0.42, 27), M(0.12, 15), T(0.88, 11.5, 0.03, 0.04)],
+  },
+  ivangren: {
+    kind: 'ship', len: 135, deck: [[0, 7], [0.5, 8], [1, 10]],
+    parts: [B(0.2, 0.72, 13), B(0.45, 0.72, 18), B(0.52, 0.7, 23), M(0.62, 33), M(0.32, 22), B(0.06, 0.2, 11)],
+  },
+  arktika: {
+    kind: 'ship', len: 173, deck: [[0, 8], [0.5, 9], [0.85, 10], [1, 12]],
+    parts: [B(0.12, 0.3, 12), M(0.3, 22), B(0.48, 0.8, 18), B(0.52, 0.78, 26), B(0.56, 0.74, 32), M(0.66, 44)],
+  },
+  // Accommodation right aft over a long trunk deck: an icebreaking tanker, not a box ship.
+  arc7lng: {
+    kind: 'ship', len: 299, deck: [[0, 12], [0.9, 12], [1, 15]],
+    parts: [B(0.13, 0.92, 18), B(0.01, 0.12, 30), B(0.02, 0.1, 38), F(0.05, 0.025, 42), M(0.96, 24)],
+  },
+  trawler: {
+    kind: 'ship', len: 85, deck: [[0, 4], [0.35, 4], [0.4, 6], [1, 7]],
+    parts: [M(0.22, 17), B(0.4, 0.78, 11), B(0.5, 0.72, 15), B(0.6, 0.66, 19), M(0.62, 28), B(0.45, 0.5, 18)],
+  },
+
+  // China
+  type055: {
+    kind: 'ship', len: 180, deck: [[0, 6], [0.55, 7], [0.85, 8], [1, 10]],
+    parts: [B(0.08, 0.32, 12), B(0.32, 0.7, 14), F(0.4, 0.07, 23), B(0.52, 0.7, 22), B(0.56, 0.67, 32), B(0.59, 0.65, 39), T(0.83, 10, 0.035, 0.05)],
+  },
+  type052d: {
+    kind: 'ship', len: 157, deck: [[0, 5], [0.6, 6], [0.85, 7], [1, 8]],
+    parts: [B(0.08, 0.32, 10), B(0.32, 0.66, 12), F(0.42, 0.06, 19), B(0.52, 0.66, 19), M(0.6, 32), T(0.82, 9, 0.035, 0.05)],
+  },
+  type054a: {
+    kind: 'ship', len: 134, deck: [[0, 5], [0.6, 6], [0.85, 7], [1, 8]],
+    parts: [B(0.1, 0.32, 10), B(0.32, 0.62, 11), F(0.38, 0.05, 16), B(0.48, 0.62, 16), M(0.55, 28), T(0.82, 8.5, 0.035, 0.05)],
+  },
+  type056: {
+    kind: 'ship', len: 89, deck: [[0, 4], [0.6, 5], [1, 6.5]],
+    parts: [B(0.25, 0.6, 9), B(0.4, 0.6, 13), M(0.5, 22), T(0.82, 7, 0.03, 0.04)],
+  },
+  type075: {
+    kind: 'ship', len: 237, deck: [[0, 17], [0.5, 18], [1, 19]],
+    parts: [B(0.02, 0.98, 20), S(0.0, 0.99, 20, 1.4), B(0.42, 0.62, 30), B(0.45, 0.6, 36), F(0.44, 0.035, 38), F(0.56, 0.035, 38), M(0.52, 46)],
+  },
+  type071: {
+    kind: 'ship', len: 210, deck: [[0, 9], [0.4, 10], [1, 13]],
+    parts: [B(0.28, 0.8, 21), B(0.55, 0.78, 28), M(0.66, 40), F(0.45, 0.04, 26), T(0.9, 15, 0.03, 0.05)],
+  },
+  // Fujian: flat deck, small island well aft. Shandong: ski-jump bow, big island with funnel.
+  fujian: {
+    kind: 'ship', len: 316, deck: [[0, 9], [0.5, 10], [0.9, 11], [1, 13]],
+    parts: [B(0.05, 0.94, 20), S(0.0, 0.99, 22, 1.6), ...pillars([0.02, 0.96], 22), B(0.3, 0.38, 32), B(0.31, 0.37, 38), M(0.345, 47)],
+  },
+  shandong: {
+    kind: 'ship', len: 305, deck: [[0, 9], [0.5, 10], [0.9, 11], [1, 13]],
+    parts: [B(0.05, 0.92, 20), S(0.0, 0.93, 22, 1.6), S(0.93, 0.965, 23.5, 1.6), S(0.965, 1, 25.5, 1.6), ...pillars([0.02], 22),
+      B(0.6, 0.72, 32), B(0.62, 0.7, 38), F(0.66, 0.04, 41), M(0.68, 50)],
+  },
+  type901: {
+    kind: 'ship', len: 241, deck: [[0, 9], [0.5, 10], [1, 12]],
+    parts: [B(0.02, 0.2, 17), F(0.1, 0.05, 28), M(0.34, 26), M(0.44, 26), M(0.54, 26), B(0.72, 0.86, 22), B(0.74, 0.84, 28), M(0.79, 38)],
+  },
+  type022: {
+    kind: 'ship', len: 43, deck: [[0, 2.5], [1, 3]],
+    parts: [B(0.06, 0.32, 4.5), B(0.3, 0.75, 5.5), B(0.45, 0.7, 7.5), M(0.6, 11)],
+  },
+  ccg: {
+    kind: 'ship', len: 165, deck: [[0, 6], [0.6, 7], [1, 9]],
+    parts: [B(0.08, 0.3, 11), B(0.3, 0.7, 14), F(0.38, 0.05, 19), B(0.55, 0.7, 20), M(0.62, 32), T(0.85, 10, 0.03, 0.05)],
+  },
+  xuelong2: {
+    kind: 'ship', len: 122, deck: [[0, 6], [0.4, 6], [1, 9]],
+    parts: [B(0.02, 0.06, 13), M(0.25, 18), B(0.45, 0.85, 16), B(0.55, 0.82, 22), M(0.7, 32)],
+  },
+
+  // India
+  vikrant: {
+    kind: 'ship', len: 262, deck: [[0, 8], [0.5, 9], [0.9, 10], [1, 12]],
+    parts: [B(0.05, 0.92, 18), S(0.0, 0.93, 20, 1.4), S(0.93, 0.965, 21.5, 1.4), S(0.965, 1, 23, 1.4), ...pillars([0.02], 20),
+      B(0.58, 0.7, 28), B(0.6, 0.68, 34), F(0.6, 0.025, 33), F(0.66, 0.025, 33), M(0.64, 44)],
+  },
+  kolkata: {
+    kind: 'ship', len: 163, deck: [[0, 5], [0.6, 6], [0.85, 7], [1, 8]],
+    parts: [B(0.08, 0.32, 11), B(0.32, 0.68, 12), F(0.42, 0.05, 20), B(0.52, 0.68, 19), B(0.56, 0.65, 25), M(0.6, 35), T(0.83, 9, 0.035, 0.05)],
+  },
+  talwar: {
+    kind: 'ship', len: 125, deck: [[0, 5], [0.6, 6], [0.85, 7], [1, 8]],
+    parts: [B(0.1, 0.3, 9), B(0.3, 0.66, 11), F(0.42, 0.05, 17), B(0.5, 0.66, 16), M(0.58, 28), T(0.8, 8, 0.03, 0.05)],
+  },
+  // Austin class: two funnels side by side read as one wide stack beam-on.
+  jalashwa: {
+    kind: 'ship', len: 173, deck: [[0, 7], [0.5, 9], [1, 11]],
+    parts: [B(0.05, 0.45, 12), B(0.45, 0.76, 18), B(0.6, 0.75, 24), F(0.52, 0.06, 27), M(0.68, 35)],
+  },
+
+  // Iran
+  jamaran: {
+    kind: 'ship', len: 94, deck: [[0, 4], [0.6, 5], [1, 6]],
+    parts: [B(0.1, 0.3, 7), B(0.3, 0.62, 9), F(0.4, 0.05, 14), B(0.48, 0.62, 13), M(0.55, 24, true), T(0.85, 7, 0.03, 0.05)],
+  },
+  fac: {
+    kind: 'ship', len: 65, deck: [[0, 2.5], [0.7, 3], [1, 4]],
+    parts: [B(0.05, 0.3, 4.5), B(0.35, 0.65, 7), M(0.55, 14), T(0.86, 5.5, 0.025, 0.04)],
+  },
+  droneboat: {
+    kind: 'ship', len: 10, deck: [[0, 1], [0.8, 1.2], [1, 1.6]],
+    parts: [B(0.3, 0.5, 2.2), M(0.4, 3)],
+  },
+
+  // Brazil and South Africa
+  tamandare: {
+    kind: 'ship', len: 107, deck: [[0, 5], [0.6, 6], [1, 7.5]],
+    parts: [B(0.1, 0.32, 9), B(0.32, 0.65, 10), F(0.38, 0.04, 14), B(0.5, 0.65, 15), B(0.54, 0.62, 20), M(0.58, 25), T(0.83, 7.5, 0.03, 0.05)],
+  },
+  valour: {
+    kind: 'ship', len: 121, deck: [[0, 5], [0.6, 6], [1, 7.5]],
+    parts: [B(0.1, 0.3, 9), B(0.3, 0.65, 11), F(0.36, 0.04, 15), F(0.44, 0.04, 15), B(0.5, 0.65, 16), M(0.58, 27), T(0.84, 8, 0.03, 0.05)],
+  },
+
+  // Allies, neutrals and merchants
+  ford: {
+    kind: 'ship', len: 333, deck: [[0, 9], [0.5, 10], [0.9, 11], [1, 13]],
+    parts: [B(0.05, 0.95, 20), S(0.0, 0.99, 22, 1.6), ...pillars([0.02, 0.96], 22), B(0.27, 0.33, 32), B(0.28, 0.32, 38), M(0.3, 50)],
+  },
+  maya: {
+    kind: 'ship', len: 170, deck: [[0, 5], [0.6, 6], [0.85, 7], [1, 8]],
+    parts: [B(0.12, 0.32, 11), B(0.32, 0.66, 13), B(0.52, 0.66, 21), M(0.58, 34), F(0.44, 0.05, 21), F(0.32, 0.04, 19), T(0.8, 8, 0.03, 0.05)],
+  },
+  nansen: {
+    kind: 'ship', len: 134, deck: [[0, 5], [0.6, 6], [1, 7.5]],
+    parts: [B(0.1, 0.32, 10), B(0.32, 0.66, 12), F(0.4, 0.04, 16), B(0.5, 0.66, 18), B(0.53, 0.64, 25), M(0.58, 33), T(0.82, 8, 0.03, 0.04)],
+  },
+  type26: {
+    kind: 'ship', len: 150, deck: [[0, 5], [0.6, 6], [0.85, 7], [1, 8]],
+    parts: [B(0.12, 0.4, 11), B(0.4, 0.68, 13), F(0.44, 0.05, 19), B(0.55, 0.68, 19), B(0.58, 0.66, 25), M(0.62, 33), T(0.84, 8.5, 0.035, 0.05)],
+  },
+  qnlz: {
+    kind: 'ship', len: 284, deck: [[0, 9], [0.5, 10], [0.9, 11], [1, 13]],
+    parts: [B(0.05, 0.92, 18), S(0.0, 0.93, 20, 1.5), S(0.93, 0.965, 21.5, 1.5), S(0.965, 1, 23, 1.5), ...pillars([0.02], 20),
+      B(0.32, 0.38, 31), B(0.33, 0.37, 35), F(0.35, 0.025, 38), B(0.6, 0.68, 31), B(0.61, 0.67, 36), M(0.64, 43)],
+  },
+  tanker: {
+    kind: 'ship', len: 330, deck: [[0, 14], [0.9, 14], [1, 17]],
+    parts: [B(0.12, 0.95, 15.5), B(0.01, 0.12, 30), B(0.02, 0.1, 36), F(0.06, 0.03, 40), M(0.97, 24)],
+  },
+  // Moss-type gas carrier: four domed tanks drawn as stepped blocks.
+  lng: {
+    kind: 'ship', len: 295, deck: [[0, 13], [0.9, 13], [1, 16]],
+    parts: [...[0.24, 0.41, 0.58, 0.75].flatMap((x) => [B(x - 0.075, x + 0.075, 22), B(x - 0.06, x + 0.06, 28), B(x - 0.035, x + 0.035, 31)]),
+      B(0.01, 0.13, 32), B(0.02, 0.11, 37), F(0.06, 0.03, 41), M(0.96, 24)],
+  },
+  tender: {
+    kind: 'ship', len: 197, deck: [[0, 7], [0.5, 8], [1, 10]],
+    parts: [B(0.05, 0.35, 13), M(0.2, 28), B(0.35, 0.85, 17), F(0.4, 0.05, 29), M(0.47, 30), B(0.6, 0.82, 25), B(0.64, 0.8, 30), M(0.72, 40)],
+  },
+  rescueship: {
+    kind: 'ship', len: 90, deck: [[0, 3], [0.55, 3], [0.6, 6], [1, 7]],
+    parts: [M(0.03, 14), B(0.12, 0.28, 7.5), M(0.35, 18), B(0.6, 0.95, 13), B(0.65, 0.9, 18), M(0.78, 27)],
+  },
 };
+
+/** Xian H-6 family; the naval H-6J shows anti-ship missiles under the wing. */
+function drawH6(c: CanvasRenderingContext2D, L: number, missiles: boolean) {
+  c.beginPath(); c.moveTo(0.02 * L, -0.03 * L); c.lineTo(0.88 * L, -0.045 * L); c.quadraticCurveTo(L, -0.02 * L, 0.98 * L, 0.02 * L);
+  c.lineTo(0.88 * L, 0.04 * L); c.lineTo(0.02 * L, 0.02 * L); c.fill();                          // fuselage, radome nose
+  c.beginPath(); c.moveTo(0.02 * L, -0.03 * L); c.lineTo(0.06 * L, -0.24 * L); c.lineTo(0.14 * L, -0.24 * L); c.lineTo(0.24 * L, -0.03 * L); c.fill(); // swept fin
+  c.fillRect(0.0, -0.01 * L, 0.14 * L, 0.02 * L);                                                // tailplane
+  c.fillRect(0.4 * L, -0.01 * L, 0.3 * L, 0.035 * L);                                            // wing root
+  c.beginPath(); c.ellipse(0.6 * L, 0.01 * L, 0.13 * L, 0.04 * L, 0, 0, Math.PI * 2); c.fill();  // buried engines
+  if (missiles) for (const x of [0.42, 0.56]) c.fillRect(x * L, 0.06 * L, 0.16 * L, 0.025 * L);
+}
+/** Boeing P-8: 737 fuselage, low swept wing with underslung jets; the Indian P-8I has a MAD stinger. */
+function drawP8(c: CanvasRenderingContext2D, L: number, mad: boolean) {
+  c.beginPath(); c.ellipse(0.52 * L, 0, 0.46 * L, 0.06 * L, 0, 0, Math.PI * 2); c.fill();        // fuselage
+  if (mad) c.fillRect(0, -0.012 * L, 0.09 * L, 0.024 * L);                                        // MAD stinger
+  c.beginPath(); c.moveTo(0.08 * L, -0.03 * L); c.lineTo(0.13 * L, -0.27 * L); c.lineTo(0.21 * L, -0.27 * L); c.lineTo(0.27 * L, -0.03 * L); c.fill(); // fin
+  c.fillRect(0.42 * L, 0.02 * L, 0.24 * L, 0.03 * L);                                            // low wing
+  c.beginPath(); c.ellipse(0.6 * L, 0.08 * L, 0.07 * L, 0.035 * L, 0, 0, Math.PI * 2); c.fill(); // underslung engine
+}
 
 // Aircraft are drawn nose to the right in a box `L` pixels long.
 const AIR: Record<string, AirSil> = {
@@ -440,11 +634,50 @@ const AIR: Record<string, AirSil> = {
       c.fillRect(0.78 * L, -0.15 * L, 0.012 * L, 0.24 * L);          // propeller disc
     },
   },
+  // ---- Modern war, 2029 ----
+  // H-6: swept mid wing with the jets buried in the roots, tall swept fin, solid radome nose.
+  h6k: {
+    kind: 'air', len: 34.8, alt: 3000, draw(c, L) { drawH6(c, L, false); },
+  },
+  h6j: {
+    kind: 'air', len: 34.8, alt: 1000, draw(c, L) { drawH6(c, L, true); },
+  },
+  // Y-8 airframe: high wing, four turboprops, upswept tail, chin radome and MAD stinger.
+  kq200: {
+    kind: 'air', len: 36, alt: 400, draw(c, L) {
+      c.beginPath(); c.moveTo(0.06 * L, -0.03 * L); c.lineTo(0.88 * L, -0.07 * L); c.quadraticCurveTo(0.98 * L, -0.04 * L, 0.96 * L, 0.03 * L);
+      c.lineTo(0.3 * L, 0.06 * L); c.lineTo(0.12 * L, 0.0); c.fill();                              // fuselage, upswept tail
+      c.fillRect(0, -0.015 * L, 0.08 * L, 0.02 * L);                                                // MAD stinger
+      c.beginPath(); c.moveTo(0.06 * L, -0.03 * L); c.lineTo(0.1 * L, -0.24 * L); c.lineTo(0.18 * L, -0.24 * L); c.lineTo(0.22 * L, -0.04 * L); c.fill(); // fin
+      c.fillRect(0.45 * L, -0.08 * L, 0.24 * L, 0.03 * L);                                          // high wing
+      c.fillRect(0.6 * L, -0.08 * L, 0.16 * L, 0.05 * L); c.fillRect(0.76 * L, -0.15 * L, 0.01 * L, 0.18 * L); // nacelles, props
+      c.beginPath(); c.ellipse(0.8 * L, 0.06 * L, 0.07 * L, 0.035 * L, 0, 0, Math.PI * 2); c.fill(); // chin radome
+    },
+  },
+  ka28: {
+    kind: 'air', len: 16, alt: 25, draw(c, L) { AIR.ka27.draw(c, L); },
+  },
+  p8i: {
+    kind: 'air', len: 39.5, alt: 300, draw(c, L) { drawP8(c, L, true); },
+  },
+  p8a: {
+    kind: 'air', len: 39.5, alt: 300, draw(c, L) { drawP8(c, L, false); },
+  },
+  // P-3: low wing, four turboprops, long MAD tail stinger.
+  p3am: {
+    kind: 'air', len: 35.6, alt: 300, draw(c, L) {
+      c.beginPath(); c.ellipse(0.52 * L, 0, 0.46 * L, 0.055 * L, 0, 0, Math.PI * 2); c.fill();   // fuselage
+      c.fillRect(0, -0.012 * L, 0.1 * L, 0.024 * L);                                                // MAD stinger
+      c.beginPath(); c.moveTo(0.08 * L, -0.03 * L); c.lineTo(0.12 * L, -0.26 * L); c.lineTo(0.2 * L, -0.26 * L); c.lineTo(0.24 * L, -0.03 * L); c.fill(); // fin
+      c.fillRect(0.42 * L, 0.01 * L, 0.24 * L, 0.03 * L);                                           // low wing
+      c.fillRect(0.56 * L, -0.03 * L, 0.18 * L, 0.05 * L); c.fillRect(0.74 * L, -0.12 * L, 0.01 * L, 0.2 * L); // nacelles, props
+    },
+  },
 };
-const silOf = (key: string): Sil | null => SHIPS[key] ?? AIR[key] ?? null;
+export const silOf = (key: string): Sil | null => SHIPS[key] ?? AIR[key] ?? null;
 
 /** Draw a silhouette with its waterline (or centre, for aircraft) at the origin, bow toward +x. */
-function drawSil(c: CanvasRenderingContext2D, sil: Sil, lenPx: number, foreshorten: number, ppm: number) {
+export function drawSil(c: CanvasRenderingContext2D, sil: Sil, lenPx: number, foreshorten: number, ppm: number) {
   const L = lenPx * foreshorten;
   if (sil.kind === 'air') {
     c.save(); c.translate(-L / 2, 0); c.scale(foreshorten, 1); sil.draw(c, lenPx); c.restore();
@@ -502,7 +735,7 @@ export function drawClassPicture(cv: HTMLCanvasElement, key: string) {
   x.fillStyle = isFriendlyClass(key) ? '#6fd3a8' : '#c9dbe8';
   const air = sil.kind === 'air';
   x.translate(cv.width / 2, cv.height * (air ? 0.56 : 0.82));
-  const lenPx = (cv.width - 14) * (air ? 0.8 : sil.len / 262);
+  const lenPx = (cv.width - 14) * (air ? 0.8 : Math.min(1, sil.len / 262)); // the biggest hulls fill the card
   drawSil(x, sil, lenPx, 1, lenPx / sil.len);
   x.restore();
 }

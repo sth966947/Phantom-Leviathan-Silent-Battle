@@ -3,6 +3,8 @@
 import { atPeriscopeDepth, create, isFriendlyClass, orders, targetContact, tick, type Game } from '../src/sim/sim';
 import { CLASSES } from '../src/sim/classes';
 import { CAMPAIGN, MODERN, PREQUELS } from '../src/sim/missions';
+import { MODERN_MISSIONS } from '../src/sim/modern';
+import { CAPTAINS, type CaptainState } from './captains';
 import { brg, dist } from '../src/sim/math';
 
 const med = (a: number[]) => (a.length ? a.sort((x, y) => x - y)[Math.floor(a.length / 2)] : NaN);
@@ -73,8 +75,16 @@ function wwiiCaptain(g: Game, i: number, s: { deepT: number }, extra: string[] =
 }
 
 /** The modern war: the WWII captain plus what each briefing tells the player to do. */
-function modernCaptain(g: Game, i: number, s: { deepT: number; sprintT: number; cutBrg: number; cutT: number }) {
+function modernCaptain(g: Game, i: number, s: CaptainState) {
   const key = g.scenario;
+  // Missions from the modern mission files bring their own captains (scripts/captains/), which
+  // either fly the whole mission or hand back the classes to hunt with the generic captain.
+  const own = CAPTAINS[key];
+  if (own) {
+    const r = own(g, i, s);
+    if (r === true) return;
+    return wwiiCaptain(g, i, s, r?.extra ?? [], r?.minPct ?? 60);
+  }
   // Torpedo evasion as in the duel: decoy, cross the layer, turn away and sprint, then slow down again.
   for (const e of g.events) if (/Torpedo in the water/.test(e.text) && (s.sprintT < 0 || i - s.sprintT > 60)) { orders.decoy(g); orders.speed(g, 25); orders.layer(g); orders.turn(g, 120); s.sprintT = i; }
   if (s.sprintT >= 0) { if (i - s.sprintT > 150) { s.sprintT = -1; orders.speed(g, 6); } return; }
@@ -143,17 +153,20 @@ function modernCaptain(g: Game, i: number, s: { deepT: number; sprintT: number; 
 }
 
 const only = process.argv[2];
-for (const key of only ? [only as 'duel'] : (['duel', ...CAMPAIGN, ...PREQUELS, ...MODERN.filter((k) => k !== 'duel')] as const)) {
+// A key, a comma-separated list of keys, or a mission file's name (act1, pacific, gulf, arctic, home, finale...). N=20 sets the runs per mission.
+const FILE_KEYS = (f: string) => Object.keys(MODERN_MISSIONS).filter((k) => MODERN_MISSIONS[k].file === f);
+const keys = only ? only.split(',').flatMap((k) => FILE_KEYS(k).length ? FILE_KEYS(k) : [k]) : ['duel', ...CAMPAIGN, ...PREQUELS, ...MODERN.filter((k) => k !== 'duel'), ...Object.keys(MODERN_MISSIONS)];
+for (const key of keys) {
 
   const res: Record<string, number> = {};
   const mins: number[] = [];
-  const n = key === 'duel' || key === 'bismarck' ? 100 : 30;
+  const n = Number(process.env.N) || (key === 'duel' || key === 'bismarck' ? 100 : 30);
   for (let seed = 1; seed <= n; seed++) {
     const g = create(key, seed);
-    const s = { legs: 0, lastLeg: 0, sprintT: -1, deepT: -1e9, cutBrg: 0, cutT: -1 };
+    const s: CaptainState = { legs: 0, lastLeg: 0, sprintT: -1, deepT: -1e9, cutBrg: 0, cutT: -1, m: {} };
     for (let i = 0; i < Math.min(18000, g.timeLimit + 5) && !g.over; i++) {
       tick(g, 1);
-      if (key === 'duel') duelCaptain(g, i, s); else if (key === 'bismarck') bismarckCaptain(g, i); else if (MODERN.includes(key)) modernCaptain(g, i, s); else wwiiCaptain(g, i, s);
+      if (key === 'duel') duelCaptain(g, i, s); else if (key === 'bismarck') bismarckCaptain(g, i); else if (MODERN.includes(key) || MODERN_MISSIONS[key]) modernCaptain(g, i, s); else wwiiCaptain(g, i, s);
       if (process.env.E && seed === Number(process.env.E)) for (const e of g.events) console.log(Math.round(g.t / 60), e.text);
       g.events.length = 0;
     }

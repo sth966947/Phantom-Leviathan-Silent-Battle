@@ -6,7 +6,8 @@
 // propeller blade-rate line (blades x shaft rate), which shifts with speed.
 
 export type Kind = 'sub' | 'surface' | 'air';
-export type Nation = 'US' | 'UK' | 'Germany' | 'Russia' | 'Japan' | 'Netherlands' | 'Italy';
+export type Nation = 'US' | 'UK' | 'Germany' | 'Russia' | 'Japan' | 'Netherlands' | 'Italy'
+  | 'China' | 'India' | 'Iran' | 'Brazil' | 'South Africa' | 'Venezuela' | 'Australia' | 'Norway' | 'Turkey' | 'Pakistan' | 'Liberia';
 
 export interface ClassCard {
   key: string;
@@ -22,6 +23,7 @@ export interface ClassCard {
   blades: number;
   shaftHzPerKt: number;
   emitter?: boolean;       // carries a search radar that our ESM can intercept
+  friendly?: boolean;      // an ally whatever its nation (modern Japan, say)
 }
 
 export const CLASSES: Record<string, ClassCard> = {
@@ -328,6 +330,283 @@ export const CLASSES: Record<string, ClassCard> = {
   hclass: {
     key: 'hclass', name: 'British fleet destroyer (Hardy, Hotspur, Cossack)', type: 'destroyer', nation: 'UK', kind: 'surface',
     slBase: 80, maxSpd: 36, threshold: null, hp: 3, tonals: [50, 36, 148, 102], blades: 3, shaftHzPerKt: 0.22,
+  },
+  // ---- Modern war, 2029: NATO and its partners against the BRICS bloc ----
+  // Russian boats keep the 50 Hz + 9 Hz pair; Chinese boats a 13 Hz line instead. Chinese
+  // surface warships share a 34 Hz gas-turbine line, MEKO frigates 35 Hz, Scorpènes 17 Hz.
+  // US and Japanese ships run 60 Hz generators, as do Brazil's.
+  borei: {
+    key: 'borei', name: 'Borei-A', type: 'SSBN', nation: 'Russia', kind: 'sub',
+    slBase: 93, maxSpd: 29, threshold: 23, hp: 7, tonals: [50, 9, 66, 120], blades: 7, shaftHzPerKt: 0.08,
+  },
+  // Lengthened Oscar hull: Oscar's lines plus a hum from the special-mission equipment.
+  belgorod: {
+    key: 'belgorod', name: 'Belgorod (K-329)', type: 'special-purpose SSGN', nation: 'Russia', kind: 'sub',
+    slBase: 100, maxSpd: 30, threshold: 22, hp: 8, tonals: [50, 9, 76, 112, 186], blades: 7, shaftHzPerKt: 0.09,
+  },
+  khabarovsk: {
+    key: 'khabarovsk', name: 'Khabarovsk', type: 'special-purpose SSN', nation: 'Russia', kind: 'sub',
+    slBase: 95, maxSpd: 28, threshold: 23, hp: 6, tonals: [50, 9, 64, 96, 172], blades: 7, shaftHzPerKt: 0.08,
+  },
+  // A nuclear-powered torpedo drone: small reactor, pump-jet, very fast and deep, and loud.
+  poseidon: {
+    key: 'poseidon', name: 'Poseidon (Status-6)', type: 'nuclear torpedo drone', nation: 'Russia', kind: 'sub',
+    slBase: 100, maxSpd: 60, threshold: null, hp: 1, tonals: [70, 140, 35], blades: 0, shaftHzPerKt: 0,
+  },
+  kirov: {
+    key: 'kirov', name: 'Kirov (Pyotr Velikiy, Admiral Nakhimov)', type: 'nuclear battlecruiser', nation: 'Russia', kind: 'surface',
+    slBase: 84, maxSpd: 32, threshold: 15, hp: 12, tonals: [50, 22, 130, 64, 190], blades: 4, shaftHzPerKt: 0.12, emitter: true,
+  },
+  gorshkov: {
+    key: 'gorshkov', name: 'Admiral Gorshkov', type: 'frigate', nation: 'Russia', kind: 'surface',
+    slBase: 79, maxSpd: 29, threshold: 15, hp: 4, tonals: [50, 38, 145, 90], blades: 4, shaftHzPerKt: 0.15, emitter: true,
+  },
+  steregushchiy: {
+    key: 'steregushchiy', name: 'Steregushchiy', type: 'corvette', nation: 'Russia', kind: 'surface',
+    slBase: 81, maxSpd: 27, threshold: 17, hp: 2, tonals: [50, 25, 75, 150], blades: 4, shaftHzPerKt: 0.18, emitter: true,
+  },
+  ropucha: {
+    key: 'ropucha', name: 'Ropucha', type: 'landing ship', nation: 'Russia', kind: 'surface',
+    slBase: 86, maxSpd: 18, threshold: null, hp: 4, tonals: [42, 50, 84, 126], blades: 4, shaftHzPerKt: 0.2, emitter: true,
+  },
+  ivangren: {
+    key: 'ivangren', name: 'Ivan Gren', type: 'landing ship', nation: 'Russia', kind: 'surface',
+    slBase: 85, maxSpd: 18, threshold: null, hp: 4, tonals: [50, 26, 78, 104], blades: 4, shaftHzPerKt: 0.19, emitter: true,
+  },
+  // Turbo-electric nuclear icebreaker: reactor coolant pumps and a deep motor line, very loud.
+  arktika: {
+    key: 'arktika', name: 'Arktika (Project 22220)', type: 'nuclear icebreaker', nation: 'Russia', kind: 'surface',
+    slBase: 92, maxSpd: 22, threshold: null, hp: 7, tonals: [50, 16, 110, 170], blades: 4, shaftHzPerKt: 0.12,
+  },
+  arc7lng: {
+    key: 'arc7lng', name: 'Arc7 LNG carrier (Yamal LNG)', type: 'ice-class LNG carrier', nation: 'Russia', kind: 'surface',
+    slBase: 89, maxSpd: 19, threshold: null, hp: 5, tonals: [50, 25, 100, 150], blades: 4, shaftHzPerKt: 0.14,
+  },
+  trawler: {
+    key: 'trawler', name: 'Intelligence trawler (AGI)', type: 'intelligence collection ship', nation: 'Russia', kind: 'surface',
+    slBase: 83, maxSpd: 16, threshold: null, hp: 2, tonals: [50, 18, 54, 108], blades: 4, shaftHzPerKt: 0.22,
+  },
+
+  // China
+  type093b: {
+    key: 'type093b', name: 'Type 093B Shang III', type: 'SSN', nation: 'China', kind: 'sub',
+    slBase: 97, maxSpd: 30, threshold: 24, hp: 5, tonals: [50, 13, 84, 156], blades: 7, shaftHzPerKt: 0.1,
+  },
+  type095: {
+    key: 'type095', name: 'Type 095', type: 'SSN', nation: 'China', kind: 'sub',
+    slBase: 95, maxSpd: 31, threshold: 22, hp: 5, tonals: [50, 13, 92, 148], blades: 7, shaftHzPerKt: 0.09,
+  },
+  type094: {
+    key: 'type094', name: 'Type 094 Jin', type: 'SSBN', nation: 'China', kind: 'sub',
+    slBase: 103, maxSpd: 22, threshold: 26, hp: 7, tonals: [50, 13, 70, 124, 194], blades: 7, shaftHzPerKt: 0.1,
+  },
+  type096: {
+    key: 'type096', name: 'Type 096', type: 'SSBN', nation: 'China', kind: 'sub',
+    slBase: 97, maxSpd: 25, threshold: 24, hp: 7, tonals: [50, 13, 76, 136], blades: 7, shaftHzPerKt: 0.09,
+  },
+  type039: {
+    key: 'type039', name: 'Type 039A/B Yuan', type: 'AIP SSK', nation: 'China', kind: 'sub',
+    slBase: 85, maxSpd: 20, threshold: 26, hp: 4, tonals: [50, 13, 118], blades: 7, shaftHzPerKt: 0.15,
+  },
+  type055: {
+    key: 'type055', name: 'Type 055 Renhai', type: 'cruiser', nation: 'China', kind: 'surface',
+    slBase: 80, maxSpd: 30, threshold: 15, hp: 8, tonals: [50, 34, 152, 96, 186], blades: 5, shaftHzPerKt: 0.13, emitter: true,
+  },
+  type052d: {
+    key: 'type052d', name: 'Type 052D Luyang III', type: 'destroyer', nation: 'China', kind: 'surface',
+    slBase: 80, maxSpd: 30, threshold: 16, hp: 5, tonals: [50, 34, 138, 88], blades: 5, shaftHzPerKt: 0.14, emitter: true,
+  },
+  type054a: {
+    key: 'type054a', name: 'Type 054A Jiangkai II', type: 'frigate', nation: 'China', kind: 'surface',
+    slBase: 81, maxSpd: 27, threshold: 15, hp: 4, tonals: [50, 34, 72, 144], blades: 5, shaftHzPerKt: 0.16, emitter: true,
+  },
+  type056: {
+    key: 'type056', name: 'Type 056A Jiangdao', type: 'corvette', nation: 'China', kind: 'surface',
+    slBase: 82, maxSpd: 25, threshold: 18, hp: 2, tonals: [50, 36, 66, 132], blades: 4, shaftHzPerKt: 0.18, emitter: true,
+  },
+  type075: {
+    key: 'type075', name: 'Type 075 Yushen', type: 'amphibious assault ship (LHD)', nation: 'China', kind: 'surface',
+    slBase: 86, maxSpd: 23, threshold: null, hp: 9, tonals: [50, 31, 94, 124], blades: 5, shaftHzPerKt: 0.14, emitter: true,
+  },
+  type071: {
+    key: 'type071', name: 'Type 071 Yuzhao', type: 'amphibious transport dock (LPD)', nation: 'China', kind: 'surface',
+    slBase: 85, maxSpd: 20, threshold: null, hp: 7, tonals: [50, 31, 82, 164], blades: 5, shaftHzPerKt: 0.16, emitter: true,
+  },
+  // The two carriers share a 29 Hz feed-pump line from their steam plants.
+  fujian: {
+    key: 'fujian', name: 'Fujian', type: 'aircraft carrier', nation: 'China', kind: 'surface',
+    slBase: 85, maxSpd: 31, threshold: null, hp: 14, tonals: [50, 29, 116, 58, 174], blades: 5, shaftHzPerKt: 0.13, emitter: true,
+  },
+  shandong: {
+    key: 'shandong', name: 'Shandong', type: 'aircraft carrier', nation: 'China', kind: 'surface',
+    slBase: 85, maxSpd: 31, threshold: null, hp: 12, tonals: [50, 29, 108, 62, 180], blades: 5, shaftHzPerKt: 0.13, emitter: true,
+  },
+  type901: {
+    key: 'type901', name: 'Type 901 (Hulunhu, Chaganhu)', type: 'fast combat support ship', nation: 'China', kind: 'surface',
+    slBase: 86, maxSpd: 25, threshold: null, hp: 6, tonals: [50, 31, 104, 156], blades: 5, shaftHzPerKt: 0.14,
+  },
+  type022: {
+    key: 'type022', name: 'Type 022 Houbei', type: 'missile boat', nation: 'China', kind: 'surface',
+    slBase: 84, maxSpd: 36, threshold: null, hp: 1, tonals: [50, 42, 84, 168], blades: 0, shaftHzPerKt: 0, emitter: true,
+  },
+  ccg: {
+    key: 'ccg', name: 'China Coast Guard cutter (CCG 2901, 3901)', type: 'coast guard cutter', nation: 'China', kind: 'surface',
+    slBase: 84, maxSpd: 25, threshold: null, hp: 5, tonals: [50, 27, 81, 135], blades: 4, shaftHzPerKt: 0.15, emitter: true,
+  },
+  xuelong2: {
+    key: 'xuelong2', name: 'Xue Long 2', type: 'polar research icebreaker', nation: 'China', kind: 'surface',
+    slBase: 87, maxSpd: 15, threshold: null, hp: 4, tonals: [50, 20, 120, 180], blades: 4, shaftHzPerKt: 0.16,
+  },
+  h6k: {
+    key: 'h6k', name: 'Xian H-6K', type: 'long-range bomber', nation: 'China', kind: 'air',
+    slBase: 0, maxSpd: 520, threshold: null, hp: 1, tonals: [], blades: 0, shaftHzPerKt: 0, emitter: true,
+  },
+  h6j: {
+    key: 'h6j', name: 'Xian H-6J', type: 'naval strike bomber', nation: 'China', kind: 'air',
+    slBase: 0, maxSpd: 520, threshold: null, hp: 1, tonals: [], blades: 0, shaftHzPerKt: 0, emitter: true,
+  },
+  kq200: {
+    key: 'kq200', name: 'Shaanxi KQ-200 (Y-8Q)', type: 'maritime patrol aircraft', nation: 'China', kind: 'air',
+    slBase: 0, maxSpd: 340, threshold: null, hp: 1, tonals: [], blades: 0, shaftHzPerKt: 0, emitter: true,
+  },
+  // Export Helix: same rotor and gearbox family as the Ka-27, a slightly different gearbox line.
+  ka28: {
+    key: 'ka28', name: 'Ka-28 Helix', type: 'ASW helicopter', nation: 'China', kind: 'air',
+    slBase: 104, maxSpd: 140, threshold: null, hp: 1, tonals: [14, 28, 115, 46], blades: 0, shaftHzPerKt: 0,
+  },
+
+  // India
+  vikrant: {
+    key: 'vikrant', name: 'Vikrant', type: 'aircraft carrier', nation: 'India', kind: 'surface',
+    slBase: 84, maxSpd: 28, threshold: null, hp: 11, tonals: [50, 21, 98, 146, 64], blades: 5, shaftHzPerKt: 0.13, emitter: true,
+  },
+  kolkata: {
+    key: 'kolkata', name: 'Kolkata (Kolkata, Kochi, Chennai)', type: 'destroyer', nation: 'India', kind: 'surface',
+    slBase: 80, maxSpd: 30, threshold: 16, hp: 5, tonals: [50, 37, 122, 86], blades: 5, shaftHzPerKt: 0.14, emitter: true,
+  },
+  talwar: {
+    key: 'talwar', name: 'Talwar', type: 'frigate', nation: 'India', kind: 'surface',
+    slBase: 81, maxSpd: 30, threshold: 16, hp: 4, tonals: [50, 30, 118, 66], blades: 4, shaftHzPerKt: 0.15, emitter: true,
+  },
+  kalvari: {
+    key: 'kalvari', name: 'Kalvari (Scorpène)', type: 'SSK', nation: 'India', kind: 'sub',
+    slBase: 84, maxSpd: 20, threshold: 25, hp: 4, tonals: [50, 17, 104], blades: 7, shaftHzPerKt: 0.15,
+  },
+  arihant: {
+    key: 'arihant', name: 'Arihant (Arihant, Arighaat)', type: 'SSBN', nation: 'India', kind: 'sub',
+    slBase: 102, maxSpd: 24, threshold: 26, hp: 5, tonals: [50, 11, 74, 128], blades: 7, shaftHzPerKt: 0.1,
+  },
+  jalashwa: {
+    key: 'jalashwa', name: 'Jalashwa (ex-USS Trenton)', type: 'amphibious transport dock (LPD)', nation: 'India', kind: 'surface',
+    slBase: 87, maxSpd: 21, threshold: null, hp: 6, tonals: [60, 20, 90, 150], blades: 5, shaftHzPerKt: 0.16, emitter: true,
+  },
+  p8i: {
+    key: 'p8i', name: 'Boeing P-8I Neptune', type: 'maritime patrol aircraft', nation: 'India', kind: 'air',
+    slBase: 0, maxSpd: 490, threshold: null, hp: 1, tonals: [], blades: 0, shaftHzPerKt: 0, emitter: true,
+  },
+
+  // Iran
+  ghadir: {
+    key: 'ghadir', name: 'Ghadir', type: 'midget submarine', nation: 'Iran', kind: 'sub',
+    slBase: 84, maxSpd: 11, threshold: 34, hp: 1, tonals: [50, 100, 23], blades: 5, shaftHzPerKt: 0.25,
+  },
+  jamaran: {
+    key: 'jamaran', name: 'Moudge (Jamaran, Dena)', type: 'frigate', nation: 'Iran', kind: 'surface',
+    slBase: 82, maxSpd: 30, threshold: 22, hp: 3, tonals: [50, 33, 99, 140], blades: 4, shaftHzPerKt: 0.18, emitter: true,
+  },
+  fac: {
+    key: 'fac', name: 'Iranian missile boat (Thondar, Houdong)', type: 'fast attack craft', nation: 'Iran', kind: 'surface',
+    slBase: 84, maxSpd: 35, threshold: null, hp: 1, tonals: [50, 44, 88, 132], blades: 4, shaftHzPerKt: 0.3, emitter: true,
+  },
+  // Outboard-engined explosive boat: a high, clean engine line and a fast-turning screw.
+  droneboat: {
+    key: 'droneboat', name: 'Explosive drone boat', type: 'USV', nation: 'Iran', kind: 'surface',
+    slBase: 86, maxSpd: 45, threshold: null, hp: 1, tonals: [90, 180, 45], blades: 3, shaftHzPerKt: 0.8,
+  },
+
+  // Brazil
+  riachuelo: {
+    key: 'riachuelo', name: 'Riachuelo (Scorpène)', type: 'SSK', nation: 'Brazil', kind: 'sub',
+    slBase: 84, maxSpd: 20, threshold: 25, hp: 4, tonals: [60, 17, 104], blades: 7, shaftHzPerKt: 0.15,
+  },
+  alvaro: {
+    key: 'alvaro', name: 'Álvaro Alberto', type: 'SSN', nation: 'Brazil', kind: 'sub',
+    slBase: 96, maxSpd: 25, threshold: 24, hp: 5, tonals: [60, 17, 86, 152], blades: 7, shaftHzPerKt: 0.1,
+  },
+  tamandare: {
+    key: 'tamandare', name: 'Tamandaré (MEKO A-100)', type: 'frigate', nation: 'Brazil', kind: 'surface',
+    slBase: 80, maxSpd: 26, threshold: 17, hp: 3, tonals: [60, 35, 110, 74], blades: 5, shaftHzPerKt: 0.16, emitter: true,
+  },
+  p3am: {
+    key: 'p3am', name: 'Lockheed P-3AM Orion', type: 'maritime patrol aircraft', nation: 'Brazil', kind: 'air',
+    slBase: 0, maxSpd: 400, threshold: null, hp: 1, tonals: [], blades: 0, shaftHzPerKt: 0, emitter: true,
+  },
+
+  // South Africa and Venezuela
+  type209: {
+    key: 'type209', name: 'Type 209/1400', type: 'SSK', nation: 'South Africa', kind: 'sub',
+    slBase: 87, maxSpd: 21, threshold: 28, hp: 3, tonals: [50, 26, 92, 38], blades: 5, shaftHzPerKt: 0.17,
+  },
+  valour: {
+    key: 'valour', name: 'Valour (MEKO A-200SAN)', type: 'frigate', nation: 'South Africa', kind: 'surface',
+    slBase: 80, maxSpd: 28, threshold: 18, hp: 3, tonals: [50, 35, 110, 74], blades: 5, shaftHzPerKt: 0.15, emitter: true,
+  },
+
+  // Allies, neutrals and merchants
+  ford: {
+    key: 'ford', name: 'Gerald R. Ford', type: 'aircraft carrier', nation: 'US', kind: 'surface', friendly: true,
+    slBase: 84, maxSpd: 32, threshold: null, hp: 16, tonals: [60, 26, 118, 180, 90], blades: 5, shaftHzPerKt: 0.12, emitter: true,
+  },
+  taigei: {
+    key: 'taigei', name: 'Taigei', type: 'SSK', nation: 'Japan', kind: 'sub', friendly: true,
+    slBase: 83, maxSpd: 20, threshold: 22, hp: 4, tonals: [60, 15, 108], blades: 7, shaftHzPerKt: 0.14,
+  },
+  maya: {
+    key: 'maya', name: 'Maya (Maya, Haguro)', type: 'destroyer', nation: 'Japan', kind: 'surface', friendly: true,
+    slBase: 79, maxSpd: 30, threshold: 15, hp: 6, tonals: [60, 32, 166, 108], blades: 5, shaftHzPerKt: 0.13, emitter: true,
+  },
+  collins: {
+    key: 'collins', name: 'Collins', type: 'SSK', nation: 'Australia', kind: 'sub', friendly: true,
+    slBase: 87, maxSpd: 20, threshold: 23, hp: 4, tonals: [50, 28, 140], blades: 7, shaftHzPerKt: 0.15,
+  },
+  nansen: {
+    key: 'nansen', name: 'Fridtjof Nansen', type: 'frigate', nation: 'Norway', kind: 'surface', friendly: true,
+    slBase: 79, maxSpd: 27, threshold: 15, hp: 4, tonals: [50, 32, 144, 78], blades: 5, shaftHzPerKt: 0.15, emitter: true,
+  },
+  type26: {
+    key: 'type26', name: 'Type 26 (City class)', type: 'ASW frigate', nation: 'UK', kind: 'surface', friendly: true,
+    slBase: 76, maxSpd: 26, threshold: 14, hp: 5, tonals: [50, 28, 136, 84], blades: 5, shaftHzPerKt: 0.15, emitter: true,
+  },
+  qnlz: {
+    key: 'qnlz', name: 'Queen Elizabeth (Queen Elizabeth, Prince of Wales)', type: 'aircraft carrier', nation: 'UK', kind: 'surface', friendly: true,
+    slBase: 84, maxSpd: 26, threshold: null, hp: 14, tonals: [50, 24, 112, 168, 72], blades: 5, shaftHzPerKt: 0.12, emitter: true,
+  },
+  p8a: {
+    key: 'p8a', name: 'Boeing P-8A Poseidon', type: 'maritime patrol aircraft', nation: 'US', kind: 'air', friendly: true,
+    slBase: 0, maxSpd: 490, threshold: null, hp: 1, tonals: [], blades: 0, shaftHzPerKt: 0, emitter: true,
+  },
+  // Neutral: Turkey keeps its boats in harbour or shadows both sides.
+  reis: {
+    key: 'reis', name: 'Reis (Type 214TN)', type: 'AIP SSK', nation: 'Turkey', kind: 'sub',
+    slBase: 84, maxSpd: 20, threshold: 24, hp: 4, tonals: [50, 22, 126], blades: 7, shaftHzPerKt: 0.15,
+  },
+  // Slow two-stroke diesels: low firing-rate lines and a slow-turning big screw.
+  tanker: {
+    key: 'tanker', name: 'Crude oil tanker', type: 'tanker', nation: 'Liberia', kind: 'surface',
+    slBase: 88, maxSpd: 15, threshold: null, hp: 6, tonals: [28, 56, 84, 7], blades: 4, shaftHzPerKt: 0.1,
+  },
+  lng: {
+    key: 'lng', name: 'LNG carrier', type: 'LNG carrier', nation: 'Liberia', kind: 'surface',
+    slBase: 87, maxSpd: 19, threshold: null, hp: 5, tonals: [40, 20, 120, 80], blades: 5, shaftHzPerKt: 0.11,
+  },
+  tender: {
+    key: 'tender', name: 'Emory S. Land', type: 'submarine tender', nation: 'US', kind: 'surface', friendly: true,
+    slBase: 85, maxSpd: 20, threshold: null, hp: 6, tonals: [60, 22, 96, 150], blades: 5, shaftHzPerKt: 0.15,
+  },
+  // Dynamic-positioning thrusters make a rescue ship loud even when she is stopped.
+  rescueship: {
+    key: 'rescueship', name: 'Submarine rescue ship (SRDRS)', type: 'rescue support ship', nation: 'US', kind: 'surface', friendly: true,
+    slBase: 86, maxSpd: 14, threshold: null, hp: 3, tonals: [60, 30, 90, 120], blades: 4, shaftHzPerKt: 0.18,
   },
 };
 
@@ -827,5 +1106,384 @@ export const REFERENCE: Record<string, Reference> = {
     armament: ['4 × 4.7 in guns (8 in twin mounts on Tribals)', '8 × 21 in torpedo tubes (4 on Tribals)', 'Pom-poms and machine guns', 'Depth charges'],
     armor: 'None',
     notes: 'Friendly. Two raked funnels, two gun mounts forward and two aft. Hardy and Hotspur fought at Narvik; Cossack boarded the Altmark. Two shafts.',
+  },
+  // ---- Modern war, 2029 ----
+  borei: {
+    displacement: '24,000 t submerged',
+    armament: ['16 × Bulava ballistic missiles', '6 × 533 mm torpedo tubes'],
+    armor: 'None. Double hull',
+    notes: 'Russia\'s newest missile boat. Long humped missile deck abaft the sail, pump-jet propulsor. Quiet, close to Yasen.',
+  },
+  belgorod: {
+    displacement: '30,000 t submerged',
+    armament: ['Up to 6 Poseidon nuclear torpedo drones', 'Carries a deep submersible under the hull', 'Torpedo tubes'],
+    armor: 'None. Double hull',
+    notes: 'The longest submarine in the world: a stretched Oscar II hull. Heard like an Oscar with extra machinery lines. Two shafts.',
+  },
+  khabarovsk: {
+    displacement: 'About 10,000 t submerged',
+    armament: ['Up to 6 Poseidon nuclear torpedo drones', 'Torpedo tubes'],
+    armor: 'None',
+    notes: 'Poseidon carrier built on Borei technology. Shorter and quieter than Belgorod. Pump-jet.',
+  },
+  poseidon: {
+    displacement: 'About 100 t',
+    armament: ['Nuclear warhead (multi-megaton)'],
+    armor: 'None',
+    notes: 'Uncrewed nuclear-powered torpedo, about 20 m long. Very deep and very fast but loud. A single torpedo hit kills it.',
+  },
+  kirov: {
+    displacement: '25,000 t full load',
+    armament: ['20 × P-700 Granit (Pyotr Velikiy) or up to 80 Kalibr, Oniks and Zircon (Admiral Nakhimov) in VLS', 'S-300F/Fort SAMs', '1 × twin 130 mm gun', '10 × 533 mm torpedo tubes, RBU rocket launchers', '3 Ka-27 helicopters'],
+    armor: 'Light box armor over reactor and magazines',
+    notes: 'Biggest surface warship afloat apart from carriers. Long flat foredeck over the missile silos, two tall towers and a big pyramid mast. Nuclear and steam plant, two shafts.',
+  },
+  gorshkov: {
+    displacement: '5,400 t full load',
+    armament: ['16 × Kalibr, Oniks or Zircon in VLS', '32 × Redut SAM cells', '1 × 130 mm gun', '8 × Paket 324 mm torpedo tubes', '1 Ka-27 helicopter'],
+    armor: 'None',
+    notes: 'Modern frigate, the first Zircon shooter at sea. Pyramid mast with flat phased-array panels, single funnel. Two shafts.',
+  },
+  steregushchiy: {
+    displacement: '2,200 t full load',
+    armament: ['8 × Uran anti-ship missiles', 'Redut SAM cells', '1 × 100 mm gun', '8 × Paket 324 mm torpedo tubes', '1 Ka-27 helicopter'],
+    armor: 'None',
+    notes: 'Stealthy diesel corvette for coastal ASW. Single tall enclosed mast, gun forward, hangar aft. Two shafts.',
+  },
+  ropucha: {
+    displacement: '4,000 t full load',
+    armament: ['2 × twin 57 mm guns', '2 × 122 mm rocket launchers (some)', '10 tanks or 25 vehicles, 190 to 225 troops'],
+    armor: 'None',
+    notes: 'Polish-built landing ship with bow and stern doors. Long, high hull with the superstructure aft of amidships. Two shafts.',
+  },
+  ivangren: {
+    displacement: '6,600 t full load',
+    armament: ['1 × 30 mm AK-630M-2 Duet gun mount', '13 tanks or 36 armored vehicles, 300 troops', '1 Ka-29 helicopter'],
+    armor: 'None',
+    notes: 'Larger successor to Ropucha. Blocky superstructure forward of amidships, crane on the cargo deck, bow ramp. Two shafts.',
+  },
+  arktika: {
+    displacement: '33,500 t full load',
+    armament: ['None'],
+    armor: 'Ice belt',
+    notes: 'Nuclear icebreaker, two reactors and turbo-electric drive. Tall white superstructure forward, no funnel, helicopter deck aft. Three shafts. Very loud.',
+  },
+  arc7lng: {
+    displacement: '172,600 m³ cargo, about 128,000 t full load',
+    armament: ['None'],
+    armor: 'Arc7 ice belt',
+    notes: 'Icebreaking LNG carrier on the Yamal LNG run. Long trunk deck, accommodation and bridge right aft, stern-first icebreaking with three azimuth pods.',
+  },
+  trawler: {
+    displacement: '1,000 to 3,500 t',
+    armament: ['Usually none, sometimes small arms'],
+    armor: 'None',
+    notes: 'Spy ship on a trawler or Vishnya-type hull, festooned with antennas and radomes. Loiters near exercises and sub bases. Diesel, single or twin screws.',
+  },
+  type093b: {
+    displacement: '7,000 t submerged',
+    armament: ['6 × 533 mm torpedo tubes', '12 vertical tubes (YJ-18 anti-ship and land-attack missiles)'],
+    armor: 'None',
+    notes: 'Improved Shang. Quieter than earlier Chinese boats but still louder than Yasen. Seven-bladed screw, towed array.',
+  },
+  type095: {
+    displacement: 'About 9,000 t submerged',
+    armament: ['533 mm torpedo tubes', 'Vertical tubes for YJ-18 missiles'],
+    armor: 'None',
+    notes: 'Newest Chinese attack boat and the quietest: pump-jet and rafted machinery. Easily mistaken for a Shang III on one line.',
+  },
+  type094: {
+    displacement: '11,000 t submerged',
+    armament: ['12 × JL-2 or JL-3 ballistic missiles', '6 × 533 mm torpedo tubes'],
+    armor: 'None',
+    notes: 'Tall humped missile deck behind the sail. Noisy for a modern missile boat, with a strong reactor-pump line.',
+  },
+  type096: {
+    displacement: 'About 16,000 t submerged',
+    armament: ['16 to 24 × JL-3 ballistic missiles', '533 mm torpedo tubes'],
+    armor: 'None',
+    notes: 'Next-generation Chinese missile boat, much quieter than the Jin. Pump-jet.',
+  },
+  type039: {
+    displacement: '3,600 t submerged',
+    armament: ['6 × 533 mm torpedo tubes', 'YJ-82 anti-ship missiles from the tubes', 'Mines'],
+    armor: 'None',
+    notes: 'Air-independent (Stirling) diesel boat. Can creep quietly for weeks without snorkelling. Single shaft.',
+  },
+  type055: {
+    displacement: '13,000 t full load',
+    armament: ['112 vertical launch cells (HHQ-9, YJ-18, YJ-21, ASW rockets)', '1 × 130 mm gun', '324 mm torpedo tubes', '2 helicopters'],
+    armor: 'None',
+    notes: 'Large stealthy cruiser with an enclosed integrated mast carrying four flat radar faces, one wide funnel, long hangar aft. Two shafts.',
+  },
+  type052d: {
+    displacement: '7,500 t full load',
+    armament: ['64 vertical launch cells (HHQ-9, YJ-18, CY-5)', '1 × 130 mm gun', '324 mm torpedo tubes', '1 helicopter'],
+    armor: 'None',
+    notes: 'Aegis-style destroyer: flat radar faces on a pyramid bridge, single wide funnel, stealthy gun. Two shafts.',
+  },
+  type054a: {
+    displacement: '4,000 t full load',
+    armament: ['32 vertical launch cells (HHQ-16)', '8 × YJ-83 anti-ship missiles', '1 × 76 mm gun', '324 mm torpedo tubes', '1 Ka-28 or Z-9 helicopter'],
+    armor: 'None',
+    notes: 'Workhorse ASW frigate with variable-depth and towed sonar. Two funnels side by side, lattice-free mast. Diesel (CODAD), two shafts.',
+  },
+  type056: {
+    displacement: '1,500 t full load',
+    armament: ['4 × YJ-83 anti-ship missiles', '1 × 76 mm gun', 'HHQ-10 point defence', '324 mm torpedo tubes, towed sonar (056A)'],
+    armor: 'None',
+    notes: 'Small coastal corvette with a helicopter pad but no hangar. Single mast, angled superstructure. Two shafts.',
+  },
+  type075: {
+    displacement: '40,000 t full load',
+    armament: ['HHQ-10 point defence', 'Close-in guns', 'About 30 helicopters, landing craft, 900 to 1,200 troops'],
+    armor: 'None',
+    notes: 'Big-deck amphibious assault ship: full-length flight deck and a long island with two funnels. Two shafts.',
+  },
+  type071: {
+    displacement: '25,000 t full load',
+    armament: ['1 × 76 mm gun', 'Close-in guns', '4 hovercraft, 4 helicopters, 600 to 800 troops'],
+    armor: 'None',
+    notes: 'Amphibious dock ship: tall boxy superstructure forward, helicopter deck and hangar aft, stern well dock. Two shafts.',
+  },
+  fujian: {
+    displacement: '80,000 t full load',
+    armament: ['HHQ-10 point defence', 'Close-in guns', 'About 50 to 60 aircraft, launched by electromagnetic catapults'],
+    armor: 'None',
+    notes: 'First Chinese flat-top with catapults: flat flight deck, no ski-jump, a small island set well aft. Conventional steam plant, four shafts.',
+  },
+  shandong: {
+    displacement: '70,000 t full load',
+    armament: ['HHQ-10 point defence', 'Close-in guns', 'About 40 aircraft'],
+    armor: 'None',
+    notes: 'Ski-jump carrier: big upturned bow ramp, large island with a funnel. Steam plant, four shafts.',
+  },
+  type901: {
+    displacement: '48,000 t full load',
+    armament: ['Close-in guns', 'Fuel, ammunition and stores for a carrier group', '2 helicopters'],
+    armor: 'None',
+    notes: 'Fast replenishment ship that keeps up with the carriers. Tall bridge forward, replenishment gantries amidships, funnel and hangar aft.',
+  },
+  type022: {
+    displacement: '224 t full load',
+    armament: ['8 × YJ-83 anti-ship missiles', '1 × 30 mm gun'],
+    armor: 'None',
+    notes: 'Wave-piercing catamaran, very fast and low. Missile boxes aft, small stealthy deckhouse. Waterjets.',
+  },
+  ccg: {
+    displacement: '12,000 t full load',
+    armament: ['1 × 76 mm gun', 'Machine guns, water cannon', '1 helicopter'],
+    armor: 'None',
+    notes: 'Largest coast guard cutters in the world, white hull with a broad stripe. Used to push and shoulder other ships. Two shafts.',
+  },
+  xuelong2: {
+    displacement: '14,000 t full load',
+    armament: ['None'],
+    armor: 'Ice belt',
+    notes: 'Polar research icebreaker with an orange hull, bow and stern icebreaking, A-frame and cranes aft. Azimuth pods.',
+  },
+  h6k: {
+    displacement: '76,000 kg max takeoff',
+    armament: ['Up to 6 CJ-20 or KD-20 cruise missiles', 'YJ-12 anti-ship missiles'],
+    armor: 'None',
+    notes: 'Rebuilt 1950s twin-jet bomber. Swept wing, engines buried in the wing roots, solid radome nose.',
+  },
+  h6j: {
+    displacement: '76,000 kg max takeoff',
+    armament: ['Up to 6 YJ-12 supersonic anti-ship missiles'],
+    armor: 'None',
+    notes: 'Naval version of the H-6K. Same airframe; look for the anti-ship missiles under the wings.',
+  },
+  kq200: {
+    displacement: '61,000 kg max takeoff',
+    armament: ['Sonobuoys', 'Lightweight torpedoes, depth charges', 'Chin search radar, MAD tail boom'],
+    armor: 'None',
+    notes: 'Four-turboprop high-wing transport converted for ASW. Long tail stinger (MAD) and a big chin radome.',
+  },
+  ka28: {
+    displacement: '12,000 kg max takeoff',
+    armament: ['VGS-3 dipping sonar', 'Sonobuoys', 'Lightweight torpedo or depth charges'],
+    armor: 'None',
+    notes: 'Export Ka-27, flown from Chinese destroyers and frigates. Coaxial rotors. Heard on sonar only while its sonar is in the water.',
+  },
+  vikrant: {
+    displacement: '45,000 t full load',
+    armament: ['Barak 8 SAMs', 'Close-in guns', 'About 30 aircraft (MiG-29K or Rafale M, helicopters)'],
+    armor: 'None',
+    notes: 'India\'s home-built ski-jump carrier: upturned bow, island with two funnels. Gas turbines, two shafts.',
+  },
+  kolkata: {
+    displacement: '7,400 t full load',
+    armament: ['16 × BrahMos anti-ship missiles', '32 × Barak 8 SAMs', '1 × 76 mm gun', '533 mm torpedo tubes, RBU-6000', '2 helicopters'],
+    armor: 'None',
+    notes: 'Stealthy destroyer: flat radar faces on a big mast, single funnel, hangar aft. Two shafts.',
+  },
+  talwar: {
+    displacement: '4,000 t full load',
+    armament: ['8 × BrahMos or Kalibr in VLS', 'Shtil SAMs', '1 × 100 mm gun', '533 mm torpedo tubes, RBU-6000', '1 helicopter'],
+    armor: 'None',
+    notes: 'Russian-built frigate, sister of the Admiral Grigorovich. Sounds a little like Udaloy. Two shafts.',
+  },
+  kalvari: {
+    displacement: '1,800 t submerged',
+    armament: ['6 × 533 mm torpedo tubes', 'Exocet SM39 anti-ship missiles', 'Mines'],
+    armor: 'None',
+    notes: 'French-designed Scorpène diesel boat. Very quiet on battery. Single shaft.',
+  },
+  arihant: {
+    displacement: '6,000 t submerged',
+    armament: ['4 × K-4 or 12 × K-15 ballistic missiles', '6 × 533 mm torpedo tubes'],
+    armor: 'None',
+    notes: 'India\'s first missile boat, small and noisy for a nuclear sub. Single shaft.',
+  },
+  jalashwa: {
+    displacement: '16,600 t full load',
+    armament: ['Close-in guns', '4 landing craft, up to 6 helicopters, about 900 troops'],
+    armor: 'None',
+    notes: 'Ex-US Austin-class dock ship: long helicopter deck aft, tall block superstructure with two funnels side by side. Steam, two shafts.',
+  },
+  p8i: {
+    displacement: '85,000 kg max takeoff',
+    armament: ['Sonobuoys', 'Mk 54 torpedoes, Harpoon missiles', 'Search radar, ESM and a tail MAD boom'],
+    armor: 'None',
+    notes: 'Indian P-8: a 737 airliner rebuilt as a sub hunter. Unlike the US P-8A it has a MAD stinger in the tail.',
+  },
+  ghadir: {
+    displacement: '125 t submerged',
+    armament: ['2 × 533 mm torpedo tubes', 'Mines'],
+    armor: 'None',
+    notes: 'Midget diesel boat for the shallow Gulf. Hides on the bottom, short endurance. Poor sonar. Single screw.',
+  },
+  jamaran: {
+    displacement: '1,500 t full load',
+    armament: ['4 × Noor or Qader anti-ship missiles', 'SM-1 type SAMs', '1 × 76 mm gun', '324 mm torpedo tubes', '1 helicopter'],
+    armor: 'None',
+    notes: 'Iranian-built frigate on the lines of the old British Vosper Mk 5. Single funnel and a lattice mast. Two shafts.',
+  },
+  fac: {
+    displacement: '200 t full load',
+    armament: ['2 to 4 × C-802 or Noor anti-ship missiles', '1 × 76 mm or 30 mm gun'],
+    armor: 'None',
+    notes: 'Fast missile boat. Low hull, missile boxes aft, small bridge forward of amidships. Often in swarms with speedboats.',
+  },
+  droneboat: {
+    displacement: 'About 2 t',
+    armament: ['Explosive charge in the bow'],
+    armor: 'None',
+    notes: 'Small uncrewed speedboat packed with explosives, steered at ships by remote or GPS. Tiny, very fast, sinks to one hit.',
+  },
+  riachuelo: {
+    displacement: '2,000 t submerged',
+    armament: ['6 × 533 mm torpedo tubes', 'Exocet SM39 anti-ship missiles', 'Mines'],
+    armor: 'None',
+    notes: 'Stretched Brazilian Scorpène. Sounds like a Kalvari except for its 60 Hz electrical line. Single shaft.',
+  },
+  alvaro: {
+    displacement: '6,000 t submerged',
+    armament: ['6 × 533 mm torpedo tubes', 'Exocet SM39 anti-ship missiles'],
+    armor: 'None',
+    notes: 'Brazil\'s first nuclear attack boat, a scaled-up Scorpène with a home-built reactor. Noisier than the big navies\' boats.',
+  },
+  tamandare: {
+    displacement: '3,500 t full load',
+    armament: ['8 × Exocet MM40 anti-ship missiles', '12 × Sea Ceptor SAMs', '1 × 76 mm gun', '324 mm torpedo tubes', '1 helicopter'],
+    armor: 'None',
+    notes: 'German MEKO A-100 design: compact stealthy hull, single integrated mast. Two shafts.',
+  },
+  p3am: {
+    displacement: '64,400 kg max takeoff',
+    armament: ['Sonobuoys', 'Mk 46 torpedoes, Harpoon missiles', 'Search radar and a tail MAD boom'],
+    armor: 'None',
+    notes: 'Brazil\'s rebuilt Orions. Four turboprops, low wing and a long MAD stinger in the tail.',
+  },
+  type209: {
+    displacement: '1,600 t submerged',
+    armament: ['8 × 533 mm torpedo tubes', 'Mines'],
+    armor: 'None',
+    notes: 'German export diesel boat. South Africa\'s Heroine class and Venezuela\'s Sábalo and Caribe are this family. Single shaft.',
+  },
+  valour: {
+    displacement: '3,600 t full load',
+    armament: ['8 × Exocet anti-ship missiles', '16 × Umkhonto SAMs', '1 × 76 mm gun', '324 mm torpedo tubes', '1 helicopter'],
+    armor: 'None',
+    notes: 'German MEKO A-200 frigate. Sister design to Brazil\'s Tamandaré, on a 50 Hz grid. Two shafts and a waterjet.',
+  },
+  ford: {
+    displacement: '100,000 t full load',
+    armament: ['ESSM and RAM point defence', 'Close-in guns', 'About 75 aircraft, electromagnetic catapults'],
+    armor: 'None',
+    notes: 'Friendly. Nuclear supercarrier: angled deck and a small island set well aft. Four shafts.',
+  },
+  taigei: {
+    displacement: '4,300 t submerged',
+    armament: ['6 × 533 mm torpedo tubes (Type 18 torpedoes)', 'Harpoon from the tubes'],
+    armor: 'None',
+    notes: 'Friendly. Japanese diesel boat on lithium-ion batteries: very quiet and quick on battery. X-shaped rudders.',
+  },
+  maya: {
+    displacement: '10,250 t full load',
+    armament: ['96 vertical launch cells (SM-3, SM-6, SM-2)', 'Type 90 and Type 17 anti-ship missiles', '1 × 5 in gun', '324 mm torpedo tubes', '1 helicopter'],
+    armor: 'None',
+    notes: 'Friendly. Japanese Aegis destroyer, an enlarged Arleigh Burke with a taller bridge. Not the 1942 cruiser of the same name. Two shafts.',
+  },
+  collins: {
+    displacement: '3,400 t submerged',
+    armament: ['6 × 533 mm torpedo tubes (Mk 48)', 'Harpoon from the tubes', 'Mines'],
+    armor: 'None',
+    notes: 'Friendly. Large Australian diesel boat. Louder than the newest SSKs when snorting. Single shaft.',
+  },
+  nansen: {
+    displacement: '5,300 t full load',
+    armament: ['8 × Naval Strike Missiles', '8 Mk 41 cells (ESSM)', '1 × 76 mm gun', '324 mm torpedo tubes', '1 NH90 helicopter'],
+    armor: 'None',
+    notes: 'Friendly. Norwegian Aegis frigate: tall square tower carrying the flat SPY-1F radar faces. Two shafts.',
+  },
+  type26: {
+    displacement: '8,000 t full load',
+    armament: ['24 Mk 41 cells', '48 × Sea Ceptor SAMs', '1 × 5 in gun', 'Merlin or Wildcat helicopter', 'Type 2087 towed sonar'],
+    armor: 'None',
+    notes: 'Friendly. Very quiet British ASW frigate. Mission bay amidships, single funnel, tall mast forward. Two shafts.',
+  },
+  qnlz: {
+    displacement: '65,000 t full load',
+    armament: ['Phalanx close-in guns', 'Up to 36 F-35B jets plus helicopters'],
+    armor: 'None',
+    notes: 'Friendly. Ski-jump carrier with two islands: the forward one for navigation, the aft one for flying. Not the 1915 battleship. Two shafts.',
+  },
+  p8a: {
+    displacement: '85,800 kg max takeoff',
+    armament: ['Sonobuoys', 'Mk 54 torpedoes, Harpoon missiles', 'APY-10 search radar and ESM'],
+    armor: 'None',
+    notes: 'Friendly. A 737 airliner rebuilt as a sub hunter, with raked wingtips and no MAD boom in the tail.',
+  },
+  reis: {
+    displacement: '2,000 t submerged',
+    armament: ['8 × 533 mm torpedo tubes', 'Sub-Harpoon from the tubes', 'Mines'],
+    armor: 'None',
+    notes: 'Neutral. Turkish-built Type 214 with fuel-cell air-independent drive: very quiet. Do not fire on it. Single shaft.',
+  },
+  tanker: {
+    displacement: '150,000 to 320,000 t (VLCC)',
+    armament: ['None'],
+    armor: 'None',
+    notes: 'Huge, slow and loud. Flat deck with pipework, accommodation block and funnel right aft. One big slow-turning screw.',
+  },
+  lng: {
+    displacement: '100,000 to 125,000 t',
+    armament: ['None'],
+    armor: 'None',
+    notes: 'Gas carrier. Moss type has a row of big domed tanks along the deck; bridge and funnel aft. Single shaft.',
+  },
+  tender: {
+    displacement: '23,500 t full load',
+    armament: ['Close-in guns and machine guns', 'Workshops, spares and torpedoes for submarines'],
+    armor: 'None',
+    notes: 'Friendly. Submarine tender: tall block superstructure, big cranes amidships. Subs moor alongside. Single shaft.',
+  },
+  rescueship: {
+    displacement: 'About 4,000 t',
+    armament: ['None. Carries the SRDRS rescue system and its pressurized rescue module'],
+    armor: 'None',
+    notes: 'Friendly. Chartered offshore support ship: bridge forward, long open working deck aft with an A-frame. Thrusters keep her loud even when stopped.',
   },
 };

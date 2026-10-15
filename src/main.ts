@@ -1,6 +1,6 @@
 import 'pixi.js/unsafe-eval'; // no eval(), so the game runs under strict content security policies
 import './style.css';
-import { WEAPONS, contactById, create, inPeriscope, orders, tick, type Depth, type Game, type ScenarioKey, type WeaponKey } from './sim/sim';
+import { WEAPONS, arrivingSoon, contactById, create, inPeriscope, orders, tick, type Depth, type Game, type ScenarioKey, type WeaponKey } from './sim/sim';
 import { CAMPAIGN, MISSIONS, PREQUELS, objectives, type MissionKey } from './sim/missions';
 import { carryFor, changedFor, interlude, record, resetCampaign, results, unlocked } from './campaign';
 import { Plot, SPANS } from './render/plot';
@@ -11,10 +11,11 @@ import { play, unlockAudio } from './ui/audio';
 import { Periscope } from './ui/periscope';
 import { Solution } from './ui/solution';
 import { DepthView } from './ui/depth';
+import { StrikeCam, type Impact } from './ui/strikecam';
 import { Player, noteSelection, record as recordOrders, recording } from './replay';
-import { FRONTS, FRONT_NAMES, WAR_LENGTH, currentSlot, newsCard, resolve as resolveWar, warOver, type Ending, type WarState } from './sim/war';
+import { FRONTS, FRONT_NAMES, WAR_MAX, WAR_MIN, currentSlot, warLength, newsCard, resolve as resolveWar, warOver, type Ending, type WarState } from './sim/war';
 import { WAR_MISSIONS } from './sim/warData';
-import { PLAYABLE, currentWar, restartWar, saveWar } from './warSave';
+import { currentWar, playable, restartWar, saveWar } from './warSave';
 
 const $ = (id: string) => document.getElementById(id)!;
 const esc = (t: string) => t.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]!));
@@ -43,6 +44,36 @@ const signature = new SignatureDisplay($('signature') as HTMLCanvasElement);
 const periscope = new Periscope($('scopeView') as HTMLCanvasElement, () => g);
 const solution = new Solution(() => g);
 const depthView = new DepthView($('depthCanvas') as HTMLCanvasElement, () => g);
+const strikeCam = new StrikeCam();
+let strikesSeen = 0; // land-attack arrivals already handed to the battle camera
+let hitsSeen = 0; // hits on vessels and aircraft already handed to it
+/** Arrivals waiting to play: held while more of our weapons are about to land, so they play as one reel. */
+let pending: Impact[] = [];
+let lastArrival = 0;
+/** Game seconds the camera waits after an arrival for others still in flight. */
+const HOLD = 60;
+
+/** Picks up new arrivals from the sim (not in a replay: they've been seen). True if there were any. */
+function collectArrivals(): boolean {
+  const fresh: Impact[] = replay ? [] : [
+    ...g.strikes.slice(strikesSeen).map((s): Impact => ({ type: 'land', t: s.t, weapon: s.weapon, site: s.siteName, siteId: s.siteId, kind: s.kind, hit: s.hit })),
+    ...g.hits.slice(hitsSeen).map((h): Impact => ({ type: 'hit', ...h })),
+  ];
+  strikesSeen = g.strikes.length; hitsSeen = g.hits.length;
+  if (!fresh.length) return false;
+  pending.push(...fresh.sort((a, b) => a.t - b.t));
+  lastArrival = g.t;
+  return true;
+}
+/** Still waiting for more weapons to land before showing what has. */
+const holding = () => pending.length > 0 && !g.over && g.t - lastArrival < HOLD && arrivingSoon(g, HOLD - (g.t - lastArrival));
+/** Hands the waiting arrivals to the battle camera as one reel. */
+function showArrivals() {
+  if (!pending.length) return;
+  strikeCam.add({ impacts: pending, modern: g.era === '2029', night: g.night, date: MISSIONS[scenario].date.split(',')[0].toUpperCase(), clock: g.startClock });
+  pending = [];
+}
+function forgetArrivals() { strikesSeen = g.strikes.length; hitsSeen = g.hits.length; pending = []; }
 function togglePeriscope() {
   const why = periscope.toggle();
   if (why) addLog(g, { t: g.t, kind: 'warn', text: why });
@@ -133,6 +164,7 @@ on('fireJatm', () => orders.fire(g, 'jatm'));
 on('fireSm6', () => orders.fire(g, 'sm6'));
 on('radar', () => orders.radar(g));
 on('fireTlam', () => orders.strike(g, Number(($('tlamSite') as HTMLSelectElement).value)));
+on('layMine', () => orders.layMine(g));
 on('scopeBtn', togglePeriscope);
 on('solBtn', () => { depthView.close(); solution.toggle(); });
 on('depthBtn', () => { solution.close(); depthView.toggle(); });
@@ -175,6 +207,10 @@ function acceptTop() {
 
 document.addEventListener('keydown', (ev) => {
   if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  if (strikeCam.open) { // the strike camera holds the keyboard while it plays
+    if (ev.key === 'Escape') { ev.preventDefault(); strikeCam.skip(); }
+    return;
+  }
   if ((ev.target as HTMLElement).closest?.('input, select, textarea')) return; // typing a depth, not giving orders
   if (!running) { if (ev.key === 'Enter' && overShown) start(scenario); return; }
   const idx = SPEEDS.findIndex(([v]) => v >= g.own.ordSpd);
@@ -192,7 +228,7 @@ document.addEventListener('keydown', (ev) => {
     f: () => orders.fire(g, 'mk48'), h: () => orders.fire(g, 'harpoon'), t: () => orders.fire(g, 'mst'),
     g: () => orders.fire(g, 'asroc'), y: () => orders.strike(g, Number(($('tlamSite') as HTMLSelectElement).value)), j: () => orders.fire(g, 'jatm'), m: () => orders.fire(g, 'sm6'),
     r: () => orders.radar(g), v: togglePeriscope, b: () => { depthView.close(); solution.toggle(); }, x: () => { solution.close(); depthView.toggle(); }, escape: () => { if (replay && liveGame && !periscope.open && !depthView.open && !solution.open) exitReplay(); else if (periscope.open) periscope.close(); else if (depthView.open) depthView.close(); else solution.close(); },
-    p: () => orders.ping(g), c: () => orders.decoy(g), z: () => orders.match(g, 'speed'),
+    p: () => orders.ping(g), c: () => orders.decoy(g), z: () => orders.match(g, 'speed'), i: () => orders.layMine(g),
     tab: () => orders.cycleContact(g), k: acceptTop,
     ' ': togglePause,
     '1': () => { timeScale = 1; }, '2': () => { timeScale = 10; }, '3': () => { timeScale = 30; }, '4': () => { timeScale = 90; },
@@ -231,10 +267,13 @@ function setUp(key: ScenarioKey) {
   signature.clear();
   plot.reset(key === 'duel' ? 2 : 3);
   $('tlamRow').hidden = !g.sites.length;
+  $('mineRow').hidden = !g.flags.minesAboard;
   $('tlamSite').innerHTML = g.sites.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join('');
   periscope.close();
   solution.close();
   depthView.close();
+  strikeCam.close();
+  forgetArrivals();
   overShown = false;
   acc = 0;
 }
@@ -260,6 +299,7 @@ function exitReplay() {
   g = liveGame;
   liveGame = null;
   replay = null;
+  forgetArrivals();
   $('replayBar').hidden = true;
   $('overlay').hidden = false; // the results, as they were
   running = false;
@@ -360,7 +400,7 @@ function setMode(m: Mode) {
   try { localStorage.setItem('phantom-leviathan-mode', m); } catch { /* fine without it */ }
   showMenu();
 }
-function showMenu() { if (mode === 'war') showWar(); else showCampaign(); }
+function showMenu() { strikeCam.close(); if (mode === 'war') showWar(); else showCampaign(); }
 function wireModes() {
   for (const b of document.querySelectorAll<HTMLButtonElement>('.modes button')) {
     b.classList.toggle('on', b.dataset.mode === mode);
@@ -371,6 +411,7 @@ function wireModes() {
 const ACTS: Record<string, string> = {
   '1': 'Act 1 · The North Atlantic and the Arctic',
   '2P': 'Act 2 · The Western Pacific', '2I': 'Act 2 · The Indian Ocean and the Gulf', '2': 'Act 2',
+  R: 'The Polar Front · under the ice with Japan',
   '3': 'Act 3 · Home, the South Atlantic and the end',
 };
 const ENDINGS: Record<Ending, [string, string]> = {
@@ -379,7 +420,7 @@ const ENDINGS: Record<Ending, [string, string]> = {
   Brink: ['The brink', 'For six days the world waited on the orders of a few missile subs. The crisis passed, at a price nobody will forget.'],
   Defeat: ['Defeat', 'The sea lanes are lost. With Europe cut off and the Pacific gone, NATO sues for peace.'],
 };
-const actKey = (w: WarState) => { const sl = currentSlot(w); return sl ? (sl.act === 2 ? `2${w.branch ?? ''}` : String(sl.act)) : '3'; };
+const actKey = (w: WarState) => { const sl = currentSlot(w); return sl ? (sl.branch === 'R' ? 'R' : sl.act === 2 ? `2${sl.branch ?? ''}` : String(sl.act)) : '3'; };
 
 function frontsHTML(w: WarState) {
   const bar = (v: number) => `<span class="fmeter">${[-3, -2, -1, 0, 1, 2, 3].map((n) => `<i class="${n === 0 ? 'mid ' : ''}${(v < 0 && n >= v && n < 0) ? 'neg' : (v > 0 && n <= v && n > 0) ? 'pos' : ''}"></i>`).join('')}</span>`;
@@ -389,13 +430,13 @@ function frontsHTML(w: WarState) {
 
 function warMissionHTML(id: string, w: WarState, choice: boolean) {
   const m = WAR_MISSIONS[id];
-  const built = !!PLAYABLE[id];
+  const built = !!playable(id);
   return `<div class="war-mission">
     <p class="sub">${esc(m.where)} · ${esc(currentSlot(w)?.title ?? '')}</p>
     <h3>${esc(m.name)}</h3>
     <p><b>You face:</b> ${esc(m.face)}.</p>
     <p><b>Orders:</b> ${esc(m.goal)}.</p>
-    ${built ? `<p class="war-brief">${esc(MISSIONS[PLAYABLE[id]!].brief)}</p>` : ''}
+    ${built ? `<p class="war-brief">${esc(MISSIONS[playable(id)!].brief)}</p>` : ''}
     <p class="fx"><span class="ok">Win:</span> ${esc(m.winText)} · <span class="no">Loss:</span> ${esc(m.loseText)}</p>
     ${built ? `<button data-begin="${id}">${choice ? 'Take these orders' : 'Begin mission'}</button>`
       : `<p class="unbuilt">This mission isn't built yet. To try the story, mark how it went.</p><div class="row"><button data-mark="${id}" data-win="1">Count as won</button><button data-mark="${id}" data-win="0">Count as lost</button></div>`}
@@ -412,14 +453,14 @@ function showWar() {
   const card = last && !over ? newsCard(last.news) : undefined;
   const rows = w.history.map((h, i) => `<li><span class="n">${i + 1}</span><span class="t">${esc(WAR_MISSIONS[h.id].name)}<small>${esc(h.news)}</small></span>${h.win ? '<span class="ok">✓</span>' : '<span class="no">✗</span>'}</li>`);
   if (!over) rows.push(`<li class="sel"><span class="n">${n + 1}</span><span class="t">${w.offer.map((id) => esc(WAR_MISSIONS[id].name)).join(' or ')}<small>Now</small></span></li>`);
-  for (let i = n + 2; i <= WAR_LENGTH; i++) rows.push(`<li class="locked"><span class="n">${i}</span><span class="t">?</span></li>`);
+  for (let i = n + 2; i <= warLength(w); i++) rows.push(`<li class="locked"><span class="n">${i}</span><span class="t">?</span></li>`);
   const ending = w.ending && over ? ENDINGS[w.ending] : null;
   brief.innerHTML = `
     <div class="modes"><button data-mode="ww2">WWII campaign</button><button data-mode="war">Modern war · 2029</button></div>
     <div class="camp-head">
       <div>
         <h2>The war of 2029</h2>
-        <p class="sub">${over ? 'The war is over' : `Mission ${n + 1} of ${WAR_LENGTH} · ${esc(ACTS[actKey(w)])}`}</p>
+        <p class="sub">${over ? 'The war is over' : `Mission ${n + 1} of ${warLength(w)} · ${esc(ACTS[actKey(w)])}`}</p>
       </div>
       <button id="restartWar" class="restart" title="Starts a new war with new dice">${over ? 'New war' : 'Restart war'}</button>
     </div>
@@ -427,14 +468,14 @@ function showWar() {
     <div class="camp">
       <ol class="camp-list war-list" id="campList">${rows.join('')}</ol>
       <div class="camp-detail" id="campDetail">
-        ${card ? `<div class="bulletin"><div class="wlabel">Radio bulletin</div><p><b>${esc(card.name)}.</b> ${esc(card.text)}</p></div>` : `<div class="bulletin"><div class="wlabel">March 2029</div><p>Tang is back from 1945, in a world at war: NATO against the BRICS Pact. Each mission's result, and the news between missions, decides where she is sent next. A war is ${WAR_LENGTH} missions.</p></div>`}
+        ${card ? `<div class="bulletin"><div class="wlabel">Radio bulletin</div><p><b>${esc(card.name)}.</b> ${esc(card.text)}</p></div>` : `<div class="bulletin"><div class="wlabel">March 2029</div><p>Tang is back from 1945, in a world at war: NATO against the BRICS Pact. Each mission's result, and the news between missions, decides where she is sent next. A war is ${WAR_MIN} to ${WAR_MAX} missions.</p></div>`}
         ${ending ? `<h3>${esc(ending[0])}</h3><p>${esc(ending[1])}</p>`
           : `${w.offer.length > 1 ? '<p class="sub">Choose your orders</p>' : ''}<div class="offers">${w.offer.map((id) => warMissionHTML(id, w, w.offer.length > 1)).join('')}</div>`}
       </div>
     </div>`;
   wireModes();
   $('campList').querySelector('li.sel')?.scrollIntoView({ block: 'nearest' });
-  for (const b of brief.querySelectorAll<HTMLButtonElement>('[data-begin]')) b.addEventListener('click', () => start(PLAYABLE[b.dataset.begin!]!, b.dataset.begin!));
+  for (const b of brief.querySelectorAll<HTMLButtonElement>('[data-begin]')) b.addEventListener('click', () => start(playable(b.dataset.begin!)!, b.dataset.begin!));
   for (const b of brief.querySelectorAll<HTMLButtonElement>('[data-mark]')) b.addEventListener('click', () => {
     resolveWar(w, b.dataset.mark!, b.dataset.win === '1');
     saveWar();
@@ -487,13 +528,21 @@ let panelT = 0;
 function frame(now: number) {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
-  if (running && !g.over) {
-    acc += dt * timeScale;
+  // The game waits while the battle camera plays. A weapon landing stops the tick there, so time
+  // compression can't run past it; if more of ours are about to land, the game runs on quickly
+  // until they have (or a minute has passed), and they all play as one reel.
+  if (running && !g.over && !strikeCam.open) {
+    acc += dt * (pending.length && timeScale > 0 ? Math.max(timeScale, 16) : timeScale);
     for (let n = 0; acc >= 1 && n < 400 && !g.over; n++) {
       if (replay) replay.apply(); else noteSelection(g);
       tick(g, 1); acc -= 1;
+      collectArrivals();
+      if (pending.length && !holding()) { acc = 0; break; }
     }
   }
+  collectArrivals();
+  if (pending.length && !holding()) showArrivals();
+  strikeCam.draw(now);
   for (const ev of g.events) { addLog(g, ev); if (ev.sound) play(ev.sound); }
   g.events.length = 0;
   plot.draw(g, now);
@@ -516,7 +565,7 @@ function frame(now: number) {
     pb.classList.toggle('on', !timeScale);
     updatePauseCard();
   }
-  if (g.over && !overShown) {
+  if (g.over && !overShown && !strikeCam.open) {
     overShown = true; updatePanel(g);
     if (replay) $('replayText').textContent = 'Replay finished';
     else setTimeout(showResult, 2500);
@@ -535,4 +584,4 @@ async function boot() {
 }
 void boot();
 // Dev builds expose the game for screenshot checks.
-if (import.meta.env.DEV) (window as unknown as { game: () => Game }).game = () => g;
+if (import.meta.env.DEV) Object.assign(window, { game: () => g, strikeCam });
