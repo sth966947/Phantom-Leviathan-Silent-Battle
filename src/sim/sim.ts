@@ -849,12 +849,6 @@ function alertGroup(g: Game, fleeHdg: number, side: Side, near?: Vessel) {
       if (near && dist(v, near) > 15) continue;
       if (v.ai.mode !== 'hunt') v.ai.home = v.ai.mode;
       const e = 0.6 + dist(o, near ?? v) * 0.1;
-      // Modern sub hunters prosecute with sonar and torpedoes, not WWII depth-charge runs.
-      if (v.cls.threshold !== null) {
-        v.ai.mode = 'attack'; v.ai.holdT = 0;
-        v.ai.knows = { x: o.x + gauss(g.r) * e, y: o.y + gauss(g.r) * e, t: g.t, deep: o.depthT > LAYER_AT };
-        continue;
-      }
       v.ai.mode = 'hunt'; v.ai.alertT = 1500; v.ai.cool = 0;
       v.ai.datum = { x: o.x + gauss(g.r) * e, y: o.y + gauss(g.r) * e, t: g.t, deep: false };
       v.ai.wp = { x: v.ai.datum.x, y: v.ai.datum.y };
@@ -1259,7 +1253,11 @@ function huntAI(g: Game, v: Vessel, dt: number) {
   v.ordSpd = dist(v, ai.wp) > 1 ? Math.min(25, v.cls.maxSpd) : 15;
   if (dist(v, ai.wp) < 0.15) {
     const d = ai.datum;
-    if (d?.exact && g.t - d.t < 150 && ai.cool <= 0) {
+    // A modern escort on a fix drops a lightweight torpedo instead of rolling depth charges.
+    if (d?.exact && g.t - d.t < 150 && ai.cool <= 0 && g.era !== '1941') {
+      enemyFire(g, v, d, d.deep, false);
+      d.exact = false;
+    } else if (d?.exact && g.t - d.t < 150 && ai.cool <= 0) {
       ai.cool = 90; g.flags.patterns = (g.flags.patterns ?? 0) + 1;
       for (let i = 0; i < 5; i++) g.charges.push({ ...offset(d, i * 72, i ? 0.08 : 0), t: g.t + 18 + i });
       d.exact = false;
