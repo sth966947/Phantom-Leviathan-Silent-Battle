@@ -78,6 +78,46 @@ export const CLASSES: Record<string, ClassCard> = {
     slBase: 104, maxSpd: 140, threshold: null, hp: 1, tonals: [14, 28, 115, 42], blades: 0, shaftHzPerKt: 0,
   },
 
+  // ---- Modern war, Act 1: Russia's Northern Fleet and the convoys it hunts ----
+  oscar: {
+    key: 'oscar', name: 'Oscar II', type: 'SSGN', nation: 'Russia', kind: 'sub',
+    slBase: 101, maxSpd: 32, threshold: 22, hp: 7, tonals: [50, 9, 72, 130], blades: 7, shaftHzPerKt: 0.09,
+  },
+  kilo: {
+    key: 'kilo', name: 'Improved Kilo (636.3)', type: 'SSK', nation: 'Russia', kind: 'sub',
+    slBase: 86, maxSpd: 20, threshold: 25, hp: 4, tonals: [60, 12, 95], blades: 6, shaftHzPerKt: 0.15,
+  },
+  // A deep-diving spy submarine carried under a mother ship: slow, small and very quiet.
+  deepsub: {
+    key: 'deepsub', name: 'AS-31 deep submersible', type: 'special-purpose sub', nation: 'Russia', kind: 'sub',
+    slBase: 80, maxSpd: 6, threshold: 32, hp: 2, tonals: [400, 50, 133], blades: 0, shaftHzPerKt: 0,
+  },
+  // Modern sub hunters: strong hull sonar (a low threshold stands in for active sonar) and torpedoes.
+  udaloy: {
+    key: 'udaloy', name: 'Udaloy I', type: 'ASW destroyer', nation: 'Russia', kind: 'surface',
+    slBase: 81, maxSpd: 29, threshold: 15, hp: 6, tonals: [50, 30, 140, 75], blades: 4, shaftHzPerKt: 0.14, emitter: true,
+  },
+  yantar: {
+    key: 'yantar', name: 'Yantar', type: 'oceanographic research ship', nation: 'Russia', kind: 'surface',
+    slBase: 88, maxSpd: 15, threshold: null, hp: 3, tonals: [50, 100, 25], blades: 4, shaftHzPerKt: 0.2,
+  },
+  tu142: {
+    key: 'tu142', name: 'Tu-142MK Bear-F', type: 'long-range ASW aircraft', nation: 'Russia', kind: 'air',
+    slBase: 0, maxSpd: 440, threshold: null, hp: 1, tonals: [], blades: 0, shaftHzPerKt: 0, emitter: true,
+  },
+  tu22m3: {
+    key: 'tu22m3', name: 'Tu-22M3 Backfire', type: 'maritime strike bomber', nation: 'Russia', kind: 'air',
+    slBase: 0, maxSpd: 540, threshold: null, hp: 1, tonals: [], blades: 0, shaftHzPerKt: 0, emitter: true,
+  },
+  boxship: {
+    key: 'boxship', name: 'Container ship', type: 'merchant', nation: 'US', kind: 'surface',
+    slBase: 87, maxSpd: 22, threshold: null, hp: 4, tonals: [33, 66, 99], blades: 5, shaftHzPerKt: 0.12,
+  },
+  arleigh: {
+    key: 'arleigh', name: 'Arleigh Burke Flight III', type: 'destroyer', nation: 'US', kind: 'surface',
+    slBase: 79, maxSpd: 31, threshold: null, hp: 6, tonals: [60, 30, 180], blades: 5, shaftHzPerKt: 0.13, emitter: true,
+  },
+
   // ---- Pacific and Atlantic WWII classes ----
   // Japanese capital ships share a strong 47 Hz turbo-generator line (Yamato and Shinano
   // share 44 Hz), and the fleet carriers of the Sōryū/Shōkaku/Taihō line share 53 Hz, so a
@@ -388,6 +428,60 @@ export const REFERENCE: Record<string, Reference> = {
     armor: 'None',
     notes: 'Four turboprops. Its radar warning receiver hears our mast radar.',
   },
+  oscar: {
+    displacement: '24,000 t submerged',
+    armament: ['24 × P-700 Granit or P-800 Oniks anti-ship missiles', '4 × 533 mm and 2 × 650 mm torpedo tubes'],
+    armor: 'None. Double hull, very wide',
+    notes: 'A carrier and convoy killer. Big and louder than Yasen. Two shafts.',
+  },
+  kilo: {
+    displacement: '3,950 t submerged',
+    armament: ['6 × 533 mm torpedo tubes', 'Kalibr cruise missiles from the tubes', 'Mines'],
+    armor: 'None',
+    notes: 'Diesel-electric. On battery it is one of the quietest boats in the sea, but it is slow.',
+  },
+  deepsub: {
+    displacement: 'About 2,000 t',
+    armament: ['None. Manipulator arms and cable-cutting tools'],
+    armor: 'Titanium spheres rated for very deep water',
+    notes: 'Carried under a mother sub or worked from a research ship. Tiny, slow and quiet.',
+  },
+  udaloy: {
+    displacement: '7,900 t full load',
+    armament: ['8 × Rastrub (SS-N-14) ASW missiles', '8 × 533 mm torpedo tubes', '2 × RBU-6000 rocket launchers', '2 Ka-27 helicopters'],
+    armor: 'None',
+    notes: 'Built to hunt submarines. Powerful bow and towed sonars. Two funnels.',
+  },
+  yantar: {
+    displacement: '5,700 t',
+    armament: ['None. Carries deep submersibles'],
+    armor: 'None',
+    notes: 'Officially an oceanographic ship. Often seen loitering over undersea cables.',
+  },
+  tu142: {
+    displacement: '185,000 kg max takeoff',
+    armament: ['Sonobuoys', 'Torpedoes and depth charges'],
+    armor: 'None',
+    notes: 'Four contra-rotating turboprops. A slow, high-flying sub hunter: a JATM target.',
+  },
+  tu22m3: {
+    displacement: '126,000 kg max takeoff',
+    armament: ['Kh-22 or Kh-32 anti-ship missiles'],
+    armor: 'None',
+    notes: 'Swing-wing supersonic bomber. Comes in fast and high: an SM-6 target.',
+  },
+  boxship: {
+    displacement: '60,000 to 100,000 t',
+    armament: ['None'],
+    armor: 'None',
+    notes: 'Friendly. Large, loud and slow-turning. One big shaft.',
+  },
+  arleigh: {
+    displacement: '9,700 t full load',
+    armament: ['96 vertical launch cells', '5 in gun', 'Two MH-60R helicopters'],
+    armor: 'None',
+    notes: 'Friendly. SPY-6 radar. Escort for the convoys.',
+  },
   ar196: {
     photo: { file: 'ar196.jpg', credit: 'Arado Ar 196A-2 taxiing, 1940. Photo: unknown author · Public domain · Wikimedia Commons · tail marking removed' },
     displacement: '3,700 kg max takeoff',
@@ -678,6 +772,7 @@ export const REFERENCE: Record<string, Reference> = {
     armament: ['12 × 6 in guns in four triple turrets', '8 × 4 in twin AA mounts', '2-pounder pom-poms', '6 × 21 in torpedo tubes', '2 to 3 Walrus amphibians'],
     armor: '114 mm belt, 32 to 76 mm deck',
     notes: 'Friendly. Two triple turrets forward and two aft, two widely spaced raked funnels with the hangars between bridge and fore funnel, tripod masts. Four shafts.',
+    photo: { file: 'town.jpg', credit: 'HMS Sheffield (C24), Town class, underway in Scapa Flow, 28 October 1941. Photo: Lt R.G.G. Coote, Royal Navy official photographer · Public domain (UK Crown Copyright expired) · Wikimedia Commons' },
   },
   deutschland: {
     displacement: '16,000 t full load',

@@ -3,13 +3,14 @@
 // The WWII campaign runs in date order; ships sunk in earlier missions stay sunk (`Carry`).
 
 import { brg, dist, norm, offset, type Vec } from './math';
-import { end, fireStraight, log, makeAI, makeVessel, shellfire, type AI, type Game, type Goal, type Side, type Vessel } from './sim';
+import { atPeriscopeDepth, end, fireStraight, log, makeAI, makeVessel, shellfire, type AI, type Game, type Goal, type Side, type Vessel } from './sim';
 
 export type MissionKey =
   | 'bismarck' | 'midgets' | 'kidobutai' | 'forcez' | 'javasea' | 'sunda' | 'doolittle' | 'coralsea' | 'midway' | 'pq17'
   | 'savo' | 'eastsol' | 'santacruz' | 'guadalcanal' | 'tassafaronga' | 'komandorski' | 'ons5' | 'northcape'
   | 'philsea' | 'leyte' | 'shinano' | 'tengo'
-  | 'riverplate' | 'narvik' | 'calabria' | 'taranto' | 'matapan' | 'duel';
+  | 'riverplate' | 'narvik' | 'calabria' | 'taranto' | 'matapan' | 'duel'
+  | 'vortex' | 'raiderloose' | 'eyes' | 'giuk' | 'bremerhaven' | 'cables' | 'darkwater' | 'lostsister';
 
 /** What earlier missions changed: the names of enemy ships Tang has already sunk. */
 export interface Carry { sunk: string[] }
@@ -25,6 +26,8 @@ export const CAMPAIGN: MissionKey[] = ['bismarck', 'midgets', 'kidobutai', 'forc
   'savo', 'eastsol', 'santacruz', 'guadalcanal', 'tassafaronga', 'komandorski', 'ons5', 'northcape', 'philsea', 'leyte', 'shinano', 'tengo'];
 /** Before the vortex: optional stand-alone battles from 1939 to early 1941, open from the start and outside the story. */
 export const PREQUELS: MissionKey[] = ['riverplate', 'narvik', 'calabria', 'taranto', 'matapan'];
+/** The modern war's built missions, by the war mission they play (see war.ts). The duel plays Bear Gap. */
+export const MODERN: MissionKey[] = ['vortex', 'duel', 'raiderloose', 'eyes', 'giuk', 'bremerhaven', 'cables', 'darkwater', 'lostsister'];
 
 // ---- Building blocks ---------------------------------------------------------------------------
 function add(g: Game, cls: string, name: string, side: Side, p: Vec, hdg: number, spd: number, ai?: Partial<AI>, depth: 0 | 1 | 2 = 0): Vessel {
@@ -122,6 +125,40 @@ function melee(g: Game, a: Vessel[], b: Vessel[], range = 6, torpsA = false, tor
 /** Ships at anchor or stopped: they stay put until something sets them moving. */
 const moored = (g: Game, cls: string, name: string, side: Side, p: Vec, hdg: number) => add(g, cls, name, side, p, hdg, 0, { mode: 'transit', baseCourse: hdg, cruise: 0, legT: 1e9 });
 const go = (course: number, cruise: number, legT = 900): Partial<AI> => ({ mode: 'transit', baseCourse: course, cruise, legT });
+
+// ---- Modern war building blocks ---------------------------------------------------------------
+const held = (g: Game, v: Vessel) => !!g.contacts.find((c) => c.vid === v.id)?.held;
+/** A ship or aircraft that got where it was going: it leaves the area alive, not sunk. */
+function arrive(g: Game, v: Vessel, p: Vec, within: number) {
+  if (!v.alive || dist(v, p) >= within) return false;
+  v.alive = false; v.gone = true;
+  return true;
+}
+/** Anti-ship missiles at a group: each gets through the escorts' air defence with chance `p`; a hit does `dmg`. */
+function missileSalvo(g: Game, from: string, missile: string, n: number, targets: Vessel[], p: number, dmg: number) {
+  log(g, 'danger', `Vampire, vampire! ${from} has fired ${n} ${missile} missiles at the convoy.`, 'alarm');
+  for (let i = 0; i < n; i++) {
+    const live = targets.filter((t) => t.alive);
+    if (!live.length) return;
+    if (g.r() > p) { log(g, 'info', `The escorts shot down a ${missile}.`); continue; }
+    const t = live[Math.floor(g.r() * live.length)];
+    for (let k = 0; k < dmg; k++) bombed(g, t, `a ${missile}`);
+  }
+}
+/** Modern warships' close-in air defence: each of our anti-ship missiles that gets within 3 nm of one is shot down with chance `p`. */
+function pointDefence(g: Game, ships: Vessel[], p: number) {
+  for (const w of g.weapons) {
+    if (w.dead || w.side !== 'us' || (w.type !== 'harpoon' && w.type !== 'mst') || g.flags[`pd${w.id}`]) continue;
+    const by = ships.find((v) => v.alive && dist(v, w) < 3);
+    if (!by) continue;
+    g.flags[`pd${w.id}`] = 1;
+    if (g.r() < p) { w.dead = true; log(g, 'warn', `${by.name} shot down ${w.label}.`); }
+  }
+}
+/** Steer a patrolling submarine along a course while it doesn't know we're there. */
+function keepCourse(v: Vessel, course: number, spd: number) {
+  if (v.alive && v.ai?.mode === 'patrol') { v.ordHdg = course; v.ordSpd = spd; }
+}
 
 // ---- Missions ---------------------------------------------------------------------------------
 export const MISSIONS: Record<MissionKey, Mission> = {
@@ -851,6 +888,238 @@ export const MISSIONS: Record<MissionKey, Mission> = {
       const kaBrg = r() * 360;
       add(g, 'ka27', 'Ka-27PL Helix', 'enemy', offset(center, kaBrg, 35), norm(kaBrg + 180), 120, { mode: 'search', center, wp: offset(center, r() * 360, r() * 8), torps: 1, datum: null, hits: 0, dipT: 0 });
       setGoal(g, { targets: [kaz.id], need: 1, win: 'Kazan has been sunk.', timeout: '' });
+    },
+  },
+  // ---- The modern war, Act 1 ----------------------------------------------------------------------
+  vortex: {
+    key: 'vortex', title: 'Out of the Vortex', era: '2029', place: 'Norwegian Sea', date: 'March 2029, 0400', night: true,
+    library: ['akula', 'il38', 'virginia'],
+    brief: 'The vortex has put Tang back in 2029, and the war started while you were gone. Your first orders: an Akula is heading southwest for the GIUK Gap, and the fleet wants to know where it goes. It is running deep, below the layer. Trail it inside 15 nm for half an hour, then come to periscope depth and get the report out. Don\'t sink it unless it turns on you. An Il-38 is on its way to cover it.',
+    build(g, r) {
+      g.startClock = clock(4);
+      g.timeLimit = 3 * 3600;
+      const course = 225;
+      const p = offset(g.own, 190 + r() * 70, 7 + r() * 3);
+      const ak = add(g, 'akula', 'Akula (Vepr)', 'enemy', p, course, 8, { mode: 'patrol', legT: 1e9, decoys: 2 }, 2);
+      // The Il-38 is on its way out from Severomorsk: it arrives about 40 minutes in.
+      const il = add(g, 'il38', 'Il-38N May', 'enemy', offset(ak, 20 + r() * 40, 150), 0, 230, { mode: 'search', center: { x: ak.x, y: ak.y }, wp: { x: ak.x, y: ak.y }, buoyT: 0, torps: 2, datum: null });
+      setGoal(g, { protect: [ak.id], maxLosses: 0, lossText: 'We sank the Akula before it showed us where it was going. Orders were to trail it.', timeout: 'Three hours gone and the report never went out.' });
+      g.flags.trail = 0;
+      g.script = (gg) => {
+        il.ai!.center = { x: ak.x, y: ak.y };
+        if (!ak.alive) return;
+        // Every 20 minutes the Akula changes course a little and changes depth: a real trail, not a straight line.
+        keepCourse(ak, norm(course + Math.sin(gg.t / 1200) * 30), gg.t % 2400 < 1800 ? 8 : 12);
+        if (!gg.flags.blown && (ak.ai!.mode === 'attack' || ak.ai!.mode === 'evade')) {
+          gg.flags.blown = 1;
+          gg.goal.protect = []; gg.goal.targets = [ak.id]; gg.goal.need = 1;
+          gg.goal.win = 'The Akula turned on us and we sank it. The report went out with the kill.';
+          log(gg, 'danger', 'The Akula has counter-detected us and is turning to attack. Weapons free: sink it.', 'alarm');
+        }
+        if (held(gg, ak) && dist(gg.own, ak) < 15) gg.flags.trail++;
+        if (gg.flags.trail === 1800 && !gg.flags.ready) {
+          gg.flags.ready = 1;
+          log(gg, 'good', 'XO: We have half an hour of track on the Akula. Come to periscope depth to send the report.');
+        }
+        if (gg.flags.ready && atPeriscopeDepth(gg)) end(gg, true, 'The report is out. Fleet has the Akula\'s track and is sending P-8s to pick it up.');
+        if (dist(gg.own, ak) > 35) end(gg, false, 'We lost the Akula. It is out of reach and the trail is cold.');
+      };
+    },
+  },
+
+  raiderloose: {
+    key: 'raiderloose', title: 'Raider Loose', era: '2029', place: 'Off the Faroes', date: 'March 2029, 1300',
+    library: ['yasen', 'akula', 'il38', 'virginia'],
+    brief: 'Kazan got past the Bear Gap and is running south for the Atlantic convoy lanes. Catch it before it gets there: it is somewhere ahead of you, running fast for the lanes about 36 nm beyond it to the southwest. Sink it. An Akula is screening its run and will fight.',
+    build(g, r) {
+      g.startClock = clock(13);
+      g.timeLimit = 4 * 3600;
+      g.own.hdg = g.own.ordHdg = 225;
+      const kp = offset(g.own, 160 + r() * 80, 8 + r() * 4);
+      // Kazan is running fast to beat the convoy to the lanes, which makes it louder than usual.
+      const lanes = offset(kp, 225, 36);
+      const kaz = add(g, 'yasen', 'Kazan (K-561)', 'enemy', kp, brg(kp, lanes), 10, { mode: 'raider', goal: lanes, cruise: 10, decoys: 2 }, 2);
+      // The Akula sweeps ahead of Kazan's run: it ends up between Tang and the lanes.
+      add(g, 'akula', 'Akula (Pantera)', 'enemy', offset(kaz, kaz.hdg + (r() < 0.5 ? 60 : -60), 6 + r() * 3), kaz.hdg, 7, { mode: 'patrol', legT: 600, decoys: 2 }, 1);
+      setGoal(g, { targets: [kaz.id], need: 1, win: 'Kazan has been sunk short of the convoy lanes.', timeout: 'Kazan slipped away into the Atlantic.' });
+      g.script = (gg) => {
+        if (arrive(gg, kaz, lanes, 2)) end(gg, false, 'Kazan has reached the convoy lanes. The raider is loose in the Atlantic.');
+      };
+    },
+  },
+
+  eyes: {
+    key: 'eyes', title: 'Eyes in the Sky', era: '2029', place: 'Off Jan Mayen', date: 'March 2029, 1000',
+    library: ['il38', 'tu142', 'virginia'],
+    brief: 'An Il-38 and a Tu-142 are working a sonobuoy field across your track to the south. Either get 30 nm south of here without being sunk, or come up and shoot both of them down with JATM. Radar at periscope depth sees them high up out to 100 nm, but it also tells them where you are.',
+    build(g, r) {
+      g.startClock = clock(10);
+      g.timeLimit = 4 * 3600;
+      g.own.hdg = g.own.ordHdg = 180;
+      const start = { x: g.own.x, y: g.own.y };
+      const box = offset(start, 180, 15);
+      const plane = (cls: string, name: string, b: number) => add(g, cls, name, 'enemy', offset(box, b, 30 + r() * 20), norm(b + 180), 230,
+        { mode: 'search', center: box, wp: offset(box, r() * 360, 6), buoyT: 0, torps: 2, datum: null });
+      const il = plane('il38', 'Il-38N May', r() * 360);
+      const tu = plane('tu142', 'Tu-142MK Bear-F', r() * 360);
+      setGoal(g, { targets: [il.id, tu.id], need: 2, win: 'Both patrol planes are down. The northern box is blind.', timeout: 'We are still in the box. The patrol planes kept us pinned down.' });
+      g.script = (gg) => {
+        const south = gg.own.y - start.y; // north is +y
+        if (-south >= 30) end(gg, true, 'We are clear of the patrol box and heading south unseen.');
+      };
+    },
+  },
+
+  giuk: {
+    key: 'giuk', title: 'GIUK Line', era: '2029', place: 'Denmark Strait', date: 'March 2029, 2200', night: true,
+    library: ['akula', 'oscar', 'tu142', 'virginia'],
+    brief: 'Three Russian boats are trying to break out through the Denmark Strait: two Akulas and an Oscar II. Tang is the cork. Sink two of the three. If two of them get past you to the south, the line has failed. They are trying to slip past, but any of them that hears you will fight. A Tu-142 is laying buoys over the strait.',
+    build(g, r) {
+      g.startClock = clock(22);
+      g.timeLimit = 5 * 3600;
+      g.own.hdg = g.own.ordHdg = 0;
+      const exit = offset(g.own, 200, 25);
+      const boats = [['akula', 'Akula (Gepard)'], ['akula', 'Akula (Tigr)'], ['oscar', 'Oscar II (Orel)']].map(([cls, name], i) => {
+        const p = offset(g.own, 340 + i * 20 + (r() * 2 - 1) * 8, 18 + r() * 10);
+        const lane = offset(exit, 90 + i * 90 + r() * 40, 6);
+        const v = add(g, cls, name, 'enemy', p, brg(p, lane), 8, { mode: 'patrol', legT: 1e9, decoys: 2 }, r() < 0.5 ? 2 : 1);
+        return { v, lane };
+      });
+      add(g, 'tu142', 'Tu-142MK Bear-F', 'enemy', offset(g.own, r() * 360, 40), 0, 230, { mode: 'search', center: { x: g.own.x, y: g.own.y }, wp: { x: g.own.x, y: g.own.y }, buoyT: 0, torps: 2, datum: null });
+      setGoal(g, { targets: boats.map((b) => b.v.id), need: 2, win: 'Two of the three boats are on the bottom. The GIUK line holds.', timeout: 'The boats waited us out and slipped through.' });
+      g.flags.through = 0;
+      g.script = (gg) => {
+        // Each boat makes for its lane, but turns to fight if it hears us.
+        for (const b of boats) keepCourse(b.v, brg(b.v, b.lane), b.v.cls.key === 'oscar' ? 10 : 8);
+        for (const b of boats) if (arrive(gg, b.v, b.lane, 2)) {
+          gg.flags.through++;
+          log(gg, 'danger', `${b.v.name} is past us and into the Atlantic.`);
+        }
+        if (gg.flags.through >= 2) end(gg, false, 'Two boats broke through the Denmark Strait.');
+      };
+    },
+  },
+
+  bremerhaven: {
+    key: 'bremerhaven', title: 'Convoy to Bremerhaven', era: '2029', place: 'North Atlantic', date: 'April 2029, 0600',
+    library: ['oscar', 'tu22m3', 'boxship', 'arleigh', 'virginia'],
+    brief: 'The first reinforcement convoy is crossing to Europe: four container ships full of armour with two Burkes as escort, and Tang under it. Lose no more than one ship. An Oscar II is somewhere ahead; if it gets inside 25 nm of the convoy for long, it will fire a salvo of P-700s. Backfire bombers will come too. Radar at periscope depth sees them at 100 nm, and SM-6 can stop them before they launch.',
+    build(g, r) {
+      g.startClock = clock(6);
+      g.timeLimit = 2.5 * 3600;
+      const course = 90;
+      g.own.hdg = g.own.ordHdg = course;
+      const lead = add(g, 'arleigh', 'USS Jack H. Lucas', 'allied', offset(g.own, course, 3), course, 16, go(course, 16, 1e9));
+      const ships = screen(g, lead, 'boxship', ['MV Liberty Pride', 'MV Endurance', 'MV Cape Henry', 'MV Atlantic Star'], [[150, 2], [210, 2], [160, 4], [200, 4]]);
+      screen(g, lead, 'arleigh', ['USS Ted Stevens'], [[180, 6]]);
+      const oscar = add(g, 'oscar', 'Oscar II (Smolensk)', 'enemy', offset(lead, course + (r() * 2 - 1) * 25, 42 + r() * 6), norm(course + 180), 8,
+        { mode: 'raider', goal: { x: lead.x, y: lead.y }, cruise: 8, decoys: 2 }, 1);
+      setGoal(g, { targets: [], protect: ids(ships), maxLosses: 1, surviveWin: true,
+        win: 'The convoy is under the air cover off Ireland. The armour will reach Bremerhaven.', lossText: 'Two ships of the convoy are gone, and the armour with them.', timeout: '' });
+      const escorts = () => g.vessels.filter((v) => v.cls.key === 'arleigh' && v.alive).length;
+      interface Backfire { v: Vessel; launch: Vec; done: boolean }
+      const bombers: Backfire[] = [];
+      const wave = (gg: Game, n: number) => {
+        const from = norm(20 + gg.r() * 60);
+        for (let i = 0; i < n; i++) {
+          const launch = offset(lead, from + (i - 0.5) * 10, 50);
+          const p = offset(lead, from + (i - 0.5) * 10, 160);
+          const v = add(gg, 'tu22m3', `Backfire ${bombers.length + 1}`, 'enemy', p, brg(p, launch), 540, { mode: 'strike', goal: launch, cruise: 540 });
+          v.track = [];
+          bombers.push({ v, launch, done: false });
+        }
+        log(gg, 'warn', `Radio intercepts: Tu-22M3 Backfires inbound from the northeast, bearing ${Math.round(from).toString().padStart(3, '0')}. They launch Kh-22s from 50 nm. Radar at periscope depth sees them out to 100 nm.`);
+      };
+      g.flags.salvoT = 0;
+      g.script = (gg) => {
+        at(gg, 30 * 60, 'wave1', () => wave(gg, 2));
+        at(gg, 75 * 60, 'wave2', () => wave(gg, 3));
+        for (const b of bombers) {
+          if (b.done) continue;
+          if (!b.v.gone) { if (!b.v.alive) b.done = true; continue; }
+          b.done = true;
+          missileSalvo(gg, b.v.name, 'Kh-22', 2, ships, escorts() === 2 ? 0.35 : escorts() ? 0.5 : 0.7, 3);
+        }
+        if (!oscar.alive) return;
+        oscar.ai!.goal = { x: lead.x, y: lead.y };
+        if (dist(oscar, lead) < 25) gg.flags.salvoT++;
+        if (gg.flags.salvoT === 600) log(gg, 'warn', 'Sonar: the Oscar is slowing and coming shallow. It\'s setting up a missile shot on the convoy!');
+        if (gg.flags.salvoT === 900) missileSalvo(gg, oscar.name, 'P-700 Granit', 6, ships, escorts() === 2 ? 0.3 : 0.5, 3);
+      };
+    },
+  },
+
+  cables: {
+    key: 'cables', title: 'Cable Cutters', era: '2029', place: 'Off western Ireland', date: 'April 2029, 0100', night: true,
+    library: ['deepsub', 'yantar', 'kilo', 'virginia'],
+    brief: 'The spy ship Yantar is loitering over the transatlantic trunk cables about 16 nm west of you, and it has put its AS-31 deep submersible in the water. Once the submersible reaches the cables, it needs about 75 minutes to cut them all. Find it and sink it first. It\'s small, slow and very quiet; the Yantar is noisy and marks the spot. Cutting is noisy work, and an active ping will fix it, but the Kilo guarding the site will hear the ping too.',
+    build(g, r) {
+      g.startClock = clock(1);
+      g.timeLimit = 3 * 3600;
+      g.own.hdg = g.own.ordHdg = 270;
+      const site = offset(g.own, 260 + r() * 20, 15 + r() * 3);
+      const yantar = add(g, 'yantar', 'Yantar', 'enemy', offset(site, r() * 360, 1.5), r() * 360, 3, { mode: 'wander', center: site, rng: 3, cruise: 5 });
+      void yantar;
+      const ds = add(g, 'deepsub', 'AS-31 Losharik', 'enemy', offset(site, r() * 360, 3), 0, 3, { mode: 'raider', goal: site, cruise: 3 }, 2);
+      add(g, 'kilo', 'Kilo (Novorossiysk)', 'enemy', offset(site, brg(site, g.own) + (r() * 2 - 1) * 60, 3), brg(site, g.own), 4, { mode: 'patrol', legT: 400, decoys: 2 }, 1);
+      setGoal(g, { targets: [ds.id], need: 1, win: 'The deep submersible is on the bottom next to the cables it came to cut.', timeout: 'The submersible got away.' });
+      g.flags.cut = 0;
+      g.script = (gg) => {
+        if (!ds.alive) return;
+        if (dist(ds, site) < 1) { ds.ordSpd = 0; gg.flags.cut++; }
+        if (gg.flags.cut === 1) log(gg, 'warn', 'Intelligence: the submersible has reached the cables and stopped.');
+        // Cutting is noisy work: the cutters' transients give its bearing every few minutes to anyone close enough.
+        if (gg.flags.cut % 300 === 150 && dist(gg.own, ds) < 10) log(gg, 'contact', `Sonar: metal-on-metal transients, bearing ${Math.round(brg(gg.own, ds)).toString().padStart(3, '0')}. Something is working on the bottom.`);
+        if (gg.flags.cut === 2700) log(gg, 'warn', 'Two trunk cables just went dark. The rest will follow.');
+        if (gg.flags.cut >= 4500) end(gg, false, 'The submersible cut the trunk cables. Transatlantic links are down.');
+      };
+    },
+  },
+
+  darkwater: {
+    key: 'darkwater', title: 'Dark Water', era: '2029', place: 'Iceland Basin', date: 'April 2029, 1500',
+    library: ['udaloy', 'ka27', 'il38', 'virginia'],
+    brief: 'GPS and the satellite links are jammed. Nobody will cue you today, and the anti-ship Tomahawk can\'t get its in-flight updates, so it\'s torpedoes and Harpoon. A Udaloy group is hunting in the Iceland Basin with a Ka-27 and an Il-38 working for it. Sink the flagship, Vice-Admiral Kulakov, and the hunt falls apart. The Udaloys have strong hull sonar and will come after you as soon as they hear you.',
+    build(g, r) {
+      g.startClock = clock(15);
+      g.timeLimit = 3 * 3600;
+      const b = r() * 360;
+      const flag = add(g, 'udaloy', 'Vice-Admiral Kulakov', 'enemy', offset(g.own, b, 14 + r() * 4), norm(b + 180 + (r() * 2 - 1) * 50), 12, { mode: 'patrol', legT: 600 });
+      const second = add(g, 'udaloy', 'Severomorsk', 'enemy', offset(flag, flag.hdg + 90, 4), flag.hdg, 12, { mode: 'patrol', legT: 600 });
+      add(g, 'ka27', 'Ka-27PL Helix', 'enemy', offset(flag, r() * 360, 3), 0, 120, { mode: 'search', center: { x: flag.x, y: flag.y }, wp: offset(flag, r() * 360, 6), torps: 1, datum: null, hits: 0, dipT: 0 });
+      add(g, 'il38', 'Il-38N May', 'enemy', offset(flag, r() * 360, 50), 0, 230, { mode: 'search', center: { x: flag.x, y: flag.y }, wp: { x: flag.x, y: flag.y }, buoyT: 0, torps: 2, datum: null });
+      g.flags.jammed = 1;
+      g.script = (gg) => pointDefence(gg, [flag, second], 0.6);
+      setGoal(g, { targets: [flag.id], need: 1, win: 'Vice-Admiral Kulakov is sinking and the hunting group is scattering.', timeout: 'The Udaloy group held the basin.' });
+    },
+  },
+
+  lostsister: {
+    key: 'lostsister', title: 'Lost Sister', era: '2029', place: 'Reykjanes Ridge', date: 'April 2029, 0800',
+    library: ['akula', 'virginia'],
+    brief: 'USS Oklahoma has gone quiet on the Reykjanes Ridge. She is lying on the bottom about 10 nm northeast of you, flooded aft but with crew alive. A rescue vehicle is on its way and needs 90 minutes on site once Tang is guarding it. An Akula is heading for the wreck. Keep it more than 2 nm away from Oklahoma, or sink it.',
+    build(g, r) {
+      g.startClock = clock(8);
+      g.timeLimit = 4 * 3600;
+      g.own.hdg = g.own.ordHdg = 45;
+      const wreck = offset(g.own, 35 + r() * 20, 9 + r() * 2);
+      const ok = makeVessel(g, 'virginia', 'USS Oklahoma (SSN-802)', 'allied', wreck, r() * 360, 0, 2);
+      g.vessels.push(ok);
+      const ap = offset(wreck, r() * 360, 22 + r() * 4);
+      const ak = add(g, 'akula', 'Akula (Kuzbass)', 'enemy', ap, brg(ap, wreck), 7, { mode: 'patrol', legT: 1e9, decoys: 2 }, 2);
+      setGoal(g, { targets: [ak.id], need: 1, protect: [ok.id], maxLosses: 0, lossText: 'Oklahoma is lost with all hands.',
+        win: 'The Akula is sunk. The rescue vehicle can work in peace.', timeout: 'The rescue ran out of time.' });
+      g.flags.rescue = 0;
+      g.script = (gg) => {
+        keepCourse(ak, brg(ak, wreck), dist(ak, wreck) > 6 ? 9 : 5);
+        if (dist(gg.own, wreck) < 3) {
+          if (!gg.flags.rescue) log(gg, 'good', 'We are over Oklahoma. The rescue vehicle is going down to her escape hatch.');
+          gg.flags.rescue++;
+        }
+        if (gg.flags.rescue === 2700) log(gg, 'good', 'The first load of survivors is up. Halfway there.');
+        if (gg.flags.rescue >= 5400) end(gg, true, 'The last of Oklahoma\'s crew is aboard the rescue ship. Every man and woman saved.');
+        if (ak.alive && dist(ak, wreck) < 2) end(gg, false, 'The Akula reached Oklahoma and put a torpedo into the rescue vehicle.');
+      };
     },
   },
 };

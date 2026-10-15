@@ -317,3 +317,36 @@ button.on-air { background: #1d4a3a; border-color: #2f7a5e; color: #d4ffe9; }
 .head-right button { padding: 5px 12px; }
 .head-right .clock { margin-left: 8px; }
 #toCampaign.confirm { border-color: var(--threat); color: var(--threat); }
+
+/* ---- Campaign tabs and the modern war ---- */
+.modes { display: flex; gap: 4px; margin: 0 0 12px; }
+.brief .modes button { flex: none; width: auto; padding: 5px 12px; font-size: 12px; font-family: var(--f-data); letter-spacing: 0.08em; text-transform: uppercase; background: transparent; color: var(--dim); }
+.brief .modes button.on { color: var(--ink); border-color: var(--own); background: #1d3f5e; }
+.fronts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px 16px; margin: 0 0 14px; padding: 10px 12px; border: 1px solid var(--rule); }
+.front { display: flex; flex-direction: column; gap: 4px; font: 11px var(--f-data); }
+.front .fn { color: var(--dim); letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
+.front .fbar { display: flex; align-items: center; gap: 8px; }
+.front .fv { font-size: 13px; font-weight: 600; min-width: 2ch; }
+.fmeter, .pips { display: flex; gap: 2px; }
+.fmeter i, .pips i { width: 12px; height: 10px; border: 1px solid var(--rule); display: block; background: transparent; }
+.fmeter i.mid { width: 2px; border-color: var(--dim); background: var(--dim); }
+.fmeter i.pos { background: var(--good); border-color: var(--good); }
+.fmeter i.neg { background: var(--threat); border-color: var(--threat); }
+.pips i.on { background: var(--contact); border-color: var(--contact); }
+@media (max-width: 700px) { .fronts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.war-list li { display: grid; grid-template-columns: 2.2em 1fr auto; align-items: center; gap: 6px; padding: 5px 8px; font-size: 14px; border: 1px solid transparent; }
+.war-list .n { font: 600 13px var(--f-data); color: var(--dim); }
+.war-list li.sel { background: #1d3f5e; border-color: var(--own); }
+.war-list li.locked { opacity: 0.35; }
+.bulletin { border-left: 3px solid var(--contact); padding: 2px 0 2px 12px; margin-bottom: 6px; }
+.bulletin p { margin: 0; }
+.offers { display: flex; flex-direction: column; gap: 14px; }
+.war-mission { display: flex; flex-direction: column; gap: 6px; }
+.war-mission + .war-mission { border-top: 1px solid var(--rule); padding-top: 14px; }
+.war-mission p { margin: 0; }
+.war-mission .fx, .brief .fx { font: 12px var(--f-data); color: var(--dim); }
+.fx .ok { color: var(--good); }
+.fx .no { color: var(--threat); }
+.war-mission .unbuilt { color: var(--contact); font-size: 13px; }
+.war-mission .war-brief { color: var(--dim); font-size: 13px; line-height: 1.45; }
+.war-mission .row button { flex: 1; }

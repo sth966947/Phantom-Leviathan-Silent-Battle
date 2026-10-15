@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { create, orders, tick } from './sim';
-import { CAMPAIGN, MISSIONS, PREQUELS } from './missions';
+import { CAMPAIGN, MISSIONS, MODERN, PREQUELS } from './missions';
 import { CLASSES } from './classes';
 
 describe('missions', () => {
-  for (const key of [...CAMPAIGN, ...PREQUELS, 'duel' as const]) {
+  for (const key of [...CAMPAIGN, ...PREQUELS, ...MODERN]) {
     it(`${key} builds and runs for an hour`, () => {
       const g = create(key, 11);
-      expect(g.goal.targets.length + g.sites.length + g.goal.protect.length).toBeGreaterThan(0);
+      expect(g.goal.targets.length + g.sites.length + g.goal.protect.length + (g.script ? 1 : 0)).toBeGreaterThan(0);
       for (const v of g.vessels) expect(CLASSES[v.cls.key]).toBeDefined();
       for (const k of MISSIONS[key].library) expect(CLASSES[k], k).toBeDefined();
       for (let i = 0; i < 3600 && !g.over; i++) tick(g, 1);
