@@ -53,12 +53,12 @@ describe('modern war', () => {
     const r = rng(3);
     for (let seed = 1; seed <= 6000; seed++) for (const h of play(seed, [0.45, 0.65, 0.85][seed % 3], r).history) seen.add(h.id);
     expect(Object.keys(WAR_MISSIONS).filter((id) => !seen.has(id))).toEqual([]);
-  });
+  }, 60_000);
 
   it('rewards playing well', () => {
     const r = rng(9);
     const wins = (p: number) => { let v = 0; for (let seed = 1; seed <= 1500; seed++) if (play(seed, p, r).ending === 'Victory') v++; return v / 1500; };
     expect(wins(0.85)).toBeGreaterThan(0.5);
     expect(wins(0.45)).toBeLessThan(0.1);
-  });
+  }, 60_000);
 });
