@@ -11,7 +11,7 @@ const COL = {
   rule: 0x1f3b54, dim: 0x6f8ea6, own: 0x7cc8ff, contact: 0xf3b04b, threat: 0xff5d4f, ink: 0xc9dbe8, friend: 0x6fd3a8,
 };
 const FONT = 'IBM Plex Mono, ui-monospace, Menlo, monospace';
-export const SPANS = [6, 12, 24, 40, 80];
+export const SPANS = [6, 12, 24, 40, 80, 120, 200];
 const VISUAL_RANGE = 8;
 
 type P = { x: number; y: number };

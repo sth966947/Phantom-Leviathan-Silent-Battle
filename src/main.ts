@@ -21,12 +21,12 @@ const esc = (t: string) => t.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&
 
 const SPEEDS: [number, string][] = [[3, 'Creep'], [5, '⅓'], [10, '⅔'], [15, 'Std'], [20, 'Full'], [32, 'Flank']];
 const DEPTHS: [number, string][] = [[0, 'Periscope'], [1, '150 ft'], [2, '700 ft']];
-const TIMES: [number, string][] = [[0, 'Pause'], [10, '×10'], [30, '×30'], [90, '×90']];
+const TIMES: [number, string][] = [[0, 'Pause'], [1, '×1'], [10, '×10'], [30, '×30'], [90, '×90']];
 
 let scenario: ScenarioKey = 'bismarck';
 let g: Game = create(scenario);
-let timeScale = 30;
-let resumeScale = 30; // what Pause goes back to
+let timeScale = 1;
+let resumeScale = 1; // what Pause goes back to
 let running = false;
 let acc = 0;
 let last = performance.now();
@@ -195,7 +195,7 @@ document.addEventListener('keydown', (ev) => {
     p: () => orders.ping(g), c: () => orders.decoy(g), z: () => orders.match(g, 'speed'),
     tab: () => orders.cycleContact(g), k: acceptTop,
     ' ': togglePause,
-    '1': () => { timeScale = 10; }, '2': () => { timeScale = 30; }, '3': () => { timeScale = 90; },
+    '1': () => { timeScale = 1; }, '2': () => { timeScale = 10; }, '3': () => { timeScale = 30; }, '4': () => { timeScale = 90; },
     '=': () => { plot.zoom = Math.max(0, plot.zoom - 1); }, '-': () => { plot.zoom = Math.min(SPANS.length - 1, plot.zoom + 1); },
   };
   const act = keys[ev.key.toLowerCase()];
@@ -271,6 +271,7 @@ function start(key: ScenarioKey, fromWar: string | null = null) {
   warMission = fromWar;
   unlockAudio();
   newGame(key);
+  timeScale = resumeScale = 1; // start in real time so the player can get their bearings
   $('overlay').hidden = true;
   running = true;
   last = performance.now();

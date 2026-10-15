@@ -316,6 +316,7 @@ button.on-air { background: #1d4a3a; border-color: #2f7a5e; color: #d4ffe9; }
 .head-right { display: flex; align-items: center; gap: 8px; }
 .head-right button { padding: 5px 12px; }
 .head-right .clock { margin-left: 8px; }
+.head-right .mtime { font: 13px var(--f-data); color: var(--dim); font-variant-numeric: tabular-nums; }
 #toCampaign.confirm { border-color: var(--threat); color: var(--threat); }
 
 /* ---- Campaign tabs and the modern war ---- */
