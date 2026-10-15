@@ -88,6 +88,25 @@ export interface Contact {
 
 export interface WaterfallRow { row: Float32Array; baffle: Uint8Array; t: number }
 
+/** What stands at a land-attack site: the strike camera draws the scene to suit it. */
+export type SiteKind = 'shipyard' | 'docks' | 'factory' | 'airfield' | 'radar' | 'subpens' | 'oil' | 'base' | 'bunker';
+/** A fixed target ashore for land-attack Tomahawks, with hits landed on it. */
+export interface Site extends Vec { id: number; name: string; hits: number; kind?: SiteKind }
+/** One land-attack Tomahawk's arrival, for the strike camera. */
+export interface Strike { t: number; siteId: number; siteName: string; kind: SiteKind; hit: boolean; weapon: string }
+
+/** A site's kind as set by its mission, or else guessed from its name. */
+export function siteKind(site: Site): SiteKind {
+  if (site.kind) return site.kind;
+  const n = site.name.toLowerCase();
+  const by: [RegExp, SiteKind][] = [
+    [/sub(marine)? pens?|u-boat/, 'subpens'], [/radar|early warning/, 'radar'], [/oil|fuel|tank farm|refiner/, 'oil'],
+    [/air ?(field|base|port|station)|runway/, 'airfield'], [/naval yard|shipyard|dockyard|slipway/, 'shipyard'], [/\b(docks?|port|harbou?r|wharf|piers?)\b/, 'docks'],
+    [/bunker|command|headquarters|\bhq\b/, 'bunker'], [/works|factory|arsenal|plant|steel|mill/, 'factory'],
+  ];
+  return by.find(([re]) => re.test(n))?.[1] ?? 'base';
+}
+
 /**
  * What a mission asks. Sinking `need` of `targets` wins at once. Losing more than `maxLosses` of
  * `protect` loses. At the time limit the mission is won if `surviveWin`, else lost with `timeout`.
@@ -106,7 +125,9 @@ export interface Game {
   /** Mission script run every tick: waves launching, pickets reporting, midgets reaching harbour. */
   script: ((g: Game) => void) | null;
   /** Fixed targets ashore for land-attack Tomahawks, with hits landed on each. */
-  sites: (Vec & { id: number; name: string; hits: number })[];
+  sites: Site[];
+  /** Every land-attack Tomahawk's arrival, hit or miss, in order. */
+  strikes: Strike[];
   /** Minefields (see hazards.ts): enemy mines Tang must find and avoid, and any Tang has laid. */
   mines: Mine[];
   /** Sea state and pack ice for the mission (see hazards.ts). */
@@ -236,7 +257,7 @@ export function create(scenario: ScenarioKey = 'bismarck', seed?: number, carry:
   const g = {
     scenario, era: m.era, startClock: 0, timeLimit: Infinity, library: m.library, night: !!m.night,
     goal: { targets: [], need: 1, protect: [], maxLosses: Infinity, surviveWin: false, win: '', timeout: '', lossText: '' },
-    sunk: [], flags: {}, script: null, sites: [], mines: [], env: calmSea(),
+    sunk: [], flags: {}, script: null, sites: [], strikes: [], mines: [], env: calmSea(),
     t: 0, r, seq: 1, over: null, vessels: [], contacts: [], selected: null,
     weapons: [], decoys: [], buoys: [], charges: [], splashT: -1e9, heard: new Set(), sweeps: [], events: [], waterfall: null, wfTimer: 0, pings: [], blasts: [],
     stats: {
@@ -585,7 +606,9 @@ function updateWeapon(g: Game, w: Weapon, dt: number) {
     if (dist(w, w.aim) <= step) {
       w.dead = true;
       const site = g.sites.find((x) => x.id === w.contactId);
-      if (site && g.r() < 0.85) {
+      const hit = !!site && g.r() < 0.85;
+      if (site) g.strikes.push({ t: g.t, siteId: site.id, siteName: site.name, kind: siteKind(site), hit, weapon: w.label });
+      if (site && hit) {
         site.hits++; g.flags.landHits = (g.flags.landHits ?? 0) + 1;
         log(g, 'good', `${w.label}: impact on ${site.name}.`, 'boom');
       } else log(g, 'warn', `${w.label}: no impact report from ${site?.name ?? 'the target'}. Probably a miss.`);

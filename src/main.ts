@@ -11,6 +11,7 @@ import { play, unlockAudio } from './ui/audio';
 import { Periscope } from './ui/periscope';
 import { Solution } from './ui/solution';
 import { DepthView } from './ui/depth';
+import { StrikeCam } from './ui/strikecam';
 import { Player, noteSelection, record as recordOrders, recording } from './replay';
 import { FRONTS, FRONT_NAMES, WAR_MAX, WAR_MIN, currentSlot, warLength, newsCard, resolve as resolveWar, warOver, type Ending, type WarState } from './sim/war';
 import { WAR_MISSIONS } from './sim/warData';
@@ -43,6 +44,20 @@ const signature = new SignatureDisplay($('signature') as HTMLCanvasElement);
 const periscope = new Periscope($('scopeView') as HTMLCanvasElement, () => g);
 const solution = new Solution(() => g);
 const depthView = new DepthView($('depthCanvas') as HTMLCanvasElement, () => g);
+const strikeCam = new StrikeCam();
+let strikesSeen = 0; // land-attack arrivals already handed to the strike camera
+
+/** Hands new Tomahawk arrivals to the strike camera (not in a replay: they've been seen). */
+function showStrikes() {
+  const date = MISSIONS[scenario].date.split(',')[0].toUpperCase();
+  if (!replay) for (const s of g.strikes.slice(strikesSeen)) {
+    strikeCam.add({
+      weapon: s.weapon, site: s.siteName, kind: s.kind, hit: s.hit, modern: g.era === '2029',
+      date, clock: g.startClock + s.t, seed: (s.t * 7919 + s.siteId * 104729 + g.stats.fired.tlam) | 0,
+    });
+  }
+  strikesSeen = g.strikes.length;
+}
 function togglePeriscope() {
   const why = periscope.toggle();
   if (why) addLog(g, { t: g.t, kind: 'warn', text: why });
@@ -176,6 +191,10 @@ function acceptTop() {
 
 document.addEventListener('keydown', (ev) => {
   if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  if (strikeCam.open) { // the strike camera holds the keyboard while it plays
+    if (ev.key === 'Escape') { ev.preventDefault(); strikeCam.skip(); }
+    return;
+  }
   if ((ev.target as HTMLElement).closest?.('input, select, textarea')) return; // typing a depth, not giving orders
   if (!running) { if (ev.key === 'Enter' && overShown) start(scenario); return; }
   const idx = SPEEDS.findIndex(([v]) => v >= g.own.ordSpd);
@@ -237,6 +256,8 @@ function setUp(key: ScenarioKey) {
   periscope.close();
   solution.close();
   depthView.close();
+  strikeCam.close();
+  strikesSeen = g.strikes.length;
   overShown = false;
   acc = 0;
 }
@@ -262,6 +283,7 @@ function exitReplay() {
   g = liveGame;
   liveGame = null;
   replay = null;
+  strikesSeen = g.strikes.length;
   $('replayBar').hidden = true;
   $('overlay').hidden = false; // the results, as they were
   running = false;
@@ -362,7 +384,7 @@ function setMode(m: Mode) {
   try { localStorage.setItem('phantom-leviathan-mode', m); } catch { /* fine without it */ }
   showMenu();
 }
-function showMenu() { if (mode === 'war') showWar(); else showCampaign(); }
+function showMenu() { strikeCam.close(); if (mode === 'war') showWar(); else showCampaign(); }
 function wireModes() {
   for (const b of document.querySelectorAll<HTMLButtonElement>('.modes button')) {
     b.classList.toggle('on', b.dataset.mode === mode);
@@ -490,13 +512,18 @@ let panelT = 0;
 function frame(now: number) {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
-  if (running && !g.over) {
+  // The game waits while the strike camera plays, and stops the tick a Tomahawk arrives,
+  // so time compression can't run past the clip.
+  if (running && !g.over && !strikeCam.open) {
     acc += dt * timeScale;
     for (let n = 0; acc >= 1 && n < 400 && !g.over; n++) {
       if (replay) replay.apply(); else noteSelection(g);
       tick(g, 1); acc -= 1;
+      if (g.strikes.length > strikesSeen && !replay) { acc = 0; break; }
     }
   }
+  if (g.strikes.length > strikesSeen) showStrikes();
+  strikeCam.draw(now);
   for (const ev of g.events) { addLog(g, ev); if (ev.sound) play(ev.sound); }
   g.events.length = 0;
   plot.draw(g, now);
@@ -519,7 +546,7 @@ function frame(now: number) {
     pb.classList.toggle('on', !timeScale);
     updatePauseCard();
   }
-  if (g.over && !overShown) {
+  if (g.over && !overShown && !strikeCam.open) {
     overShown = true; updatePanel(g);
     if (replay) $('replayText').textContent = 'Replay finished';
     else setTimeout(showResult, 2500);
@@ -538,4 +565,4 @@ async function boot() {
 }
 void boot();
 // Dev builds expose the game for screenshot checks.
-if (import.meta.env.DEV) (window as unknown as { game: () => Game }).game = () => g;
+if (import.meta.env.DEV) Object.assign(window, { game: () => g, strikeCam });
