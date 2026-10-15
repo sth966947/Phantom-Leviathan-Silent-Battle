@@ -12,6 +12,9 @@ import { Periscope } from './ui/periscope';
 import { Solution } from './ui/solution';
 import { DepthView } from './ui/depth';
 import { Player, noteSelection, record as recordOrders, recording } from './replay';
+import { FRONTS, FRONT_NAMES, WAR_LENGTH, currentSlot, newsCard, resolve as resolveWar, warOver, type Ending, type WarState } from './sim/war';
+import { WAR_MISSIONS } from './sim/warData';
+import { PLAYABLE, currentWar, restartWar, saveWar } from './warSave';
 
 const $ = (id: string) => document.getElementById(id)!;
 const esc = (t: string) => t.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]!));
@@ -30,6 +33,9 @@ let last = performance.now();
 let overShown = false;
 let replay: Player | null = null;
 let liveGame: Game | null = null; // the finished mission, kept while its replay plays
+let warMission: string | null = null; // the modern war mission being played, if any
+type Mode = 'ww2' | 'war';
+let mode: Mode = (() => { try { return localStorage.getItem('phantom-leviathan-mode') === 'war' ? 'war' : 'ww2'; } catch { return 'ww2'; } })();
 
 const plot = new Plot();
 const waterfall = new Waterfall($('waterfall') as HTMLCanvasElement);
@@ -70,7 +76,7 @@ on('toCampaign', () => {
   }
   b.classList.remove('confirm'); b.textContent = 'Back to campaign';
   if (replay) exitReplay();
-  showCampaign();
+  showMenu();
 });
 on('left', () => orders.turn(g, -10));
 on('shallower', () => orders.depthBy(g, -50));
@@ -227,7 +233,8 @@ function exitReplay() {
 on('replayRestart', startReplay);
 on('replayExit', exitReplay);
 
-function start(key: ScenarioKey) {
+function start(key: ScenarioKey, fromWar: string | null = null) {
+  warMission = fromWar;
   unlockAudio();
   newGame(key);
   $('overlay').hidden = true;
@@ -245,6 +252,7 @@ function showCampaign(key: MissionKey = picked) {
   const brief = $('brief');
   brief.className = 'brief';
   brief.innerHTML = campaignHTML;
+  wireModes();
   const done = results();
   const item = (k: MissionKey, n: string) => {
     const open = k === 'duel' || unlocked(k);
@@ -288,6 +296,7 @@ function showCampaign(key: MissionKey = picked) {
 }
 
 function showResult() {
+  if (warMission) return showWarResult(warMission);
   const o = g.over!;
   const res = record(g);
   const key = scenario;
@@ -307,6 +316,130 @@ function showResult() {
   $('watch').addEventListener('click', startReplay);
   $('again').addEventListener('click', () => start(scenario));
   $('menu').addEventListener('click', () => showCampaign(i >= 0 ? key : picked));
+  $('overlay').hidden = false;
+  running = false;
+}
+// ---- Modern war screen --------------------------------------------------------------------
+function setMode(m: Mode) {
+  mode = m;
+  try { localStorage.setItem('phantom-leviathan-mode', m); } catch { /* fine without it */ }
+  showMenu();
+}
+function showMenu() { if (mode === 'war') showWar(); else showCampaign(); }
+function wireModes() {
+  for (const b of document.querySelectorAll<HTMLButtonElement>('.modes button')) {
+    b.classList.toggle('on', b.dataset.mode === mode);
+    b.addEventListener('click', () => setMode(b.dataset.mode as Mode));
+  }
+}
+
+const ACTS: Record<string, string> = {
+  '1': 'Act 1 · The North Atlantic and the Arctic',
+  '2P': 'Act 2 · The Western Pacific', '2I': 'Act 2 · The Indian Ocean and the Gulf', '2': 'Act 2',
+  '3': 'Act 3 · Home, the South Atlantic and the end',
+};
+const ENDINGS: Record<Ending, [string, string]> = {
+  Victory: ['Victory', 'The pact breaks. India walks out first, then Brazil, and Moscow and Beijing accept a ceasefire on NATO\'s terms.'],
+  Stalemate: ['Stalemate', 'Exhausted, both sides accept a ceasefire along the lines they hold today. Nobody calls it a victory.'],
+  Brink: ['The brink', 'For six days the world waited on the orders of a few missile subs. The crisis passed, at a price nobody will forget.'],
+  Defeat: ['Defeat', 'The sea lanes are lost. With Europe cut off and the Pacific gone, NATO sues for peace.'],
+};
+const actKey = (w: WarState) => { const sl = currentSlot(w); return sl ? (sl.act === 2 ? `2${w.branch ?? ''}` : String(sl.act)) : '3'; };
+
+function frontsHTML(w: WarState) {
+  const bar = (v: number) => `<span class="fmeter">${[-3, -2, -1, 0, 1, 2, 3].map((n) => `<i class="${n === 0 ? 'mid ' : ''}${(v < 0 && n >= v && n < 0) ? 'neg' : (v > 0 && n <= v && n > 0) ? 'pos' : ''}"></i>`).join('')}</span>`;
+  return `<div class="fronts">${FRONTS.map((f) => `<div class="front"><span class="fn">${FRONT_NAMES[f]}</span><span class="fbar">${bar(w.meters[f])}<span class="fv">${w.meters[f] > 0 ? '+' : ''}${w.meters[f]}</span></span></div>`).join('')}
+    <div class="front esc"><span class="fn">Escalation</span><span class="fbar"><span class="pips">${[1, 2, 3, 4, 5].map((n) => `<i class="${n <= w.x ? 'on' : ''}"></i>`).join('')}</span><span class="fv">${w.x}</span></span></div></div>`;
+}
+
+function warMissionHTML(id: string, w: WarState, choice: boolean) {
+  const m = WAR_MISSIONS[id];
+  const built = !!PLAYABLE[id];
+  return `<div class="war-mission">
+    <p class="sub">${esc(m.where)} · ${esc(currentSlot(w)?.title ?? '')}</p>
+    <h3>${esc(m.name)}</h3>
+    <p><b>You face:</b> ${esc(m.face)}.</p>
+    <p><b>Orders:</b> ${esc(m.goal)}.</p>
+    <p class="fx"><span class="ok">Win:</span> ${esc(m.winText)} · <span class="no">Loss:</span> ${esc(m.loseText)}</p>
+    ${built ? `<button data-begin="${id}">${choice ? 'Take these orders' : 'Begin mission'}</button>`
+      : `<p class="unbuilt">This mission isn't built yet. To try the story, mark how it went.</p><div class="row"><button data-mark="${id}" data-win="1">Count as won</button><button data-mark="${id}" data-win="0">Count as lost</button></div>`}
+  </div>`;
+}
+
+function showWar() {
+  const w = currentWar();
+  const brief = $('brief');
+  brief.className = 'brief war';
+  const n = w.history.length;
+  const last = w.history[n - 1];
+  const over = warOver(w);
+  const card = last && !over ? newsCard(last.news) : undefined;
+  const rows = w.history.map((h, i) => `<li><span class="n">${i + 1}</span><span class="t">${esc(WAR_MISSIONS[h.id].name)}<small>${esc(h.news)}</small></span>${h.win ? '<span class="ok">✓</span>' : '<span class="no">✗</span>'}</li>`);
+  if (!over) rows.push(`<li class="sel"><span class="n">${n + 1}</span><span class="t">${w.offer.map((id) => esc(WAR_MISSIONS[id].name)).join(' or ')}<small>Now</small></span></li>`);
+  for (let i = n + 2; i <= WAR_LENGTH; i++) rows.push(`<li class="locked"><span class="n">${i}</span><span class="t">?</span></li>`);
+  const ending = w.ending && over ? ENDINGS[w.ending] : null;
+  brief.innerHTML = `
+    <div class="modes"><button data-mode="ww2">WWII campaign</button><button data-mode="war">Modern war · 2029</button></div>
+    <div class="camp-head">
+      <div>
+        <h2>The war of 2029</h2>
+        <p class="sub">${over ? 'The war is over' : `Mission ${n + 1} of ${WAR_LENGTH} · ${esc(ACTS[actKey(w)])}`}</p>
+      </div>
+      <button id="restartWar" class="restart" title="Starts a new war with new dice">${over ? 'New war' : 'Restart war'}</button>
+    </div>
+    ${frontsHTML(w)}
+    <div class="camp">
+      <ol class="camp-list war-list" id="campList">${rows.join('')}</ol>
+      <div class="camp-detail" id="campDetail">
+        ${card ? `<div class="bulletin"><div class="wlabel">Radio bulletin</div><p><b>${esc(card.name)}.</b> ${esc(card.text)}</p></div>` : `<div class="bulletin"><div class="wlabel">March 2029</div><p>Tang is back from 1945, in a world at war: NATO against the BRICS Pact. Each mission's result, and the news between missions, decides where she is sent next. A war is ${WAR_LENGTH} missions.</p></div>`}
+        ${ending ? `<h3>${esc(ending[0])}</h3><p>${esc(ending[1])}</p>`
+          : `${w.offer.length > 1 ? '<p class="sub">Choose your orders</p>' : ''}<div class="offers">${w.offer.map((id) => warMissionHTML(id, w, w.offer.length > 1)).join('')}</div>`}
+      </div>
+    </div>`;
+  wireModes();
+  $('campList').querySelector('li.sel')?.scrollIntoView({ block: 'nearest' });
+  for (const b of brief.querySelectorAll<HTMLButtonElement>('[data-begin]')) b.addEventListener('click', () => start(PLAYABLE[b.dataset.begin!]!, b.dataset.begin!));
+  for (const b of brief.querySelectorAll<HTMLButtonElement>('[data-mark]')) b.addEventListener('click', () => {
+    resolveWar(w, b.dataset.mark!, b.dataset.win === '1');
+    saveWar();
+    showWar();
+  });
+  const restart = $('restartWar') as HTMLButtonElement;
+  restart.addEventListener('click', () => {
+    if (!over && !restart.classList.contains('confirm')) {
+      restart.classList.add('confirm');
+      restart.textContent = 'Throw this war away? Click again';
+      setTimeout(() => { restart.classList.remove('confirm'); restart.textContent = 'Restart war'; }, 4000);
+      return;
+    }
+    restartWar();
+    showWar();
+  });
+  $('overlay').hidden = false;
+  running = false;
+}
+
+function showWarResult(id: string) {
+  const o = g.over!;
+  const res = record(g);
+  const brief = $('brief');
+  const m = WAR_MISSIONS[id];
+  // Losing Tang means trying the mission again; any other result stands.
+  const tangLost = !g.own.alive;
+  const w = currentWar();
+  const card = tangLost ? undefined : resolveWar(w, id, o.win);
+  if (!tangLost) saveWar();
+  brief.className = 'brief ' + (o.win ? 'win' : 'loss');
+  brief.innerHTML = `
+    <h2>${o.win ? 'Mission accomplished' : tangLost ? 'Tang is lost' : 'Mission failed'}</h2>
+    <p class="sub">${esc(m.name)} · ${Math.round(o.t / 60)} min · ${g.stats.hits} hits</p>
+    <p>${esc(o.reason)}${res.sunk.length ? ` Sunk: ${esc(res.sunk.join(', '))}.` : ''} The plot now shows where every ship really was.</p>
+    ${tangLost ? '<p>The war goes on without this result. Try the mission again.</p>'
+      : `<p class="fx">${o.win ? esc(m.winText) : esc(m.loseText)}</p>${card ? `<div class="interlude"><div class="wlabel">Radio bulletin</div><p><b>${esc(card.name)}.</b> ${esc(card.text)}</p></div>` : ''}`}
+    <div class="row">${tangLost ? '<button id="again">Try again</button>' : '<button id="next">Back to the war</button>'}<button id="watch">Watch replay</button></div>`;
+  $('next')?.addEventListener('click', showWar);
+  $('again')?.addEventListener('click', () => start(scenario, id));
+  $('watch').addEventListener('click', startReplay);
   $('overlay').hidden = false;
   running = false;
 }
@@ -357,7 +490,7 @@ async function boot() {
   await plot.init(wrap);
   newGame('bismarck');
   updatePanel(g);
-  showCampaign();
+  showMenu();
   requestAnimationFrame(frame);
 }
 void boot();
