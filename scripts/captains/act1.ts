@@ -236,9 +236,9 @@ export const captains: Record<string, Captain> = {
     const cv = g.vessels.find((v) => v.cls.key === 'qnlz')!;
     const ours = g.vessels.filter((v) => v.side === 'allied' && v.alive);
     // No friendly boats here: any submerged contact away from our ships is hostile.
-    const sub = g.contacts.filter((c) => c.held && c.est && !c.air && c.q > 0.6 && ours.every((v) => dist(v, c.est!) > 1.5) && dist(g.own, c.est) > 1.2 && dist(g.own, c.est) < 7)
+    const sub = g.contacts.filter((c) => c.held && c.est && !c.air && c.q > 0.3 && ours.every((v) => dist(v, c.est!) > 1.5) && dist(g.own, c.est) > 1.2 && dist(g.own, c.est) < 7)
       .sort((a, b) => dist(g.own, a.est!) - dist(g.own, b.est!))[0];
-    if (sub && i % 90 === 0) { g.selected = sub.id; orders.fire(g, 'mk48'); return true; }
+    if (sub && i - (s.m.subShot ?? -1e9) > 120) { g.selected = sub.id; orders.fire(g, 'mk48'); s.m.subShot = i; return true; }
     if (s.m.pingY === undefined) s.m.pingY = 99;
     // Ping as we advance, and again when the Akula is heard laying more.
     if ((s.m.pingY - g.own.y > 2.5 || s.m.fresh) && g.own.y < 1) { orders.ping(g); s.m.pingY = g.own.y; s.m.fresh = 0; }

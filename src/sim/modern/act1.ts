@@ -423,6 +423,8 @@ export const missions: Record<MissionKey, Mission> = {
       g.script = (gg) => {
         // The Kilo lies in ambush at the far end: it shoots only at what comes close.
         if (kilo.alive && dist(kilo, gg.own) > 4) kilo.ai!.cool = Math.max(kilo.ai!.cool, 60);
+        // She fires a torpedo at a time and takes her time reloading.
+        if (kilo.alive) { if (kilo.ai!.cool > flag(gg, 'kc') + 1) kilo.ai!.cool = Math.max(kilo.ai!.cool, 480); gg.flags.kc = kilo.ai!.cool; }
         if (kilo.alive && kilo.ai!.mode === 'patrol' && dist(kilo, { x: 0, y: exitY - 3 }) > 4) { kilo.ordHdg = brg(kilo, { x: 0, y: exitY - 3 }); kilo.ordSpd = 4; }
         // The carrier comes on down the lane only while Tang is well ahead of her and near the lane.
         const ahead = cv.y - gg.own.y >= 1.5 && Math.abs(gg.own.x) < 2;
