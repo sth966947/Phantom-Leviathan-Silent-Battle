@@ -286,14 +286,14 @@ export const captains: Record<string, Captain> = {
     return true;
   },
 
-  // Close to 41 nm, get the ESM fix at periscope depth, kill the radar, then the runway and fuel farm.
+  // Close to 43 nm, get the ESM fix at periscope depth, kill the radar, then the runway and fuel farm.
   E14: (g, i, s) => {
     if (evade(g, i, s)) return true;
     const isle = { x: -70, y: 0 };
     airDefence(g, i);
     const site = (id: number) => g.sites.find((x) => x.id === id);
     const inFlight = (id: number) => g.weapons.filter((w) => w.type === 'tlam' && !w.dead && w.contactId === id).length;
-    if (dist(g.own, isle) > 41) { if (i % 60 === 0) { steerTo(g, isle, 14); orders.depth(g, 1); } return true; }
+    if (dist(g.own, isle) > 43) { if (i % 60 === 0) { steerTo(g, isle, 14); orders.depth(g, 1); } return true; }
     if (i % 60 === 0) orders.speed(g, 4);
     const radar = site(-3);
     if (!g.flags.radarDown) {

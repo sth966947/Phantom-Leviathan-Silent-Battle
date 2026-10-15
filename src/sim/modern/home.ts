@@ -438,7 +438,7 @@ export const missions: Record<MissionKey, Mission> = {
   E14: {
     key: 'E14', title: 'Fernando de Noronha', era: '2029', place: 'Off northeast Brazil', date: 'January 2030, 0400', night: true,
     library: ['tamandare', 'riachuelo', 'p3am', 'valour'],
-    brief: 'The airfield on Fernando de Noronha, 70 nm west of you, puts Brazil\'s P-3AM Orions over the Atlantic narrows. Close it with Tomahawks: land two hits on the runway and one on the fuel farm. First, though, kill the island\'s air-defence radar: until it is down, its missile battery will shoot down most of our Tomahawks. The radar is mobile. Its position shows on ESM only when we are at periscope depth within 43 nm of the island for two minutes, and it moves every 40 minutes. A second Orion takes off in 45 minutes unless the runway has been hit; one is already up. Two Tamandaré frigates patrol east of the island. A launch shows Orions nearby where we are. Three hours.',
+    brief: 'The airfield on Fernando de Noronha, 70 nm west of you, puts Brazil\'s P-3AM Orions over the Atlantic narrows. Close it with Tomahawks: land two hits on the runway and one on the fuel farm. First, though, kill the island\'s air-defence radar: until it is down, its missile battery will shoot down most of our Tomahawks. The radar is mobile. Its position shows on ESM only when we are at periscope depth within 45 nm of the island for two minutes, and it moves every 40 minutes. A second Orion takes off in 45 minutes unless the runway has been hit; one is already up. Two Tamandaré frigates patrol east of the island. A launch shows Orions nearby where we are. Three hours.',
     build(g, r) {
       g.startClock = clock(4);
       g.timeLimit = 3 * 3600;
@@ -463,7 +463,7 @@ export const missions: Record<MissionKey, Mission> = {
           log(gg, 'warn', 'ESM: the island\'s air-defence radar has gone off the air. It is moving to a new site.');
         }
         if (radar && radar.hits && !gg.flags.radarDown) { gg.flags.radarDown = 1; log(gg, 'good', 'The island\'s air-defence radar is off the air for good. Its missile battery is blind.'); }
-        if (!gg.flags.radarDown && !radar && atPeriscopeDepth(gg) && dist(gg.own, isle) < 43) {
+        if (!gg.flags.radarDown && !radar && atPeriscopeDepth(gg) && dist(gg.own, isle) < 45) {
           gg.flags.esm++;
           if (gg.flags.esm >= 120) {
             radar = { id: -3, name: 'Air-defence radar (ESM fix)', ...offset(isle, gg.r() * 360, 0.5 + gg.r()), hits: 0 };
