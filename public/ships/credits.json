@@ -280,5 +280,23 @@
     "credit": "HMS Repulse (Renown class) escorting a troop convoy, 1941. Royal Navy official photographer, IWM A 6793, via Wikimedia Commons, cropped",
     "license": "Public domain (UK Crown Copyright expired)",
     "source_url": "https://commons.wikimedia.org/wiki/File:HMS_Repulse_escorting_a_troop_convoy_A6793.jpg"
+  },
+  "scharnhorst": {
+    "file": "scharnhorst.jpg",
+    "credit": "Scharnhorst in harbour, early 1939. Via Wikimedia Commons; bow jack flag (swastika) painted out",
+    "license": "Public domain (per Wikimedia Commons)",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Scharnhorst_in_Harbor.jpg"
+  },
+  "deruyter": {
+    "file": "deruyter.jpg",
+    "credit": "HNLMS De Ruyter, circa 1942. Australian War Memorial 305837, via Wikimedia Commons, caption strip cropped",
+    "license": "Public domain (per Wikimedia Commons)",
+    "source_url": "https://commons.wikimedia.org/wiki/File:HNLMS_De_Ruyter.jpg"
+  },
+  "g4m": {
+    "file": "g4m.jpg",
+    "credit": "Mitsubishi G4M \"Betty\" on an airfield. San Diego Air and Space Museum archive, via Wikimedia Commons",
+    "license": "Public domain (per Wikimedia Commons)",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Mitsubishi_G4M-2.jpg"
   }
 }

@@ -597,6 +597,7 @@ export const REFERENCE: Record<string, Reference> = {
     notes: 'Long, lean battlecruisers: two turrets forward, one aft, two funnels. Renown rebuilt with a tower bridge, Repulse kept a tripod. Four shafts.',
   },
   g4m: {
+    photo: { file: 'g4m.jpg', credit: 'Mitsubishi G4M "Betty" on an airfield. San Diego Air and Space Museum archive, via Wikimedia Commons · Public domain (per Wikimedia Commons)' },
     displacement: '12,900 kg max takeoff',
     armament: ['1 × Type 91 aerial torpedo or 800 kg of bombs', '1 × 20 mm tail cannon', '4 × 7.7 mm machine guns'],
     armor: 'None, and unprotected fuel tanks',
@@ -638,6 +639,7 @@ export const REFERENCE: Record<string, Reference> = {
     notes: 'Three turrets forward, two aft, and one big trunked funnel. Compact bridge, long open quarterdeck. Four shafts.',
   },
   scharnhorst: {
+    photo: { file: 'scharnhorst.jpg', credit: 'Scharnhorst in harbour, early 1939. Via Wikimedia Commons; bow jack flag (swastika) painted out · Public domain (per Wikimedia Commons)' },
     displacement: '38,100 t full load',
     armament: ['9 × 28 cm guns in three triple turrets', '12 × 15 cm secondary guns', '14 × 10.5 cm AA guns', '6 × 53.3 cm torpedo tubes (from 1942)', '3 to 4 Arado Ar 196 floatplanes'],
     armor: '350 mm belt, 360 mm turret faces, up to 105 mm deck',
@@ -665,6 +667,7 @@ export const REFERENCE: Record<string, Reference> = {
     notes: 'Friendly. Converted battlecruisers, long and big: small island and a huge flat-sided funnel on the starboard side. Turbo-electric drive, four shafts.',
   },
   deruyter: {
+    photo: { file: 'deruyter.jpg', credit: 'HNLMS De Ruyter, circa 1942. Australian War Memorial 305837, via Wikimedia Commons, caption strip cropped · Public domain (per Wikimedia Commons)' },
     displacement: '7,550 t (De Ruyter) to 8,200 t (Java) full load',
     armament: ['De Ruyter: 7 × 15 cm guns in three twin and one single turret', 'Java: 10 × 15 cm guns in single mounts', '4 to 6 × 40 mm AA guns', '2 floatplanes'],
     armor: '50 to 75 mm belt, 25 to 30 mm deck',
