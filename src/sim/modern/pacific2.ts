@@ -34,8 +34,8 @@ function alliedSalvo(g: Game, who: string, missile: string, n: number, targets: 
 }
 /**
  * Escorts on station listen with their hull sonar, dulled by their own speed and the noise of the group.
- * One that holds Tang for 45 seconds leaves the screen to attack (the sub-hunting AI takes over); when it
- * loses us for good it goes back on station.
+ * One that holds Tang for a minute leaves the screen to attack (the sub-hunting AI takes over), two at most at
+ * a time; when it loses us for good it goes back on station.
  */
 function listen(g: Game, ships: Vessel[]) {
   const o = g.own;
@@ -43,9 +43,11 @@ function listen(g: Game, ships: Vessel[]) {
     if (!v.alive || !v.ai || v.cls.threshold === null) continue;
     const ai = v.ai, k = `hear${v.id}`;
     if (ai.mode === 'station') {
-      const se = excess(vesselSL(o), o, { x: v.x, y: v.y, hdg: v.hdg, spd: v.spd, depthT: 0 }, v.cls.threshold + 5) + (g.r() * 2 - 1) * 2;
+      const se = excess(vesselSL(o), o, { x: v.x, y: v.y, hdg: v.hdg, spd: v.spd, depthT: 0 }, v.cls.threshold + 7) + (g.r() * 2 - 1) * 2;
       g.flags[k] = se > 0 ? (g.flags[k] ?? 0) + 1 : Math.max(0, (g.flags[k] ?? 0) - 1);
-      if (g.flags[k] >= 45) {
+      // The group commander keeps most of his screen in place: no more than two escorts go hunting at once.
+      const out = ships.filter((x) => x.alive && g.flags[`home${x.id}`]).length;
+      if (g.flags[k] >= 60 && out < 2) {
         g.flags[k] = 0; g.flags[`home${v.id}`] = 1;
         Object.assign(ai, { mode: 'attack', holdT: 60, knows: { x: o.x, y: o.y, t: g.t, deep: o.depthT > 1.5 } });
         log(g, 'danger', `Sonar: a contact on bearing ${fmtBrg(brg(o, v))} has turned toward us and is speeding up. One of the escorts has us on her sonar.`, 'alarm');
@@ -61,7 +63,7 @@ const firedAny = (g: Game) => Object.values(g.stats.fired).some((n) => n > 0);
 missions.P7 = {
   key: 'P7', title: 'Natuna', era: '2029', place: 'Natuna Islands, Indonesia', date: 'June 2029, 0430', night: true,
   library: ['type071', 'type052d', 'type054a', 'type075', 'type056'],
-  brief: 'China has come for the Natuna Islands. An amphibious group is steaming south for the beaches at Ranai on Natuna Besar: the Type 071 landing ships Wuzhi Shan and Siming Shan, screened by the Type 052D destroyers Hefei and Yinchuan and the frigate Huangshan. The beaches are 14 nm south-southwest of you (bearing 200). The group was last fixed about 34 nm north of you, making 14 knots. Indonesia has nothing left at sea that can stop it, so it\'s up to Tang. Sink both landing ships. If either gets within 4 nm of the beach, the troops go ashore and the islands are lost. Indonesian F-16s will try a Harpoon strike about an hour in. The destroyers\' close-in guns stop most anti-ship missiles: torpedoes are surer.',
+  brief: 'China has come for the Natuna Islands. An amphibious group is steaming south for the beaches at Ranai on Natuna Besar: the Type 071 landing ships Wuzhi Shan and Siming Shan, screened by the Type 052D destroyer Hefei ahead and the frigate Huangshan astern. The beaches are 14 nm south-southwest of you (bearing 200). The group was last fixed about 34 nm north of you, making 14 knots. Indonesia has nothing left at sea that can stop it, so it\'s up to Tang. Sink both landing ships. If either gets within 4 nm of the beach, the troops go ashore and the islands are lost. Indonesian F-16s will try a Harpoon strike on the landing ships about an hour in. Their close-in guns stop most anti-ship missiles: torpedoes are surer. Once you hit them, the escorts will come hunting with torpedoes, so shoot from outside 5 nm and go deep.',
   build(g, r) {
     g.startClock = clock(4, 30);
     g.timeLimit = 4 * 3600;
@@ -69,14 +71,14 @@ missions.P7 = {
     const p = offset(g.own, (r() * 2 - 1) * 15, 32 + r() * 4);
     const lead = add(g, 'type071', 'Wuzhi Shan', 'enemy', p, brg(p, beach), 14, go(brg(p, beach), 14));
     const lpds = [lead, ...screen(g, lead, 'type071', ['Siming Shan'], [[180, 1.5]])];
-    const escorts = [...screen(g, lead, 'type052d', ['Hefei', 'Yinchuan'], [[320, 3.5], [40, 3.5]]), ...screen(g, lead, 'type054a', ['Huangshan'], [[180, 4]])];
+    const escorts = [...screen(g, lead, 'type052d', ['Hefei'], [[0, 3.5]]), ...screen(g, lead, 'type054a', ['Huangshan'], [[180, 4]])];
     setGoal(g, { targets: ids(lpds), need: 2, win: 'Both landing ships are on the bottom. The invasion of Natuna is off.', timeout: 'The landing group is still afloat off Natuna.' });
     g.script = (gg) => {
       pointDefence(gg, [...escorts, ...lpds], 0.6);
       listen(gg, escorts);
       // Whatever happens to the formation, the landing ships keep making for the beach.
       for (const v of lpds) if (v.alive && v.ai!.mode === 'transit') { v.ai!.baseCourse = brg(v, beach); v.ai!.cruise = 14; }
-      at(gg, 3600, 'f16', () => alliedSalvo(gg, 'Indonesian Air Force F-16s', 'Harpoon', 4, [...lpds, ...escorts], 0.3, 2));
+      at(gg, 3600, 'f16', () => alliedSalvo(gg, 'Indonesian Air Force F-16s', 'Harpoon', 4, lpds, 0.35, 2));
       for (const v of lpds) if (v.alive && dist(v, beach) < 4) end(gg, false, `${v.name} reached the beach at Ranai. The troops are ashore and Natuna is lost.`);
     };
   },
@@ -141,14 +143,14 @@ extras.P19 = (g, b) => {
 missions.P20 = {
   key: 'P20', title: 'Lombok Strait', era: '2029', place: 'Lombok Strait, Indonesia', date: 'June 2029, 2300', night: true,
   library: ['type039', 'type093b', 'kilo', 'collins'],
-  brief: 'Malacca and Sunda are too shallow for a submarine to pass unseen, so China\'s boats go to the Indian Ocean through Lombok, between Bali and Lombok: deep, narrow, and swept by the Indonesian Throughflow, a current that sets south at more than a knot and carries everything with it, Tang included. Three Type 039 Yuan AIP boats are coming down the strait from the north, a few miles apart, to hunt Allied shipping off Australia. They are about as quiet as a submarine gets, but slow and short of hearing. Sink two of the three. If two of them get past you and out of the south end of the strait, about 16 nm south of you, the cork has failed. Any of them that hears you will fight. They are hard to hear even close aboard, but there are no friendly submarines in the strait: an active ping finds anything within several miles, at the price of telling every Yuan where you are.',
+  brief: 'Malacca and Sunda are too shallow for a submarine to pass unseen, so China\'s boats go to the Indian Ocean through Lombok, between Bali and Lombok: deep, narrow, and swept by the Indonesian Throughflow, a current that sets south at more than a knot and carries everything with it, Tang included. Three Type 039 Yuan AIP boats are coming down the strait from the north, several miles apart, to hunt Allied shipping off Australia. They are about as quiet as a submarine gets, but slow and short of hearing. Sink two of the three. If two of them get past you and out of the south end of the strait, about 16 nm south of you, the cork has failed. Any of them that hears you will fight. They are hard to hear even close aboard, but there are no friendly submarines in the strait: an active ping finds anything within several miles, at the price of telling every Yuan where you are.',
   build(g, r) {
     g.startClock = clock(23);
     g.timeLimit = 5 * 3600;
     g.own.hdg = g.own.ordHdg = 0;
     const names = ['Yuan (Changcheng 335)', 'Yuan (Changcheng 337)', 'Yuan (Changcheng 341)'];
     const boats = names.map((name, i) => {
-      const p = { x: (r() * 2 - 1) * 4, y: 15 + i * 7 + r() * 3 };
+      const p = { x: (r() * 2 - 1) * 4, y: 15 + i * 10 + r() * 3 };
       const exit = { x: (r() * 2 - 1) * 4, y: -16 };
       return { v: add(g, 'type039', name, 'enemy', p, brg(p, exit), 8, { mode: 'patrol', legT: 1e9, decoys: 2 }, r() < 0.6 ? 2 : 1), exit };
     });
@@ -173,7 +175,7 @@ extras.P20 = (g, b) => [...b, watch('Don\'t let two Yuans out of the south end o
 missions.P8 = {
   key: 'P8', title: 'Carrier Killer', era: '2029', place: 'Philippine Sea', date: 'July 2029, 0600',
   library: ['fujian', 'shandong', 'type055', 'type052d', 'type054a', 'type901', 'type093b', 'kq200', 'ka28'],
-  brief: 'The carrier Fujian is out in the Philippine Sea with her full screen, steaming east toward Guam at 16 knots. She was fixed about 32 nm west of you this morning, coming your way. Around her: the Type 055 cruisers Nanchang and Lhasa, the Type 052D destroyers Taiyuan and Guiyang, the frigate Rizhao and the supply ship Hulunhu. The Type 093B Changzheng 18 sweeps ahead of the group, a KQ-200 patrol plane works over it and a Ka-28 helicopter flies close in. Get inside the screen and sink Fujian. The cruisers\' and the carrier\'s close-in defences stop almost every anti-ship missile, so this is torpedo work, and it takes three Mk 48s to sink her. If she gets more than 50 nm away from you, she\'s gone.',
+  brief: 'The carrier Fujian is out in the Philippine Sea with her full screen, steaming east toward Guam at 16 knots. She was fixed about 32 nm west of you this morning, coming your way. Around her: the Type 055 cruisers Nanchang and Lhasa, the Type 052D destroyers Taiyuan and Guiyang, the frigate Rizhao and the supply ship Hulunhu. The Type 093B Changzheng 18 sweeps ahead of the group, out on one bow, and a Ka-28 helicopter flies close in. Get inside the screen and sink Fujian. The cruisers\' and the carrier\'s close-in defences stop almost every anti-ship missile, so this is torpedo work, and it takes three Mk 48s to sink her. If she gets more than 50 nm away from you, she\'s gone.',
   build(g, r) {
     g.startClock = clock(6);
     g.timeLimit = 3.5 * 3600;
@@ -187,17 +189,17 @@ missions.P8 = {
       ...screen(g, cv, 'type054a', ['Rizhao'], [[120, 4]]),
       ...screen(g, cv, 'type901', ['Hulunhu'], [[220, 2]]),
     ];
-    const ssn = add(g, 'type093b', 'Changzheng 18', 'enemy', offset(cv, course + (r() * 2 - 1) * 30, 10), course, 8, { mode: 'patrol', legT: 600, decoys: 2 }, 1);
-    add(g, 'kq200', 'KQ-200', 'enemy', offset(cv, r() * 360, 30), 0, 230, patrolPlane({ x: cv.x, y: cv.y }));
+    const side = r() < 0.5 ? 1 : -1;
+    const ssn = add(g, 'type093b', 'Changzheng 18', 'enemy', offset(cv, course + side * 35, 10), course, 8, { mode: 'patrol', legT: 600, decoys: 2 }, 1);
     const helo = add(g, 'ka28', 'Ka-28 Helix', 'enemy', offset(cv, r() * 360, 3), 0, 120, wander({ x: cv.x, y: cv.y }, 8, 120));
     setGoal(g, { targets: [cv.id], need: 1, win: 'Fujian is sinking. China\'s newest carrier is out of the war.', timeout: 'Fujian steamed on out of reach.' });
     g.script = (gg) => {
       pointDefence(gg, [cv, ...scr], 0.8);
       listen(gg, scr);
-      keepCourse(ssn, course + Math.sin(gg.t / 600) * 40, 8);
-      if (ssn.alive && ssn.ai!.mode === 'patrol' && dist(ssn, offset(cv, course, 10)) > 6) ssn.ordHdg = brg(ssn, offset(cv, course, 10));
+      // The 093B sweeps a station ahead and out on one bow of the carrier.
+      const sta = offset(cv, course + side * 35, 10);
+      keepCourse(ssn, dist(ssn, sta) > 3 ? brg(ssn, sta) : course + Math.sin(gg.t / 600) * 40, dist(ssn, sta) > 3 ? 12 : 8);
       helo.ai!.center = { x: cv.x, y: cv.y };
-      for (const v of gg.vessels) if (v.cls.key === 'kq200' && v.ai?.mode === 'search') v.ai.center = { x: cv.x, y: cv.y };
       if (cv.alive && dist(gg.own, cv) > 50) end(gg, false, 'Fujian is more than 50 nm away and still going. We have lost her.');
     };
   },
@@ -302,7 +304,7 @@ extras.P22 = (g, b) => {
 missions.P9 = {
   key: 'P9', title: 'Hainan Bastion', era: '2029', place: 'Off Yulin, Hainan', date: 'August 2029, 0200', night: true,
   library: ['type094', 'type093b', 'type056', 'type052d', 'kq200', 'type039'],
-  brief: 'Yulin, on Hainan\'s southern tip, is home to China\'s missile submarines. Their pens are cut into the hillside, and the Type 094 Jins come out of the tunnels into a deep hole just off the harbour to wait for orders. Tonight three of them are coming out. Find them. The harbour mouth is 22 nm north of you. A mine barrier crosses the approach 10 nm north of you; intelligence has a swept gap about 2 nm wide in it, centred 10 nm out on bearing 011. Go through slowly: the HF sonar finds mines at 10 knots or less. Inside, two Type 056 corvettes and the Type 093B Changzheng 16 guard the hole, and a KQ-200 is overhead. To tag a Jin, hold it on sonar, classify it as a Type 094, and keep a good solution on it within 10 nm for two minutes. Tag two of the three, then come to periscope depth and send the report. Do not sink a Jin: an attack on China\'s deterrent at its home base would push the war toward the nuclear line. If Yulin hears shooting, it will send more corvettes. You have four hours.',
+  brief: 'Yulin, on Hainan\'s southern tip, is home to China\'s missile submarines. Their pens are cut into the hillside, and the Type 094 Jins come out of the tunnels into a deep hole just off the harbour to wait for orders. Tonight three of them are coming out. Find them. The harbour mouth is 22 nm north of you. A mine barrier crosses the approach 10 nm north of you; intelligence has a swept gap about 2 nm wide in it, centred 10 nm out on bearing 011. Go through slowly: the HF sonar finds mines at 10 knots or less. Inside, the Type 056 corvette Datong and the Type 093B Changzheng 16 guard the hole, and the corvette Huizhou patrols off the harbour mouth. To tag a Jin, hold it on sonar, classify it as a Type 094, and keep a good solution on it within 10 nm for two minutes. Tag two of the three, then come to periscope depth and send the report. Do not sink a Jin: an attack on China\'s deterrent at its home base would push the war toward the nuclear line. If Yulin hears shooting, it will send more corvettes and a KQ-200 patrol plane from Lingshui, whose sonobuoys and torpedoes are deadly: shoot it down with JATM if it comes. One will come over on its dawn patrol at about 0340 anyway. You have four hours.',
   build(g, r) {
     g.startClock = clock(2);
     g.timeLimit = 4 * 3600;
@@ -311,10 +313,9 @@ missions.P9 = {
     // The barrier, with the swept gap the Jins use.
     mineLine(g, { x: -10, y: 10 }, { x: 0.9, y: 10.2 }, 22);
     mineLine(g, { x: 3.1, y: 9.8 }, { x: 13, y: 10 }, 20);
-    for (const [x, y, name] of [[-5, 15, 'Datong'], [7, 14, 'Huizhou']] as const)
+    for (const [x, y, name] of [[(r() * 2 - 1) * 5, 15, 'Datong'], [4 + r() * 3, 19.5, 'Huizhou']] as const)
       add(g, 'type056', name, 'enemy', { x, y }, r() * 360, 6, { mode: 'patrol', legT: 400 });
     add(g, 'type093b', 'Changzheng 16', 'enemy', { x: (r() * 2 - 1) * 5, y: 17 + r() * 3 }, r() * 360, 6, { mode: 'patrol', legT: 500, decoys: 2 }, 2);
-    add(g, 'kq200', 'KQ-200', 'enemy', offset(mouth, r() * 360, 40), 0, 230, patrolPlane({ x: 0, y: 15 }));
     const holds: Vec[] = [{ x: -5 + r() * 2, y: 16 + r() * 2 }, { x: 1 + r() * 2, y: 13 + r() * 2 }, { x: 5 + r() * 2, y: 17 + r() * 2 }].sort(() => r() - 0.5);
     const jins: { v: Vessel | null; hold: Vec }[] = holds.map((hold) => ({ v: null, hold }));
     setGoal(g, { targets: [], timeout: 'Dawn over Yulin. We never got the Jins pinned down.' });
@@ -344,10 +345,13 @@ missions.P9 = {
       if (possible < 2) end(gg, false, 'Too few Jins left to tag. The mission is a failure.');
       if (tagged >= 2 && !gg.flags.ready) { gg.flags.ready = 1; log(gg, 'good', 'XO: two Jins tagged. Come to periscope depth and send the report.'); }
       if (gg.flags.ready && atPeriscopeDepth(gg)) end(gg, true, 'The report is out: the Jins\' hole off Yulin is mapped and two of them are tagged. Every one of them can be held at risk now.');
+      // The dawn patrol: a KQ-200 comes over the hole at 0340 whatever happens.
+      at(gg, 100 * 60, 'kqPatrol', () => { if (!gg.flags.kq) { gg.flags.kq = 1; add(gg, 'kq200', 'KQ-200', 'enemy', offset(mouth, 60, 45), 240, 230, patrolPlane({ x: 0, y: 16 })); log(gg, 'warn', 'ESM: a KQ-200 has taken off from Lingshui. Its radar will be over the hole within minutes.'); } });
       // Our shooting wakes up the base.
       if (firedAny(gg) && !gg.flags.alarm) {
         gg.flags.alarm = 1;
-        log(gg, 'danger', 'Yulin has sounded the alarm. Two more corvettes are coming out of the harbour.', 'alarm');
+        log(gg, 'danger', 'Yulin has sounded the alarm. Two more corvettes are coming out of the harbour, and a KQ-200 is taking off from Lingshui.', 'alarm');
+        if (!gg.flags.kq) { gg.flags.kq = 1; add(gg, 'kq200', 'KQ-200', 'enemy', offset(mouth, 60, 45), 240, 230, patrolPlane({ x: gg.own.x, y: gg.own.y })); }
         for (const name of ['Qinzhou', 'Sanmenxia']) {
           const v = add(gg, 'type056', name, 'enemy', offset(mouth, 180 + (gg.r() * 2 - 1) * 20, 1), 180, 14, { mode: 'attack', legT: 300 });
           v.ai!.knows = { x: gg.own.x + (gg.r() * 2 - 1) * 2, y: gg.own.y + (gg.r() * 2 - 1) * 2, t: gg.t, deep: gg.own.depthT > 1.5 };
@@ -569,7 +573,7 @@ extras.P24 = (g) => {
 missions.P12 = {
   key: 'P12', title: 'Sea of Okhotsk', era: '2029', place: 'Sea of Okhotsk', date: 'September 2029, 0200', night: true,
   library: ['borei', 'kilo', 'yasen', 'akula', 'il38'],
-  brief: 'The Sea of Okhotsk is Russia\'s Pacific bastion, where its missile submarines hide behind the Kurils. Two Borei-A boats, Knyaz Oleg and Generalissimus Suvorov, are on patrol in a box centred about 18 nm north of you (give or take 5 nm east or west) and about 20 nm across, slow and deep and nearly as quiet as Tang. Search it slowly: at 6 knots the towed array hears a Borei 4 nm off, at 12 knots barely 2. Two Kilos, Volkhov and Magadan, guard the box, and an Il-38 is laying sonobuoys over it. Hunt the Boreis and sink both. When the first goes down, the second will run at speed for the Kuril passes, about 30 nm southeast of the box: loud, but fast, and lost if she gets there. You have five hours.',
+  brief: 'The Sea of Okhotsk is Russia\'s Pacific bastion, where its missile submarines hide behind the Kurils. Two Borei-A boats, Knyaz Oleg and Generalissimus Suvorov, are on patrol in a box centred about 18 nm north of you (give or take 5 nm east or west) and about 20 nm across, slow and deep and nearly as quiet as Tang. Intelligence says they walk a slow clockwise ring about 6 nm out from the centre of the box, on opposite sides of it: work round that ring the other way and you will meet them. Search it slowly: at 6 knots the towed array hears a Borei 4 nm off, at 12 knots barely 2. Two Kilos, Volkhov and Magadan, guard the box, and an Il-38 is laying sonobuoys over it. Hunt the Boreis and sink both. When the first goes down, the second will run at speed for the Kuril passes, about 30 nm southeast of the box: loud, but fast, and lost if she gets there. You have five hours.',
   build(g, r) {
     g.startClock = clock(2);
     g.timeLimit = 5 * 3600;

@@ -63,11 +63,13 @@ function guard(g: Game, i: number, s: CaptainState) {
 
 // Plain hunts: the generic captain, plus torpedo evasion and air defence.
 const plain = (r: { extra?: string[]; minPct?: number }): Captain => (g, i, s) => (guard(g, i, s) ? true : r);
-captains.P7 = plain({});
+const p7 = plain({});
+captains.P7 = (g, i, s) => { shootBack(g, ['type071']); return p7(g, i, s); };
 captains.P10 = plain({});
 captains.P22 = plain({ extra: ['type093b'] });
 captains.P23 = plain({ extra: ['type093b'] });
 captains.P20 = (g, i, s) => {
+  shootBack(g, []);
   if (guard(g, i, s)) return true;
   if (g.contacts.some((c) => c.held && c.est && guess(c, 40) === 'type039')) return { minPct: 40 };
   // No friendlies in the strait: ping every ten minutes and shoot on a fresh return.
@@ -88,16 +90,22 @@ captains.P20 = (g, i, s) => {
   return true;
 };
 captains.P26 = (g, i, s) => {
+  // Haguro is close by: no more than two of our weapons in the water at a time, so nothing runs on past a dead target into her.
+  const busy = g.weapons.filter((w) => w.side === 'us' && !w.dead && w.type !== 'jatm').length >= 2;
+  if (!g.weapons.some((w) => w.side === 'us' && !w.dead && w.type === 'mk48')) shootBack(g, ['maya']);
+  for (const e of g.events) if (/Torpedo in the water|seeker has acquired us/.test(e.text)) s.m.thr = i;
   if (guard(g, i, s)) return true;
+  // With a torpedo about, stay below the layer for a good while, quiet, before coming back up to hunt.
+  const hide = i - (s.m.thr ?? -1e9) < 480;
   // A quiet hunter: never above 8 knots, ASROC from range, Mk 48 close in.
   const t = g.contacts.filter((c) => c.held && c.est && !c.air && ['type093b', 'kilo'].includes(guess(c) ?? '')).sort((a, b) => dist(g.own, a.est!) - dist(g.own, b.est!))[0];
   if (!t) { if (i % 600 === 0) { orders.heading(g, Math.hypot(g.own.x, g.own.y) > 5 ? brg(g.own, { x: 0, y: 0 }) : (i / 600) % 2 ? 45 : 225); orders.speed(g, 5); } return true; }
   g.selected = t.id;
   if (!t.classified) orders.classify(g, t.id, guess(t)!);
   const r = dist(g.own, t.est!);
-  if (i % 120 === 0) { orders.heading(g, r > 4 ? brg(g.own, t.est!) : t.bearing! + (s.legs++ % 2 ? 50 : -50)); orders.speed(g, r > 4 ? 8 : 5); orders.depth(g, 1); }
-  if (t.q > 0.6 && r > 1.5 && r < 12 && i % 120 === 0) orders.fire(g, 'asroc');
-  if (t.q > 0.6 && r < 7 && i % 90 === 0) orders.fire(g, 'mk48');
+  if (i % 120 === 0) { orders.heading(g, r > 4 ? brg(g.own, t.est!) : t.bearing! + (s.legs++ % 2 ? 50 : -50)); orders.speed(g, r > 4 && !hide ? 8 : 5); orders.depth(g, hide ? 2 : 1); }
+  if (!busy && !hide && t.q > 0.6 && r > 1.5 && r < 12 && i % 120 === 0) orders.fire(g, 'asroc');
+  if (!busy && t.q > 0.6 && r < 7 && i % 90 === 0) orders.fire(g, 'mk48');
   return true;
 };
 
@@ -108,7 +116,8 @@ const closer = (want: string, skip: string[], min = 50): Captain => (g, i, s) =>
   closeOnNoise(g, i, skip, 8);
   return true;
 };
-captains.P8 = closer('fujian', ['type093b', 'kq200', 'ka28']);
+const p8 = closer('fujian', ['type093b', 'kq200', 'ka28']);
+captains.P8 = (g, i, s) => { shootBack(g, ['fujian']); return p8(g, i, s); };
 captains.P19 = (g, i, s) => {
   if (guard(g, i, s)) return true;
   // Up for the raids: radar on at periscope depth when the bombers are due, so the generic captain's SM-6s can fly.
@@ -120,7 +129,11 @@ captains.P19 = (g, i, s) => {
 };
 captains.P21 = closer('shandong', ['tanker', 'type039', 'ka28']);
 captains.P12 = (g, i, s) => {
+  shootBack(g, []);
+  for (const e of g.events) if (/Torpedo in the water|seeker has acquired us/.test(e.text)) s.m.thr = i;
   if (guard(g, i, s)) return true;
+  // With a torpedo about, stay deep and slow for a while.
+  if (i - (s.m.thr ?? -1e9) < 480) { if (i % 30 === 0) { orders.depth(g, 2); orders.speed(g, 5); } return true; }
   if (g.contacts.some((c) => c.held && c.est && guess(c, 40) === 'borei')) return { minPct: 40 };
   const box = { x: 0, y: 18 };
   // Something unidentified on sonar: close it slowly to firm up the signature.
@@ -128,11 +141,11 @@ captains.P12 = (g, i, s) => {
   // Every 20 minutes a look at periscope depth, radar off: ESM finds the Il-38 and a JATM goes down its bearing.
   if (i % 1200 < 150 && i > 600) { orders.depth(g, 0); orders.speed(g, 5); return true; }
   if (i % 1200 === 150) orders.depth(g, 1);
-  // Run to the box, then search it slowly: a star of legs through its centre.
+  // Run to the box, then search it slowly.
   if (dist(g.own, box) > 9 && !s.m.inBox) { if (i % 60 === 0) { goTo(g, box, 8); orders.depth(g, 2); } return true; }
   s.m.inBox = 1;
-  const wp = (s.m.leg ?? 0) % 2 ? box : offset(box, (s.m.leg ?? 0) * 77, 7);
-  if (dist(g.own, wp) < 1) s.m.leg = (s.m.leg ?? 0) + 1;
+  // As the brief says: work anticlockwise round the ring the Boreis walk, 6 nm out, to meet them coming.
+  const wp = offset(box, brg(box, g.own) - 25, 6);
   if (i % 60 === 0) goTo(g, wp, 6);
   return true;
 };
@@ -164,7 +177,10 @@ captains.P11 = (g, i, s) => {
 // Hainan: through the swept gap, find the Jins in the hole, tag two, then report. Never shoot a Jin.
 captains.P9 = (g, i, s) => {
   shootBack(g, ['type094']);
-  if (evade(g, i, s)) return true;
+  if (guard(g, i, s)) return true;
+  // Once the alarm is up, a look at periscope depth every ten minutes for the KQ-200.
+  if (g.t > 100 * 60 && !s.m.kqDown && i % 600 < 120) { orders.depth(g, 0); orders.speed(g, 5); return true; }
+  for (const e of g.events) if (/Splash one Shaanxi/.test(e.text)) s.m.kqDown = 1;
   const o = g.own;
   if (g.flags.ready) { orders.depth(g, 0); orders.speed(g, 5); return true; }
   // Inside, a radar look every 20 minutes picks out the corvettes.
