@@ -390,4 +390,4 @@ button.on-air { background: #1d4a3a; border-color: #2f7a5e; color: #d4ffe9; }
 .sc-head > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sc-btns { display: flex; gap: 6px; flex: none; }
 .sc-btns button { flex: none; padding: 4px 10px; }
-.sc-frame canvas { width: 100%; height: auto; aspect-ratio: 4 / 3; background: #000; }
+.sc-frame canvas { width: 100%; height: auto; aspect-ratio: 4 / 3; background: #000; image-rendering: pixelated; }

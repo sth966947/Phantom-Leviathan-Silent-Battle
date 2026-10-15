@@ -94,6 +94,11 @@ export type SiteKind = 'shipyard' | 'docks' | 'factory' | 'airfield' | 'radar' |
 export interface Site extends Vec { id: number; name: string; hits: number; kind?: SiteKind }
 /** One land-attack Tomahawk's arrival, for the strike camera. */
 export interface Strike { t: number; siteId: number; siteName: string; kind: SiteKind; hit: boolean; weapon: string }
+/** One hit by Tang's weapons (or a mine Tang laid) on a ship, submarine or aircraft, for the battle camera. */
+export interface Hit {
+  t: number; vid: number; name: string; cls: string; kind: ClassCard['kind'];
+  weapon: WeaponKey | 'mine'; label: string; sunk: boolean;
+}
 
 /** A site's kind as set by its mission, or else guessed from its name. */
 export function siteKind(site: Site): SiteKind {
@@ -128,6 +133,8 @@ export interface Game {
   sites: Site[];
   /** Every land-attack Tomahawk's arrival, hit or miss, in order. */
   strikes: Strike[];
+  /** Every hit by Tang's weapons on a vessel or aircraft, in order. */
+  hits: Hit[];
   /** Minefields (see hazards.ts): enemy mines Tang must find and avoid, and any Tang has laid. */
   mines: Mine[];
   /** Sea state and pack ice for the mission (see hazards.ts). */
@@ -258,7 +265,7 @@ export function create(scenario: ScenarioKey = 'bismarck', seed?: number, carry:
   const g = {
     scenario, era: m.era, startClock: 0, timeLimit: Infinity, library: m.library, night: !!m.night,
     goal: { targets: [], need: 1, protect: [], maxLosses: Infinity, surviveWin: false, win: '', timeout: '', lossText: '' },
-    sunk: [], flags: {}, script: null, sites: [], strikes: [], mines: [], env: calmSea(),
+    sunk: [], flags: {}, script: null, sites: [], strikes: [], hits: [], mines: [], env: calmSea(),
     t: 0, r, seq: 1, over: null, vessels: [], contacts: [], selected: null,
     weapons: [], decoys: [], buoys: [], charges: [], splashT: -1e9, heard: new Set(), sweeps: [], events: [], waterfall: null, wfTimer: 0, pings: [], blasts: [],
     stats: {
@@ -749,8 +756,11 @@ function hit(g: Game, w: Weapon, v: Vessel) {
     if (v.hp <= 0) { v.alive = false; log(g, 'danger', 'Torpedo hit. Flooding aft. We are lost.', 'boom'); return end(g, false, 'USS Tang was sunk.'); }
     return log(g, 'danger', 'Torpedo hit! Flooding, but holding.', 'boom');
   }
-  if (w.side === 'us') g.stats.hits++;
   const sunk = v.hp <= 0;
+  if (w.side === 'us') {
+    g.stats.hits++;
+    g.hits.push({ t: g.t, vid: v.id, name: v.name, cls: v.cls.key, kind: v.cls.kind, weapon: w.type, label: w.label, sunk });
+  }
   if (sunk) { v.alive = false; g.sunk.push({ name: v.name, cls: v.cls.key, side: v.side, by: w.side }); }
   const c = g.contacts.find((x) => x.vid === v.id);
   if (v.cls.kind === 'air') { log(g, 'good', `${w.label} hit. Splash one ${v.cls.name}.`, 'boom'); return checkGoal(g); }
@@ -769,6 +779,23 @@ function hit(g: Game, w: Weapon, v: Vessel) {
   // The whole group knows it is under attack and runs from the threat; escorts come hunting.
   if (v.side === 'enemy') alertGroup(g, norm(brg(w, v)), v.side, v);
   checkGoal(g);
+}
+
+/**
+ * True when one of our weapons in flight looks set to arrive within `secs`: a torpedo or missile
+ * homing on a target, an anti-ship missile or Tomahawk flying to its aim point, an ASROC about to drop.
+ * The battle camera waits for these so that hits close together play as one clip.
+ */
+export function arrivingSoon(g: Game, secs: number): boolean {
+  for (const w of g.weapons) {
+    if (w.dead || w.side !== 'us') continue;
+    const role = WEAPONS[w.type].role;
+    const to = w.target && w.targetKind === 'vessel' ? w.target : role === 'land' || role === 'antiship' || role === 'asw' ? w.aim : null;
+    if (!to || w.spd <= 0) continue;
+    const eta = dist(w, to) / (w.spd * KT) + (role === 'asw' ? 30 : 0);
+    if (eta <= secs) return true;
+  }
+  return false;
 }
 
 /**

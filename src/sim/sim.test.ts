@@ -328,3 +328,38 @@ describe('1941 aircraft and the periscope', () => {
     expect(inPeriscope(g, c)).toBe(bis);
   });
 });
+
+describe('hits for the battle camera', () => {
+  it('records each of our hits on a ship, the sinking one marked sunk', () => {
+    const g = create('bismarck', 5);
+    const bis = g.vessels[1];
+    Object.assign(bis, offset(g.own, 0, 3)); freeze(bis, 15);
+    run(g, 30);
+    const c = g.contacts.find((x) => x.vid === bis.id)!;
+    g.selected = c.id; c.est = { x: bis.x, y: bis.y, t: g.t }; c.q = 1; c.bias = 0;
+    for (let i = 0; i < 4; i++) orders.fire(g, 'mk48');
+    run(g, 600);
+    const on = g.hits.filter((h) => h.vid === bis.id);
+    expect(on.length).toBeGreaterThan(0);
+    expect(on.every((h) => h.weapon === 'mk48' && h.kind === 'surface' && h.cls === 'bismarck' && h.name === 'Bismarck')).toBe(true);
+    expect(on.at(-1)!.sunk).toBe(!bis.alive);
+    expect(on.slice(0, -1).every((h) => !h.sunk)).toBe(true);
+    for (let i = 1; i < g.hits.length; i++) expect(g.hits[i].t).toBeGreaterThanOrEqual(g.hits[i - 1].t);
+  });
+  it('records a surface-to-air kill as an air hit, the same on every run', () => {
+    const shoot = () => {
+      const g = duel(30);
+      const il = g.vessels[2];
+      g.vessels[3].alive = false;
+      Object.assign(il, offset(g.own, 0, 15)); il.ai = null; il.hdg = il.ordHdg = 90; il.spd = il.ordSpd = 230;
+      radarUp(g);
+      run(g, 10);
+      g.selected = contactOf(g, il)!.id;
+      for (let i = 0; i < 3 && il.alive; i++) { orders.fire(g, 'jatm'); run(g, 40); }
+      return g.hits;
+    };
+    const hits = shoot();
+    expect(hits.at(-1)).toMatchObject({ weapon: 'jatm', kind: 'air', cls: 'il38', sunk: true });
+    expect(shoot()).toEqual(hits);
+  });
+});
