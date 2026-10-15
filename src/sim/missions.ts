@@ -1123,3 +1123,125 @@ export const MISSIONS: Record<MissionKey, Mission> = {
     },
   },
 };
+
+// ---- Objectives: what the pause screen lists, live ---------------------------------------------
+export interface Objective { text: string; state: 'done' | 'open' | 'failed'; detail?: string }
+
+const mins = (s: number) => {
+  const m = Math.max(0, Math.ceil(s / 60));
+  return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min` : `${m} min`;
+};
+const listNames = (vs: Vessel[]) => {
+  const names = vs.map((v) => v.name);
+  return names.length <= 4 ? names.join(', ').replace(/, ([^,]*)$/, ' and $1') : `${names.length} ships`;
+};
+const byId = (g: Game, ids: number[]) => ids.map((id) => g.vessels.find((v) => v.id === id)!).filter(Boolean);
+const isSunk = (v: Vessel) => !v.alive && !v.gone;
+
+/** Objectives read straight from the mission goal: what to sink, what to keep afloat, and the clock. */
+function baseObjectives(g: Game): Objective[] {
+  const gl = g.goal, out: Objective[] = [];
+  const tg = byId(g, gl.targets);
+  if (tg.length && gl.need <= tg.length) {
+    const sunk = tg.filter(isSunk).length, left = tg.filter((v) => v.alive).length;
+    const what = gl.need === tg.length ? (tg.length === 1 ? tg[0].name : `all of ${listNames(tg)}`) : `${gl.need} of ${listNames(tg)}`;
+    const away = tg.filter((v) => v.gone).length;
+    out.push({
+      text: `Sink ${what}`,
+      state: sunk >= gl.need ? 'done' : sunk + left < gl.need ? 'failed' : 'open',
+      detail: tg.length > 1 || gl.need > 1 ? `${sunk} of ${gl.need} sunk${away ? `, ${away} got away` : ''}. ${sunk >= gl.need ? '' : `${gl.need - sunk} more to go.`}` : sunk ? 'Sunk.' : 'Still afloat.',
+    });
+  }
+  const pr = byId(g, gl.protect).filter((v) => v.side !== 'enemy');
+  if (pr.length && Number.isFinite(gl.maxLosses)) {
+    const lost = pr.filter(isSunk).length;
+    out.push({
+      text: gl.maxLosses === 0 ? `Keep ${listNames(pr)} afloat` : `Lose no more than ${gl.maxLosses} of ${listNames(pr)}`,
+      state: lost > gl.maxLosses ? 'failed' : g.over?.win ? 'done' : 'open',
+      detail: lost ? `${lost} lost so far.${lost === gl.maxLosses ? ' One more and the mission fails.' : ''}` : 'None lost so far.',
+    });
+  }
+  if (Number.isFinite(g.timeLimit)) {
+    const left = g.timeLimit - g.t;
+    out.push(gl.surviveWin
+      ? { text: `Hold out for ${mins(g.timeLimit)}`, state: left <= 0 ? 'done' : 'open', detail: `${mins(left)} to go.` }
+      : { text: `Finish within ${mins(g.timeLimit)}`, state: left <= 0 && !g.over?.win ? 'failed' : 'open', detail: `${mins(left)} left.${gl.timeout ? ` If time runs out: ${gl.timeout}` : ''}` });
+  }
+  return out;
+}
+
+const watch = (text: string, failed: boolean, detail?: string): Objective => ({ text, state: failed ? 'failed' : 'open', detail });
+const flag = (g: Game, k: string) => g.flags[k] ?? 0;
+const named = (g: Game, cls: string) => g.vessels.find((v) => v.cls.key === cls && v.side === 'enemy');
+
+/** Objectives that missions' scripts add or change: escapes, reports, deadlines, trails. */
+const EXTRA: Partial<Record<MissionKey, (g: Game, base: Objective[]) => Objective[]>> = {
+  bismarck: (g, b) => [...b, watch('Keep within 60 nm of Bismarck', g.over?.reason.includes('broke out') ?? false, 'If she gets 60 nm away, she has broken out into the Atlantic.')],
+  midgets: (g, b) => [...b, watch('Don\'t let two midgets into the harbour', flag(g, 'midgetsIn') >= 2, `${flag(g, 'midgetsIn')} of 2 have got in.`)],
+  doolittle: (g, b) => [
+    watch('Sink the picket boats before they radio Tokyo', !!g.over?.reason.includes('report'), 'A picket that watches the task force for four minutes gets its report out.'),
+    { text: 'Land 3 Tomahawks on Japan before the raid launches', state: flag(g, 'landHits') >= 3 ? 'done' : 'open', detail: `${flag(g, 'landHits')} of 3 hits so far.` },
+    ...b,
+  ],
+  guadalcanal: (g, b) => [...b, watch('Keep the battleships from shelling Henderson Field', flag(g, 'shelling') > 600, flag(g, 'shelling') ? `They have been shelling for ${mins(flag(g, 'shelling'))}. At 10 minutes the field is lost.` : 'Not under fire yet.')],
+  tengo: (g, b) => [...b, watch('Stop her before she reaches Okinawa', !!g.over?.reason.includes('Okinawa'))],
+  savo: (g, b) => [...b, watch('Keep Chōkai away from the transports off Lunga Point', !!g.over?.reason.includes('transports'))],
+  eastsol: (g, b) => [...b, watch('Keep the transports from reaching Guadalcanal', !!g.over?.reason.includes('landed'))],
+  riverplate: (g, b) => [...b, watch('Stop Graf Spee reaching Montevideo', !!g.over?.reason.includes('Montevideo'))],
+
+  vortex: (g) => {
+    const ak = named(g, 'akula');
+    const trail = Math.min(flag(g, 'trail'), 1800);
+    if (flag(g, 'blown')) return [
+      { text: 'Trail the Akula', state: 'failed', detail: 'It heard us and turned to attack. Weapons free.' },
+      { text: 'Sink the Akula', state: ak && isSunk(ak) ? 'done' : 'open' },
+    ];
+    return [
+      { text: 'Trail the Akula inside 15 nm for 30 minutes', state: trail >= 1800 ? 'done' : 'open', detail: trail >= 1800 ? 'Enough track.' : `${mins(trail)} of 30 min held so far. Only time with the contact held inside 15 nm counts.` },
+      { text: 'Come to periscope depth and send the report', state: g.over?.win ? 'done' : 'open', detail: flag(g, 'ready') ? 'Ready: come up to periscope depth now.' : 'After the trail.' },
+      watch('Don\'t sink it unless it attacks you', !!ak && isSunk(ak)),
+      watch('Don\'t lose it: more than 35 nm away and the trail is cold', !!g.over?.reason.includes('lost the Akula')),
+      ...baseObjectives(g).filter((o) => o.text.startsWith('Finish')),
+    ];
+  },
+  eyes: (g, b) => {
+    const south = Math.max(0, Math.min(30, -g.own.y));
+    const planes = byId(g, g.goal.targets);
+    const down = planes.filter(isSunk).length;
+    return [
+      { text: 'Either get 30 nm south of where you started', state: south >= 30 ? 'done' : 'open', detail: `${south.toFixed(1)} of 30 nm so far.` },
+      { text: 'Or shoot down both patrol planes', state: down >= 2 ? 'done' : 'open', detail: `${down} of 2 down.` },
+      ...b.filter((o) => !o.text.startsWith('Sink')),
+    ];
+  },
+  raiderloose: (g, b) => [...b, watch('Catch Kazan before it reaches the convoy lanes', !!g.over?.reason.includes('convoy lanes'), 'The lanes are about 36 nm southwest of where Kazan started.')],
+  giuk: (g, b) => [...b, watch('Don\'t let two boats past you to the south', flag(g, 'through') >= 2, `${flag(g, 'through')} of 2 have got through.`)],
+  bremerhaven: (g, b) => {
+    const osc = named(g, 'oscar');
+    const setup = flag(g, 'salvoT');
+    return [...b,
+      { text: 'Sink the Oscar before it fires its P-700s', state: osc && isSunk(osc) ? 'done' : setup >= 900 ? 'failed' : 'open',
+        detail: osc && isSunk(osc) ? 'Sunk.' : setup >= 900 ? 'It has fired.' : setup ? 'It is inside 25 nm of the convoy and setting up a shot.' : 'Somewhere ahead. It needs 15 minutes inside 25 nm of the convoy to shoot.' },
+      { text: 'Shoot down the Backfires before they reach 50 nm', state: 'open', detail: g.t < 30 * 60 ? 'Expected about 30 minutes in, and again at 75.' : g.t < 75 * 60 ? 'Another wave is expected about 75 minutes in.' : 'Both waves have been sent.' },
+    ];
+  },
+  cables: (g, b) => {
+    const cut = flag(g, 'cut');
+    return [...b, watch('Stop it before it cuts the cables', cut >= 4500, cut ? `It is cutting: ${mins(4500 - cut)} until the cables are gone.` : 'It hasn\'t reached the cables yet.')];
+  },
+  lostsister: (g, b) => {
+    const res = flag(g, 'rescue');
+    return [
+      { text: 'Either guard the rescue for 90 minutes', state: res >= 5400 ? 'done' : 'open', detail: res ? `${mins(res)} of 90 min done. Stay within 3 nm of Oklahoma.` : 'Get within 3 nm of Oklahoma, about 10 nm northeast of where you started, to start the rescue.' },
+      { text: 'Or sink the Akula', state: b[0]?.state === 'done' ? 'done' : 'open' },
+      watch('Keep the Akula more than 2 nm from Oklahoma', !!g.over?.reason.includes('reached Oklahoma')),
+      ...b.filter((o) => !o.text.startsWith('Sink')),
+    ];
+  },
+};
+
+/** The mission's objectives as they stand now. */
+export function objectives(g: Game): Objective[] {
+  const base = baseObjectives(g);
+  return EXTRA[g.scenario]?.(g, base) ?? base;
+}

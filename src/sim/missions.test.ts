@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { create, orders, tick } from './sim';
-import { CAMPAIGN, MISSIONS, MODERN, PREQUELS } from './missions';
+import { CAMPAIGN, MISSIONS, MODERN, PREQUELS, objectives } from './missions';
 import { CLASSES } from './classes';
 
 describe('missions', () => {
@@ -12,6 +12,9 @@ describe('missions', () => {
       for (const k of MISSIONS[key].library) expect(CLASSES[k], k).toBeDefined();
       for (let i = 0; i < 3600 && !g.over; i++) tick(g, 1);
       expect(g.t).toBeGreaterThan(0);
+      const obs = objectives(g);
+      expect(obs.length).toBeGreaterThan(0);
+      for (const o of obs) expect(o.text).not.toMatch(/undefined|NaN/);
     });
   }
   it('a land-attack Tomahawk flies to Japan by terrain maps and hits its site', () => {
@@ -23,6 +26,37 @@ describe('missions', () => {
     for (let i = 0; i < 6000 && !g.weapons.every((w) => w.type !== 'tlam'); i++) tick(g, 1);
     expect(g.weapons.some((w) => w.type === 'tlam')).toBe(false);
     expect(g.t).toBeGreaterThan(60 * 60);
+  });
+  it('Match toggles keep following the target until overridden', () => {
+    const g = create('duel', 4);
+    const kaz = g.vessels.find((v) => v.cls.key === 'yasen')!;
+    for (let i = 0; i < 3000 && !g.contacts.some((c) => c.vid === kaz.id && c.held && c.motion); i++) tick(g, 1);
+    const c = g.contacts.find((x) => x.vid === kaz.id && x.held && x.motion)!;
+    expect(c).toBeDefined();
+    g.selected = c.id;
+    orders.match(g, 'speed');
+    expect(g.flags.matchSpd).toBe(c.id);
+    c.motion = { crs: c.motion!.crs, spd: 17 };
+    for (let i = 0; i < 10; i++) tick(g, 1);
+    if (g.flags.matchSpd) expect(g.own.ordSpd).toBe(Math.round(c.motion!.spd));
+    orders.speed(g, 5);
+    expect(g.flags.matchSpd).toBe(0);
+    expect(g.own.ordSpd).toBe(5);
+    // Course and bearing can't both be on, and steering by hand ends them.
+    orders.match(g, 'course');
+    orders.match(g, 'bearing');
+    expect(g.flags.matchCrs).toBe(0);
+    expect(g.flags.matchBrg).toBe(c.id);
+    for (let i = 0; i < 5; i++) tick(g, 1);
+    if (g.flags.matchBrg) expect(Math.abs(((g.own.ordHdg - c.bearing! + 540) % 360) - 180)).toBeLessThan(8);
+    orders.turn(g, 10);
+    expect(g.flags.matchBrg).toBe(0);
+    // Switching targets turns every match off.
+    orders.match(g, 'speed');
+    orders.match(g, 'course');
+    g.selected = -1;
+    tick(g, 1);
+    expect([g.flags.matchSpd, g.flags.matchCrs, g.flags.matchBrg]).toEqual([0, 0, 0]);
   });
   it('ships sunk earlier stay sunk', () => {
     const g = create('midway', 3, { sunk: ['Akagi', 'Kaga'] });

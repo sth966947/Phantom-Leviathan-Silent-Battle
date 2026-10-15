@@ -350,3 +350,28 @@ button.on-air { background: #1d4a3a; border-color: #2f7a5e; color: #d4ffe9; }
 .war-mission .unbuilt { color: var(--contact); font-size: 13px; }
 .war-mission .war-brief { color: var(--dim); font-size: 13px; line-height: 1.45; }
 .war-mission .row button { flex: 1; }
+
+/* Pause card: briefing and live objectives over the plot */
+.pause-card {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 20;
+  width: min(600px, calc(100vw - 32px)); max-height: calc(100vh - 80px); overflow-y: auto;
+  background: var(--panel); border: 1px solid var(--own); padding: 22px 24px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+.pause-card[hidden] { display: none; }
+.pause-card h2 { font: 700 24px/1.1 var(--f-display); letter-spacing: 0.05em; margin: 0 0 10px; }
+.pause-card h3 { font: 12px var(--f-data); color: var(--dim); letter-spacing: 0.1em; text-transform: uppercase; margin: 16px 0 8px; }
+.pause-card .sub { font: 12px var(--f-data); color: var(--dim); letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 8px; }
+.pause-card .pbrief { color: var(--dim); font-size: 14px; line-height: 1.5; margin: 0; }
+.pause-card .obj { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.pause-card .obj li { display: flex; gap: 10px; align-items: baseline; }
+.pause-card .obj .mk { font: 700 15px var(--f-data); width: 16px; flex: none; text-align: center; }
+.pause-card .obj small { display: block; color: var(--dim); font-size: 13px; margin-top: 2px; }
+.pause-card .obj .done .mk { color: var(--good); }
+.pause-card .obj .done b { color: var(--dim); }
+.pause-card .obj .open .mk { color: var(--contact); }
+.pause-card .obj .failed .mk, .pause-card .obj .failed b { color: var(--threat); }
+.pause-card .row button { flex: 1; padding: 10px 14px; }
+/* Match course / bearing / speed toggles, one row of three */
+#follow { align-items: center; }
+#follow .lbl { font: 12px var(--f-data); color: var(--dim); letter-spacing: 0.08em; text-transform: uppercase; padding-right: 2px; }
+#follow button { flex: 1; white-space: nowrap; padding-left: 4px; padding-right: 4px; }

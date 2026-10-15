@@ -1,7 +1,7 @@
 import 'pixi.js/unsafe-eval'; // no eval(), so the game runs under strict content security policies
 import './style.css';
 import { WEAPONS, contactById, create, inPeriscope, orders, tick, type Depth, type Game, type ScenarioKey, type WeaponKey } from './sim/sim';
-import { CAMPAIGN, MISSIONS, PREQUELS, type MissionKey } from './sim/missions';
+import { CAMPAIGN, MISSIONS, PREQUELS, objectives, type MissionKey } from './sim/missions';
 import { carryFor, changedFor, interlude, record, resetCampaign, results, unlocked } from './campaign';
 import { Plot, SPANS } from './render/plot';
 import { Waterfall } from './ui/waterfall';
@@ -59,9 +59,45 @@ function buttonRow(host: HTMLElement, items: [number, string][], fmt: (v: number
   }
 }
 buttonRow($('speeds'), SPEEDS, (v, l) => `${l} ${v}`, (v) => orders.speed(g, v));
+const MATCHES = [['course', 'matchCrs', 'Course'], ['bearing', 'matchBrg', 'Bearing'], ['speed', 'matchSpd', 'Speed']] as const;
+for (const [what, , label] of MATCHES) {
+  const b = document.createElement('button');
+  b.id = `match-${what}`;
+  b.textContent = label;
+  b.title = what === 'bearing' ? 'Toggle: keep steering straight at the selected contact\'s bearing. Ends if you steer by hand.'
+    : what === 'course' ? 'Toggle: keep steering the selected contact\'s course from the solution. Ends if you steer by hand.'
+    : 'Toggle: keep our speed matched to the selected contact\'s, from the solution. Ends if you order another speed (Z).';
+  b.addEventListener('click', () => orders.match(g, what));
+  $('follow').appendChild(b);
+}
 buttonRow($('depths'), DEPTHS, (_, l) => l, (v) => orders.depth(g, v as Depth));
 buttonRow($('times'), TIMES, (_, l) => l, (v) => { if (!v && timeScale) resumeScale = timeScale; timeScale = v; });
 function togglePause() { if (timeScale) { resumeScale = timeScale; timeScale = 0; } else timeScale = resumeScale; }
+
+// ---- Pause card: the briefing and the mission's objectives, live ----------------------------------
+let pauseDismissed = false; // closed with Hide: stays closed until the next pause
+const MARK = { done: '✓', open: '○', failed: '✗' } as const;
+function renderPause() {
+  const m = MISSIONS[scenario];
+  const obs = objectives(g);
+  $('pauseCard').innerHTML = `
+    <p class="sub">Paused · ${esc(m.place)} · ${esc(m.date)}</p>
+    <h2>${esc(m.title)}</h2>
+    <p class="pbrief">${esc(m.brief)}</p>
+    <h3>Objectives</h3>
+    <ul class="obj">${obs.map((o) => `<li class="${o.state}"><span class="mk">${MARK[o.state]}</span><span><b>${esc(o.text)}</b>${o.detail ? `<small>${esc(o.detail)}</small>` : ''}</span></li>`).join('')}</ul>
+    <div class="row"><button id="pResume">Resume <kbd>Space</kbd></button><button id="pHide">Hide, stay paused</button></div>`;
+  $('pResume').addEventListener('click', togglePause);
+  $('pHide').addEventListener('click', () => { pauseDismissed = true; $('pauseCard').hidden = true; });
+}
+function updatePauseCard() {
+  const paused = running && !g.over && !replay && timeScale === 0;
+  if (!paused) pauseDismissed = false;
+  const show = paused && !pauseDismissed && $('overlay').hidden;
+  const card = $('pauseCard');
+  if (show && card.hidden) renderPause();
+  card.hidden = !show;
+}
 const on = (id: string, fn: () => void) => $(id).addEventListener('click', fn);
 on('pauseBtn', togglePause);
 // Leaving a mission in progress takes two clicks, so a stray one doesn't throw it away.
@@ -78,7 +114,6 @@ on('toCampaign', () => {
   if (replay) exitReplay();
   showMenu();
 });
-on('left', () => orders.turn(g, -10));
 on('shallower', () => orders.depthBy(g, -50));
 on('arrayUp', () => orders.straddle(g, 'above'));
 on('arrayDown', () => orders.straddle(g, 'below'));
@@ -90,7 +125,6 @@ $('depthSet').addEventListener('submit', (ev) => {
   box.value = '';
   box.blur();
 });
-on('right', () => orders.turn(g, 10));
 on('fireMk48', () => orders.fire(g, 'mk48'));
 on('fireHarpoon', () => orders.fire(g, 'harpoon'));
 on('fireMst', () => orders.fire(g, 'mst'));
@@ -158,7 +192,7 @@ document.addEventListener('keydown', (ev) => {
     f: () => orders.fire(g, 'mk48'), h: () => orders.fire(g, 'harpoon'), t: () => orders.fire(g, 'mst'),
     g: () => orders.fire(g, 'asroc'), y: () => orders.strike(g, Number(($('tlamSite') as HTMLSelectElement).value)), j: () => orders.fire(g, 'jatm'), m: () => orders.fire(g, 'sm6'),
     r: () => orders.radar(g), v: togglePeriscope, b: () => { depthView.close(); solution.toggle(); }, x: () => { solution.close(); depthView.toggle(); }, escape: () => { if (replay && liveGame && !periscope.open && !depthView.open && !solution.open) exitReplay(); else if (periscope.open) periscope.close(); else if (depthView.open) depthView.close(); else solution.close(); },
-    p: () => orders.ping(g), c: () => orders.decoy(g),
+    p: () => orders.ping(g), c: () => orders.decoy(g), z: () => orders.match(g, 'speed'),
     tab: () => orders.cycleContact(g), k: acceptTop,
     ' ': togglePause,
     '1': () => { timeScale = 10; }, '2': () => { timeScale = 30; }, '3': () => { timeScale = 90; },
@@ -472,12 +506,14 @@ function frame(now: number) {
     solution.update(g);
     for (const b of $('speeds').children as HTMLCollectionOf<HTMLElement>) b.classList.toggle('on', +b.dataset.v! === g.own.ordSpd);
     for (const b of $('depths').children as HTMLCollectionOf<HTMLElement>) b.classList.toggle('on', +b.dataset.v! === g.own.ordDepth);
+    for (const [what, flag] of MATCHES) $(`match-${what}`).classList.toggle('on', !!g.flags[flag]);
     $('arrayUp').classList.toggle('on', g.own.arraySide === 'above');
     $('arrayDown').classList.toggle('on', g.own.arraySide === 'below');
     for (const b of $('times').children as HTMLCollectionOf<HTMLElement>) b.classList.toggle('on', +b.dataset.v! === timeScale);
     const pb = $('pauseBtn'), label = timeScale ? 'Pause' : 'Resume';
     if (pb.firstChild?.textContent?.trim() !== label) pb.innerHTML = `${label} <kbd>Space</kbd>`;
     pb.classList.toggle('on', !timeScale);
+    updatePauseCard();
   }
   if (g.over && !overShown) {
     overShown = true; updatePanel(g);
