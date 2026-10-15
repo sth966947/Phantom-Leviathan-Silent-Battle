@@ -97,7 +97,7 @@ function sm6(g: Game, i: number) {
 function antiAir(g: Game, i: number, s: CaptainState) {
   if (said(g, /sonobuoy splash|steadying on us/)) s.m.airT = i;
   if (i - (s.m.airT ?? -1e9) > 120 || g.env.ice) return false;
-  const air = g.contacts.find((c) => c.held && c.air && c.bearing !== null && ['il38', 'tu142', 'ka27', 'kq200', 'ka28', 'p8i', 'p3am'].includes(c.classified ?? c.matches[0]?.key ?? ''));
+  const air = g.contacts.find((c) => c.held && c.air && c.bearing !== null && ['il38', 'tu142', 'ka27', 'kq200', 'ka28', 'p8i', 'p3am', ''].includes(c.classified ?? c.matches[0]?.key ?? ''));
   if (!air) return false;
   if (g.own.ordDepth > 1) orders.depth(g, 1);
   if (i % 15 === 0 && g.own.depthT <= 1.05 && !g.weapons.some((w) => w.type === 'jatm' && !w.dead)) { const k = g.selected; g.selected = air.id; orders.fire(g, 'jatm'); g.selected = k; }
@@ -196,21 +196,26 @@ export const captains: Record<string, Captain> = {
       return true;
     }
     if (find(g, ['yasen'], 50)) return { minPct: 50 };
-    if (i % 600 === 0) { orders.depth(g, 2); orders.heading(g, 15); orders.speed(g, 9); }
-    if (i % 600 === 360) orders.speed(g, 4);
+    // Cut across its track toward the polynya: sprint, then drift and listen.
+    if (i % 600 === 0) { orders.depth(g, 2); orders.heading(g, brg(g.own, offset({ x: 0, y: 0 }, 35, 14))); orders.speed(g, 10); }
+    if (i % 600 === 420) orders.speed(g, 4);
     return true;
   },
 
   A18(g, i, s) {
+    for (const e of g.events) { const m = /Launch transient, bearing (\d+)/.exec(e.text); if (m) { s.m.shB = Number(m[1]); s.m.shT = i; } if (/fresh mines/.test(e.text)) s.m.fresh = 1; }
     if (evade(g, i, s)) return true;
     const cv = g.vessels.find((v) => v.cls.key === 'qnlz')!;
-    const sub = find(g, ['akula', 'kilo'], 60);
-    if (shoot(g, i, sub, sub ? guess(sub, 60)! : '', 0.6)) return true;
+    const ours = g.vessels.filter((v) => v.side === 'allied' && v.alive);
+    // No friendly boats here: any submerged contact away from our ships is hostile.
+    const sub = g.contacts.filter((c) => c.held && c.est && !c.air && c.q > 0.6 && ours.every((v) => dist(v, c.est!) > 1.5) && dist(g.own, c.est) > 1.2 && dist(g.own, c.est) < 7)
+      .sort((a, b) => dist(g.own, a.est!) - dist(g.own, b.est!))[0];
+    if (sub && i % 90 === 0) { g.selected = sub.id; orders.fire(g, 'mk48'); return true; }
     if (s.m.pingY === undefined) s.m.pingY = 99;
-    // Ping as we advance, and again every few minutes for fresh mines.
-    if ((s.m.pingY - g.own.y > 2 || i - (s.m.pingT ?? -1e9) > 600) && g.own.y < 1) { orders.ping(g); s.m.pingY = g.own.y; s.m.pingT = i; }
-    const want = { x: 0, y: Math.max(-16.5, cv.y - 3.5) };
-    if (i % 10 === 0) { orders.depth(g, 1); quietGo(g, dist(g.own, want) < 0.3 ? { x: 0, y: want.y - 1 } : want, dist(g.own, want) < 0.3 ? 2 : 6); }
+    // Ping as we advance, and again when the Akula is heard laying more.
+    if ((s.m.pingY - g.own.y > 2.5 || s.m.fresh) && g.own.y < 1) { orders.ping(g); s.m.pingY = g.own.y; s.m.fresh = 0; }
+    const want = { x: 0, y: Math.max(-19, cv.y - 3) };
+    if (i % 10 === 0) { orders.depth(g, 1); quietGo(g, dist(g.own, want) < 0.3 ? { x: 0, y: want.y - 1 } : want, dist(g.own, want) < 0.3 ? 2 : 8); }
     return true;
   },
 
@@ -233,14 +238,26 @@ export const captains: Record<string, Captain> = {
   A14(g, i, s) {
     if (evade(g, i, s)) return true;
     const lead = g.vessels.find((v) => v.name === 'HMS Cardiff')!;
-    const corv = find(g, ['steregushchiy'], 55);
-    if (corv && corv.q > 0.6 && dist(g.own, corv.est!) < 30 && i % 120 === 0) { g.selected = corv.id; if (!corv.classified) orders.classify(g, corv.id, 'steregushchiy'); orders.fire(g, dist(g.own, corv.est!) < 7 ? 'mk48' : 'mst'); }
-    const kilo = find(g, ['kilo'], 45);
-    if (kilo && dist(g.own, kilo.est!) > 1.5 && dist(g.own, kilo.est!) < 12 && kilo.q > 0.6 && i % 90 === 0) { g.selected = kilo.id; orders.classify(g, kilo.id, 'kilo'); orders.fire(g, dist(g.own, kilo.est!) < 7 ? 'mk48' : 'asroc'); }
+    const ours = g.vessels.filter((v) => v.side === 'allied' && v.alive);
+    const clearOfUs = (c: Contact) => ours.every((v) => dist(v, c.est!) > 3);
+    // A radar look every eight minutes: anything on the surface that isn't ours is a corvette.
+    const look = i % 480 >= 390;
+    if (look) { if (!atPeriscopeDepth(g)) orders.depth(g, 0); else orders.radar(g, true); }
+    else if (g.own.ordDepth < 1) { orders.radar(g, false); orders.depth(g, 1); }
+    const corv = g.contacts.filter((c) => c.held && c.est && !c.air && g.t - c.radarT < 600 && clearOfUs(c) && dist(g.own, c.est) < 26).sort((a, b) => dist(g.own, a.est!) - dist(g.own, b.est!))[0];
+    if (corv && i % 60 === 0) { g.selected = corv.id; orders.fire(g, dist(g.own, corv.est!) < 7 ? 'mk48' : 'mst'); }
+    // Anything heard under water ahead of the convoy is the Kilo.
+    const kilo = g.contacts.filter((c) => c.held && c.est && !c.air && c.q > 0.6 && g.t - c.radarT > 600 && clearOfUs(c) && (guess(c, 45) === 'kilo' || !guess(c, 45)) && dist(g.own, c.est) > 1.2 && dist(g.own, c.est) < 12)
+      .sort((a, b) => dist(g.own, a.est!) - dist(g.own, b.est!))[0];
+    if (kilo && i % 90 === 45) {
+      g.selected = kilo.id;
+      const far = ours.every((v) => dist(v, kilo.est!) > 6) && ours.every((v) => dist(v, g.own) > 3);
+      orders.fire(g, dist(g.own, kilo.est!) < 7 && far ? 'mk48' : 'asroc');
+    }
     const run = lead.alive ? Math.hypot(lead.x, lead.y) : 0;
     if (run > 4 && run < 17 && i - (s.m.pingT ?? -1e9) > 240) { orders.ping(g); s.m.pingT = i; }
     const spot = offset(lead, lead.hdg, 4);
-    if (i % 20 === 0) { orders.depth(g, 1); quietGo(g, spot, dist(g.own, spot) > 1 ? 14 : 10); }
+    if (i % 20 === 0 && !look) { quietGo(g, spot, dist(g.own, spot) > 1 ? 14 : 10); }
     return true;
   },
 

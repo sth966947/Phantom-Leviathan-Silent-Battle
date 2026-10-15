@@ -272,7 +272,7 @@ export const missions: Record<MissionKey, Mission> = {
           log(gg, 'warn', 'Radio intercepts: the coast has seen our launch. The Udaloys are turning toward the launch point and an Il-38 is scrambling.');
           for (const v of dds) cue(gg, v, 2.5);
           helo.ai!.center = { x: gg.own.x, y: gg.own.y };
-          add(gg, 'il38', 'Il-38N May', 'enemy', offset(gg.own, 130, 60), 310, 230, { mode: 'search', center: { x: gg.own.x, y: gg.own.y }, wp: { x: gg.own.x, y: gg.own.y }, buoyT: 0, torps: 2, datum: null });
+          add(gg, 'il38', 'Il-38N May', 'enemy', offset(gg.own, 130, 60), 310, 230, { mode: 'search', center: { x: gg.own.x, y: gg.own.y }, wp: { x: gg.own.x, y: gg.own.y }, buoyT: 0, torps: 1, datum: null });
         }
         const done = gg.sites.every((s) => s.hits >= 2);
         if (done) at(gg, 0, 'pensDone', () => log(gg, 'good', 'Battle damage: both pens have collapsed. Now get us out of here: 20 nm from the launch point.'));
@@ -350,14 +350,14 @@ export const missions: Record<MissionKey, Mission> = {
   A23: {
     key: 'A23', title: 'Under the Ice', era: '2029', place: 'Arctic ice edge, north of Svalbard', date: 'May 2029, 0600',
     library: ['yasen', 'akula', 'arktika', 'virginia'],
-    brief: 'The Yasen-M Ulyanovsk has slipped under the pack ice north of Svalbard. It is heading for open water, a polynya about 15 nm north of it, where it can come up and fire Kalibr cruise missiles at the airfields in northern Norway. If it spends ten minutes in that polynya, it fires and the mission fails. It is about 12 nm northeast of you. Under the ice you can\'t come above 200 feet, so no masts, radar, ASROC or missiles: torpedoes only, and the grinding ice makes everything harder to hear. Sink the Yasen, then come up to periscope depth in any polynya to report. The polynyas are marked on the plot.',
+    brief: 'The Yasen-M Ulyanovsk has slipped under the pack ice north of Svalbard. It is heading for open water, a polynya about 12 nm north of it, where it can come up and fire Kalibr cruise missiles at the airfields in northern Norway. If it spends ten minutes in that polynya, it fires and the mission fails. It is about 10 nm northeast of you. Under the ice you can\'t come above 200 feet, so no masts, radar, ASROC or missiles: torpedoes only, and the grinding ice makes everything harder to hear. Sink the Yasen, then come up to periscope depth in any polynya to report. The polynyas are marked on the plot.',
     build(g, r) {
       g.startClock = clock(6);
       g.timeLimit = 3 * 3600;
       g.env.ice = true;
       g.own.depthT = g.own.ordDepth = 2;
-      const yp = offset(g.own, 30 + r() * 40, 11 + r() * 2);
-      const target = offset(yp, 350 + r() * 30, 14 + r() * 2);
+      const yp = offset(g.own, 35 + r() * 30, 9 + r() * 2);
+      const target = offset(yp, 350 + r() * 30, 11 + r() * 2);
       g.env.polynyas = [
         { ...target, r: 1.2 },
         { ...offset(g.own, 200 + r() * 40, 3), r: 1 },
@@ -370,7 +370,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.flags.inPol = 0;
       g.script = (gg) => {
         if (yasen.alive) {
-          keepCourse(yasen, brg(yasen, target), dist(yasen, target) > 2 ? 8 : 3);
+          keepCourse(yasen, brg(yasen, target), dist(yasen, target) > 2 ? 7 : 3);
           if (dist(yasen, target) < 1.2) {
             if (!gg.flags.inPol) log(gg, 'danger', 'Sonar: the Yasen has reached open water and is coming shallow. It is setting up to fire!', 'alarm');
             gg.flags.inPol++;
@@ -388,7 +388,7 @@ export const missions: Record<MissionKey, Mission> = {
   A18: {
     key: 'A18', title: 'Faroe Shelf', era: '2029', place: 'Faroe-Shetland Channel', date: 'April 2029, 0700',
     library: ['akula', 'kilo', 'qnlz', 'type26', 'virginia'],
-    brief: 'HMS Prince of Wales took a torpedo north of the Faroes and is limping home to Rosyth at 8 knots, with HMS Glasgow as escort. Her way south runs through a lane that the Russians have just mined: it starts 3 nm south of you and runs 12 nm due south. Go ahead of her and find the mines. Your HF sonar picks them out about a mile ahead at 10 knots or less; an active ping shows every mine within 3 nm, but every submarine around will hear it. Each mine you find in the lane is marked, and the carrier\'s mine-clearance drones destroy it two minutes later. She only moves while you are at least a mile and a half ahead of her down the lane. An Akula is laying more mines in the lane, and a Kilo waits near its southern end. Two mine hits will sink the carrier. Get her through the lane.',
+    brief: 'HMS Prince of Wales took a torpedo north of the Faroes and is limping home to Rosyth at 8 knots, with HMS Glasgow as escort. Her way south runs through a lane that the Russians have just mined: it starts 3 nm south of you and runs 12 nm due south. Go ahead of her and find the mines. Your HF sonar picks them out about a mile ahead at 10 knots or less; an active ping shows every mine within 3 nm, but every submarine around will hear it. Each mine you find in the lane is marked, and the carrier\'s mine-clearance drones destroy it two minutes later. She only moves while you are at least a mile and a half ahead of her down the lane. An Akula is laying more mines in the lane: it would rather run than fight, but sinking it stops the mining. A Kilo waits near the southern end. Two mine hits will sink the carrier. Get her through the lane.',
     build(g, r) {
       g.startClock = clock(7);
       g.timeLimit = 4 * 3600;
@@ -399,14 +399,17 @@ export const missions: Record<MissionKey, Mission> = {
       g.mines = g.mines.filter((m) => Math.abs(m.x) > 0.3 || m.y < -3.5); // nothing on Tang's doorstep
       const cv = add(g, 'qnlz', 'HMS Prince of Wales', 'allied', { x: 0, y: 2 }, 180, 0);
       cv.hp = 6; // already torpedoed once
-      screen(g, cv, 'type26', ['HMS Glasgow'], [[0, 1.5]]);
+      screen(g, cv, 'type26', ['HMS Glasgow'], [[180, 1.2]]);
       const ak = boat(g, 'akula', 'Akula (Tigr)', { x: (r() < 0.5 ? -1 : 1) * (8 + r() * 3), y: -6 - r() * 4 }, 90, 6, 1);
+      ak.ai!.snapTaken = true; // a minelayer on a job: it runs from a fight rather than shooting back
       const kilo = boat(g, 'kilo', 'Kilo (Vologda)', { x: (r() * 2 - 1) * 4, y: exitY - 2 - r() * 3 }, r() * 360, 3, 1);
-      void kilo;
       setGoal(g, { targets: [], protect: [cv.id], maxLosses: 0, lossText: 'HMS Prince of Wales hit a second mine and is going down in the channel.',
         win: 'HMS Prince of Wales is through the lane and into open water, making for Rosyth.', timeout: 'The carrier is still stuck north of the minefield.' });
       g.flags.layT = 0;
       g.script = (gg) => {
+        // The Kilo lies in ambush at the far end: it shoots only at what comes close.
+        if (kilo.alive && dist(kilo, gg.own) > 4) kilo.ai!.cool = Math.max(kilo.ai!.cool, 60);
+        if (kilo.alive && kilo.ai!.mode === 'patrol' && dist(kilo, { x: 0, y: exitY - 3 }) > 4) { kilo.ordHdg = brg(kilo, { x: 0, y: exitY - 3 }); kilo.ordSpd = 4; }
         // The carrier comes on down the lane only while Tang is well ahead of her and near the lane.
         const ahead = cv.y - gg.own.y >= 1.5 && Math.abs(gg.own.x) < 2;
         cv.ordHdg = brg(cv, { x: 0, y: cv.y - 2 }); cv.ordSpd = ahead && cv.alive ? 8 : 0;
@@ -424,6 +427,7 @@ export const missions: Record<MissionKey, Mission> = {
         }
         // The Akula lays more mines in the lane ahead of the carrier while it lives.
         if (ak.alive) {
+          if (dist(ak, gg.own) > 3) { ak.ai!.cool = Math.max(ak.ai!.cool, 60); if (ak.ai!.mode === 'attack') ak.ai!.mode = 'patrol'; }
           const spot = { x: 0, y: Math.max(exitY + 1, cv.y - 5) };
           keepCourse(ak, brg(ak, spot), 7);
           if (dist(ak, spot) < 1 && gg.t - gg.flags.layT > 1500 && spot.y > exitY + 1.5) {
@@ -439,33 +443,33 @@ export const missions: Record<MissionKey, Mission> = {
   A20: {
     key: 'A20', title: 'Spoofed', era: '2029', place: 'Norwegian Trench', date: 'April 2029, 2200', night: true,
     library: ['kilo', 'akula', 'nansen', 'virginia'],
-    brief: 'GPS is being spoofed across the Norwegian Trench, the satellite links are jammed, and the Russians have mined both flanks of the trench where it cuts through the shallows off Egersund. The deep-water channel down the axis of the trench is clear, but it winds, and the old charts only roughly agree with it: about 6 nm on 200, then about 6 nm on 160, then about 6 nm on 210. Navigate by the bottom: the fathometer reports every minute and a half, and the bottom shoals on whichever side you are drifting toward. Stray more than half a mile or so off the axis and you are among the mines. Your HF sonar finds mines about a mile ahead at 10 knots or less; a ping shows every one within 3 nm, but a Kilo is waiting near the far end and will hear it. Reach the end of the channel. Two mine hits will sink Tang.',
+    brief: 'GPS is being spoofed across the Norwegian Trench, the satellite links are jammed, and the Russians have mined both flanks of the trench where it cuts through the shallows off Egersund. The deep-water channel down the axis of the trench is clear, but it winds, and the old charts only roughly agree with it: about 5 nm on 200, then about 5 nm on 160, then about 5 nm on 210. Navigate by the bottom: the fathometer reports every two and a half minutes, and the bottom shoals on whichever side you are drifting toward. Stray more than about half a mile off the axis and you are among the mines. Your HF sonar finds mines about a mile ahead at 10 knots or less; a ping shows every one within 3 nm, but a Kilo is waiting near the far end and will hear it. Reach the end of the channel. Two mine hits will sink Tang.',
     build(g, r) {
       g.startClock = clock(22);
-      g.timeLimit = 3 * 3600;
+      g.timeLimit = 3.5 * 3600;
       g.flags.jammed = 1;
       const legs = [200 + (r() * 2 - 1) * 8, 160 + (r() * 2 - 1) * 8, 210 + (r() * 2 - 1) * 8];
       const pts: Vec[] = [{ x: g.own.x, y: g.own.y }];
-      for (const c of legs) pts.push(offset(pts[pts.length - 1], c, 5.5 + r()));
+      for (const c of legs) pts.push(offset(pts[pts.length - 1], c, 4.5 + r()));
       g.own.hdg = g.own.ordHdg = legs[0]; g.own.ordSpd = 6;
       // Mines on both flanks of each leg, but none in the channel itself.
       for (let i = 0; i < 3; i++) for (const s of [-1, 1]) {
         const a = pts[i], b = pts[i + 1], off = (k: number) => offset(a, legs[i] + 90 * s, k), endP = (k: number) => offset(b, legs[i] + 90 * s, k);
-        mineLine(g, off(0.9), endP(0.9), 10, 'enemy', 0.2);
-        mineLine(g, off(1.6), endP(1.6), 6, 'enemy', 0.3);
+        mineLine(g, off(0.75), endP(0.75), 10, 'enemy', 0.2);
+        mineLine(g, off(1.4), endP(1.4), 6, 'enemy', 0.3);
       }
-      g.mines = g.mines.filter((m) => xtrack(pts, m).d > 0.6 && dist(m, pts[0]) > 0.8);
-      const kilo = boat(g, 'kilo', 'Kilo (Vologda)', offset(pts[3], legs[2] + (r() * 2 - 1) * 40, 3 + r() * 2), r() * 360, 3, 1);
+      g.mines = g.mines.filter((m) => xtrack(pts, m).d > 0.5 && dist(m, pts[0]) > 0.8);
+      const kilo = boat(g, 'kilo', 'Kilo (Vologda)', offset(offset(pts[2], legs[2], 2 + r() * 2), legs[2] + (r() < 0.5 ? 90 : -90), 2 + r()), r() * 360, 3, 1);
       void kilo;
       g.flags.ex = pts[3].x * 1000; g.flags.ey = pts[3].y * 1000;
       setGoal(g, { targets: [], need: 1, win: 'We are through the trench and into deep water, with the field behind us.', timeout: 'We are still inside the minefield.' });
       g.script = (gg) => {
         const xt = xtrack(pts, gg.own);
-        if (gg.t % 90 === 0) {
+        if (gg.t % 150 === 0) {
           const fath = Math.round(180 - Math.min(2, xt.d) * 45 + gauss(gg.r) * 3);
-          const tilt = xt.d < 0.3 ? 'Steady bottom: we are on the channel axis.'
-            : `Shoaling to ${xt.left ? 'the west' : 'the east'}${xt.d > 0.6 ? ', fast' : ''}: the axis lies to the ${xt.left ? 'east' : 'west'}${xt.d > 0.6 ? '. We are among the mines' : ''}.`;
-          log(gg, xt.d > 0.6 ? 'warn' : 'info', `Fathometer: ${fath} fathoms. ${tilt}`);
+          const tilt = xt.d < 0.25 ? 'Steady bottom: we are on the channel axis.'
+            : `Shoaling to ${xt.left ? 'the east' : 'the west'}${xt.d > 0.45 ? ', fast' : ''}: the axis lies to the ${xt.left ? 'west' : 'east'}${xt.d > 0.45 ? '. We are among the mines' : ''}.`;
+          log(gg, xt.d > 0.45 ? 'warn' : 'info', `Fathometer: ${fath} fathoms. ${tilt}`);
         }
         if (xt.seg > flag(gg, 'seg') && xt.seg < 3) {
           gg.flags.seg = xt.seg;
@@ -480,7 +484,7 @@ export const missions: Record<MissionKey, Mission> = {
   A14: {
     key: 'A14', title: 'Baltic Gate', era: '2029', place: 'Off Gotland', date: 'May 2029, 0900',
     library: ['kilo', 'steregushchiy', 'boxship', 'type26', 'ka27', 'virginia'],
-    brief: 'A convoy of four ro-ro ships is running north past Gotland with armour and ammunition for Finland and the Baltic states, escorted by HMS Cardiff. Tang is 4 nm ahead of it. Lose no more than one ship in the next 2 hours 30 minutes. The corvettes Soobrazitelny and Boikiy are coming out from the southeast: if one spends 8 minutes inside 25 nm of the convoy, she fires a salvo of Kalibrs at it. The Kilo Dmitrov is lying in wait somewhere ahead. The Russians mined the route overnight, about 11 nm north of you: ping ahead of the convoy to find the mines, and Cardiff will steer the convoy round any you have marked.',
+    brief: 'A convoy of four ro-ro ships is running north past Gotland with armour and ammunition for Finland and the Baltic states, escorted by HMS Cardiff. Tang is 4 nm ahead of it. Lose no more than one ship in the next 2 hours 30 minutes. The corvettes Soobrazitelny and Boikiy are coming out from the southeast: if one spends 8 minutes inside 20 nm of the convoy, she fires a salvo of Kalibrs at it. Radar at periscope depth sees ships out to 25 nm. The Kilo Dmitrov is lying in wait somewhere ahead. The Russians mined the route overnight, about 11 nm north of you: ping ahead of the convoy to find the mines, and Cardiff will steer the convoy round any you have marked.',
     build(g, r) {
       g.startClock = clock(9);
       g.timeLimit = 2.5 * 3600;
@@ -501,8 +505,8 @@ export const missions: Record<MissionKey, Mission> = {
       g.script = (gg) => {
         for (const v of corvs) {
           if (!v.alive) continue;
-          if (v.ai!.mode === 'transit') v.ai!.baseCourse = brg(v, lead);
-          if (dist(v, lead) < 25) gg.flags[`fc${v.id}`] = flag(gg, `fc${v.id}`) + 1;
+          if (v.ai!.mode === 'transit') { v.ai!.baseCourse = brg(v, lead); v.ai!.cruise = dist(v, lead) < 18 ? 8 : 20; }
+          if (dist(v, lead) < 20) gg.flags[`fc${v.id}`] = flag(gg, `fc${v.id}`) + 1;
           if (gg.flags[`fc${v.id}`] === 480) missileSalvo(gg, v.name, 'Kalibr', 4, ships, 0.4, 3);
         }
         pointDefence(gg, corvs, 0.4);
@@ -668,7 +672,7 @@ export const missions: Record<MissionKey, Mission> = {
   },
 };
 
-/** Cross-track: distance from p to the nearest leg of a route, the leg's index, and whether p is left (west of a southbound leg) of it. */
+/** Cross-track: distance from p to the nearest leg of a route, the leg's index, and whether p is left of it (east of a southbound leg). */
 function xtrack(pts: Vec[], p: Vec) {
   let best = { d: Infinity, seg: 0, left: false };
   for (let i = 0; i < pts.length - 1; i++) {
@@ -762,7 +766,7 @@ export const extras: Record<MissionKey, ObjectiveFn> = {
     return [{ text: 'Reach the end of the channel', state: g.over?.win ? 'done' : 'open', detail: `${dist(g.own, ex).toFixed(1)} nm to go in a straight line. Follow the trench axis.` },
       watch('Don\'t hit two mines', !g.own.alive, g.own.hp < g.own.cls.hp ? 'One hit already: one more sinks us.' : 'No hits so far.'), ...b];
   },
-  A14: (g, b) => [...b, watch('Keep the corvettes from firing on the convoy', false, 'Each fires a Kalibr salvo after 8 minutes inside 25 nm of the convoy.')],
+  A14: (g, b) => [...b, watch('Keep the corvettes from firing on the convoy', false, 'Each fires a Kalibr salvo after 8 minutes inside 20 nm of the convoy.')],
   A15: (g, b) => [...b.filter((o) => !o.text.startsWith('Keep')), neutralOk(g, 'Don\'t sink the Turkish submarine'), watch('Don\'t let either Kilo get 14 nm south of where you started', flag(g, 'through') > 0)],
   A16: (g, b) => {
     const fr = g.vessels.filter((v) => v.cls.key === 'gorshkov');
