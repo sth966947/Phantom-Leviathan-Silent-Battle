@@ -7,7 +7,7 @@
 
 export type Kind = 'sub' | 'surface' | 'air';
 export type Nation = 'US' | 'UK' | 'Germany' | 'Russia' | 'Japan' | 'Netherlands' | 'Italy'
-  | 'China' | 'India' | 'Iran' | 'Brazil' | 'South Africa' | 'Venezuela' | 'Australia' | 'Norway' | 'Turkey' | 'Pakistan';
+  | 'China' | 'India' | 'Iran' | 'Brazil' | 'South Africa' | 'Venezuela' | 'Australia' | 'Norway' | 'Turkey' | 'Pakistan' | 'Liberia';
 
 export interface ClassCard {
   key: string;
@@ -592,11 +592,11 @@ export const CLASSES: Record<string, ClassCard> = {
   },
   // Slow two-stroke diesels: low firing-rate lines and a slow-turning big screw.
   tanker: {
-    key: 'tanker', name: 'Crude oil tanker', type: 'tanker', nation: 'US', kind: 'surface',
+    key: 'tanker', name: 'Crude oil tanker', type: 'tanker', nation: 'Liberia', kind: 'surface',
     slBase: 88, maxSpd: 15, threshold: null, hp: 6, tonals: [28, 56, 84, 7], blades: 4, shaftHzPerKt: 0.1,
   },
   lng: {
-    key: 'lng', name: 'LNG carrier', type: 'LNG carrier', nation: 'US', kind: 'surface',
+    key: 'lng', name: 'LNG carrier', type: 'LNG carrier', nation: 'Liberia', kind: 'surface',
     slBase: 87, maxSpd: 19, threshold: null, hp: 5, tonals: [40, 20, 120, 80], blades: 5, shaftHzPerKt: 0.11,
   },
   tender: {

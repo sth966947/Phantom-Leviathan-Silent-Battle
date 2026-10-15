@@ -774,7 +774,11 @@ function checkGoal(g: Game) {
 export function end(g: Game, win: boolean, reason: string) { if (!g.over) g.over = { win, t: g.t, reason }; }
 
 const isEscort = (v: Vessel) => /destroyer|corvette/.test(v.cls.type);
-const ADJ: Record<string, string> = { Germany: 'German', Japan: 'Japanese', Russia: 'Russian', UK: 'British', US: 'US' };
+const ADJ: Record<string, string> = {
+  Germany: 'German', Japan: 'Japanese', Russia: 'Russian', UK: 'British', US: 'US', Italy: 'Italian', Netherlands: 'Dutch',
+  China: 'Chinese', India: 'Indian', Iran: 'Iranian', Brazil: 'Brazilian', 'South Africa': 'South African', Venezuela: 'Venezuelan',
+  Australia: 'Australian', Norway: 'Norwegian', Turkey: 'Turkish', Pakistan: 'Pakistani', Liberia: 'merchant',
+};
 /** "The German group", "The Japanese force": how the log names the enemy. */
 export const groupName = (g: Game) => {
   const e = g.vessels.find((v) => v.side === 'enemy' && v.cls.kind === 'surface');
