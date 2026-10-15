@@ -360,6 +360,7 @@ function warMissionHTML(id: string, w: WarState, choice: boolean) {
     <h3>${esc(m.name)}</h3>
     <p><b>You face:</b> ${esc(m.face)}.</p>
     <p><b>Orders:</b> ${esc(m.goal)}.</p>
+    ${built ? `<p class="war-brief">${esc(MISSIONS[PLAYABLE[id]!].brief)}</p>` : ''}
     <p class="fx"><span class="ok">Win:</span> ${esc(m.winText)} · <span class="no">Loss:</span> ${esc(m.loseText)}</p>
     ${built ? `<button data-begin="${id}">${choice ? 'Take these orders' : 'Begin mission'}</button>`
       : `<p class="unbuilt">This mission isn't built yet. To try the story, mark how it went.</p><div class="row"><button data-mark="${id}" data-win="1">Count as won</button><button data-mark="${id}" data-win="0">Count as lost</button></div>`}
@@ -424,21 +425,23 @@ function showWarResult(id: string) {
   const res = record(g);
   const brief = $('brief');
   const m = WAR_MISSIONS[id];
-  // Losing Tang means trying the mission again; any other result stands.
+  // Nothing counts until the player moves on, so a mission can be replayed first.
   const tangLost = !g.own.alive;
-  const w = currentWar();
-  const card = tangLost ? undefined : resolveWar(w, id, o.win);
-  if (!tangLost) saveWar();
   brief.className = 'brief ' + (o.win ? 'win' : 'loss');
   brief.innerHTML = `
-    <h2>${o.win ? 'Mission accomplished' : tangLost ? 'Tang is lost' : 'Mission failed'}</h2>
+    <h2>${o.win ? 'Mission passed' : tangLost ? 'Tang is lost' : 'Mission failed'}</h2>
     <p class="sub">${esc(m.name)} · ${Math.round(o.t / 60)} min · ${g.stats.hits} hits</p>
     <p>${esc(o.reason)}${res.sunk.length ? ` Sunk: ${esc(res.sunk.join(', '))}.` : ''} The plot now shows where every ship really was.</p>
-    ${tangLost ? '<p>The war goes on without this result. Try the mission again.</p>'
-      : `<p class="fx">${o.win ? esc(m.winText) : esc(m.loseText)}</p>${card ? `<div class="interlude"><div class="wlabel">Radio bulletin</div><p><b>${esc(card.name)}.</b> ${esc(card.text)}</p></div>` : ''}`}
-    <div class="row">${tangLost ? '<button id="again">Try again</button>' : '<button id="next">Back to the war</button>'}<button id="watch">Watch replay</button></div>`;
-  $('next')?.addEventListener('click', showWar);
-  $('again')?.addEventListener('click', () => start(scenario, id));
+    <p><b>Orders were:</b> ${esc(m.goal)}.</p>
+    ${tangLost ? '<p>The war can\'t go on without Tang. Replay the mission.</p>'
+      : `<p class="fx">If you continue: ${o.win ? `<span class="ok">passed</span> · ${esc(m.winText)}` : `<span class="no">failed</span> · ${esc(m.loseText)}`}</p>`}
+    <div class="row"><button id="again">Replay mission</button>${tangLost ? '' : `<button id="next">Continue the war</button>`}<button id="watch">Watch replay</button></div>`;
+  $('next')?.addEventListener('click', () => {
+    resolveWar(currentWar(), id, o.win);
+    saveWar();
+    showWar();
+  });
+  $('again').addEventListener('click', () => start(scenario, id));
   $('watch').addEventListener('click', startReplay);
   $('overlay').hidden = false;
   running = false;

@@ -19,4 +19,6 @@ export function saveWar() { try { localStorage.setItem(KEY, JSON.stringify(war))
 export function restartWar() { war = fresh(); saveWar(); }
 
 /** War missions that are built and playable, by the scenario that plays them. The rest can be marked won or lost for now. */
-export const PLAYABLE: Partial<Record<string, MissionKey>> = { A2: 'duel' };
+export const PLAYABLE: Partial<Record<string, MissionKey>> = {
+  A1: 'vortex', A2: 'duel', A3: 'raiderloose', A17: 'eyes', A4: 'giuk', A5: 'bremerhaven', A6: 'cables', A7: 'darkwater', A19: 'lostsister',
+};

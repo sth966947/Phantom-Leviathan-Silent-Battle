@@ -348,4 +348,5 @@ button.on-air { background: #1d4a3a; border-color: #2f7a5e; color: #d4ffe9; }
 .fx .ok { color: var(--good); }
 .fx .no { color: var(--threat); }
 .war-mission .unbuilt { color: var(--contact); font-size: 13px; }
+.war-mission .war-brief { color: var(--dim); font-size: 13px; line-height: 1.45; }
 .war-mission .row button { flex: 1; }

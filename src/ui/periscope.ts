@@ -72,6 +72,23 @@ const SHIPS: Record<string, ShipSil> = {
     parts: [{ t: 'box', x0: 0, x1: 0.1, h: 10 }, { t: 'mast', x: 0.24, h: 24 }, { t: 'box', x0: 0.42, x1: 0.56, h: 15 },
       { t: 'funnel', x: 0.5, w: 0.06, h: 21 }, { t: 'mast', x: 0.74, h: 24 }, { t: 'box', x0: 0.88, x1: 1, h: 10 }],
   },
+  // ---- Modern war ----
+  udaloy: {
+    kind: 'ship', len: 163, deck: [[0, 5], [0.45, 6], [0.8, 7], [1, 9]],
+    parts: [B(0.05, 0.22, 10), B(0.32, 0.62, 12), B(0.4, 0.56, 17), F(0.42, 0.04, 22), F(0.55, 0.04, 22), M(0.5, 34), B(0.62, 0.7, 19), M(0.66, 30), T(0.82, 10, 0.03, 0.04), T(0.9, 9, 0.03, 0.04)],
+  },
+  yantar: {
+    kind: 'ship', len: 108, deck: [[0, 5], [0.3, 5], [0.7, 7], [1, 9]],
+    parts: [B(0.05, 0.3, 9), { t: 'mast', x: 0.18, h: 16 }, B(0.55, 0.88, 14), B(0.62, 0.82, 19), M(0.72, 30)],
+  },
+  boxship: {
+    kind: 'ship', len: 300, deck: [[0, 10], [0.2, 10], [1, 12]],
+    parts: [B(0.02, 0.85, 22), B(0.12, 0.2, 34), F(0.1, 0.02, 36), B(0.85, 0.96, 14), M(0.95, 20)],
+  },
+  arleigh: {
+    kind: 'ship', len: 155, deck: [[0, 5], [0.6, 6], [0.85, 7], [1, 8]],
+    parts: [B(0.32, 0.66, 13), B(0.52, 0.66, 19), M(0.58, 32), F(0.44, 0.05, 20), F(0.32, 0.04, 18), T(0.78, 8, 0.03, 0.05)],
+  },
   maru: {
     kind: 'ship', len: 125, deck: [[0, 7], [0.12, 8], [0.14, 6], [0.84, 6], [0.86, 8], [1, 9]],
     parts: [{ t: 'box', x0: 0, x1: 0.12, h: 9 }, { t: 'mast', x: 0.22, h: 22 }, { t: 'box', x0: 0.4, x1: 0.58, h: 14 }, { t: 'box', x0: 0.44, x1: 0.52, h: 19 },
@@ -315,6 +332,21 @@ const SHIPS: Record<string, ShipSil> = {
 
 // Aircraft are drawn nose to the right in a box `L` pixels long.
 const AIR: Record<string, AirSil> = {
+  tu142: {
+    kind: 'air', len: 50, alt: 800, draw(c, L) {
+      c.beginPath(); c.ellipse(0.5 * L, 0, 0.5 * L, 0.05 * L, 0, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.moveTo(0.02 * L, -0.03 * L); c.lineTo(0.07 * L, -0.24 * L); c.lineTo(0.16 * L, -0.24 * L); c.lineTo(0.2 * L, -0.03 * L); c.fill();
+      c.fillRect(0.4 * L, -0.02 * L, 0.3 * L, 0.04 * L);
+      c.fillRect(0.5 * L, 0.0, 0.12 * L, 0.05 * L);
+    },
+  },
+  tu22m3: {
+    kind: 'air', len: 42, alt: 3000, draw(c, L) {
+      c.beginPath(); c.moveTo(0, -0.03 * L); c.lineTo(0.9 * L, -0.03 * L); c.lineTo(L, 0); c.lineTo(0.9 * L, 0.03 * L); c.lineTo(0, 0.03 * L); c.fill();
+      c.beginPath(); c.moveTo(0.02 * L, -0.03 * L); c.lineTo(0.06 * L, -0.2 * L); c.lineTo(0.18 * L, -0.2 * L); c.lineTo(0.22 * L, -0.03 * L); c.fill();
+      c.beginPath(); c.moveTo(0.35 * L, 0); c.lineTo(0.62 * L, -0.02 * L); c.lineTo(0.7 * L, 0.02 * L); c.fill();
+    },
+  },
   ar196: {
     kind: 'air', len: 11, alt: 300, draw(c, L) {
       c.fillRect(0, -0.07 * L, L * 0.85, 0.12 * L);                 // fuselage

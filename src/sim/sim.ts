@@ -167,7 +167,7 @@ export const LAYER_FT = depthFeet(LAYER_AT);
 export const depthT = (ft: number) => (ft <= 150 ? (ft - 60) / 90 : 1 + (ft - 150) / 550);
 export const MIN_FT = 60, MAX_FT = 800;
 /** Typical cruising height in feet. Low fliers stay down where radar sees them only close in. */
-const CRUISE_FT: Record<string, number> = { il38: 8000, ar196: 1500, kate: 10000, mavis: 6000, jake: 2500, fw200: 3000 };
+const CRUISE_FT: Record<string, number> = { il38: 8000, tu142: 25000, tu22m3: 30000, ar196: 1500, kate: 10000, mavis: 6000, jake: 2500, fw200: 3000 };
 export const altitudeFt = (v: Vessel) => (flyingLow(v) ? (v.cls.key === 'ka27' ? 300 : 600) : CRUISE_FT[v.cls.key] ?? 8000);
 const PD_MAX = 0.3; // depthT at or above which masts are out of the water
 
@@ -345,6 +345,8 @@ export const orders = {
     if (g.over) return;
     const w = WEAPONS[type];
     if (w.missile && o.depthT > MISSILE_MAX_DEPTH) return log(g, 'warn', `${w.short}: come up to 150 feet or shallower to launch.`);
+    // Maritime Strike Tomahawk needs satellite updates in flight to find a moving ship.
+    if (type === 'mst' && g.flags.jammed) return log(g, 'warn', 'Tomahawk: satellite links are jammed. It can\'t get in-flight updates on a moving target. Harpoon and torpedoes still work.');
     const aa = w.role === 'aa';
     const c = targetContact(g, aa);
     if (!aa && w.missile && !c) return log(g, 'warn', `${w.short}: no contact to target. Select a contact with a solution first.`);
@@ -934,7 +936,7 @@ function airDatum(g: Game, v: Vessel, k: Knowledge, why: string) {
 /** Aircraft pass their datum to the submarine by datalink. */
 function shareDatum(g: Game, side: Side, k: Knowledge) {
   for (const s of g.vessels) {
-    if (!s.alive || s.side !== side || s.cls.kind !== 'sub' || !s.ai) continue;
+    if (!s.alive || s.side !== side || s.cls.kind === 'air' || s.cls.threshold === null || !s.ai) continue;
     s.ai.knows = { x: k.x, y: k.y, t: g.t, deep: k.deep };
     if (s.ai.mode === 'patrol') s.ai.mode = 'attack';
   }
@@ -1173,6 +1175,8 @@ function picketAI(g: Game, v: Vessel, dt: number) {
 
 function surfaceAI(g: Game, v: Vessel, dt: number) {
   const ai = v.ai!;
+  // Modern sub hunters search, attack and dodge torpedoes as a submarine does, on the surface.
+  if (v.cls.threshold !== null && (ai.mode === 'patrol' || ai.mode === 'attack' || ai.mode === 'evade')) return subAI(g, v, dt);
   if (ai.mode === 'hunt') return huntAI(g, v, dt);
   if (ai.mode === 'picket') return picketAI(g, v, dt);
   if (ai.mode === 'station') {
@@ -1276,11 +1280,12 @@ function subAI(g: Game, v: Vessel, dt: number) {
     if (ai.evadeT <= 0 && !t) { ai.mode = ai.knows ? 'attack' : 'patrol'; ai.threat = null; }
   } else if (ai.mode === 'attack' && ai.knows) {
     const r = dist(v, ai.knows);
-    v.ordHdg = brg(v, ai.knows);
+    // Close to firing range but not to point blank, where a torpedo can't arm in time: inside 3 nm, open out on a beam course.
+    v.ordHdg = r < 3 ? norm(brg(v, ai.knows) + 100) : brg(v, ai.knows);
     v.ordSpd = r > 6 ? 12 : 7;
     v.ordDepth = ai.knows.deep ? 2 : 1;
     const solved = ai.knows.exact || ai.holdT >= 90;
-    if (solved && r < 8 && ai.cool <= 0 && g.t - ai.knows.t < 120) {
+    if (solved && r < 8 && r > 1.2 && ai.cool <= 0 && g.t - ai.knows.t < 120) {
       enemyFire(g, v, { x: ai.knows.x, y: ai.knows.y }, ai.knows.deep, false);
       ai.knows.exact = false;
     }
