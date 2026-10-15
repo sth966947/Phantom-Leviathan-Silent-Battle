@@ -228,7 +228,7 @@ export const missions: Record<MissionKey, Mission> = {
       const frig = fresh(carry, ['Tamandaré (F200)', 'Jerônimo de Albuquerque (F201)', 'Cunha Moreira (F202)', 'Mariz e Barros (F203)'], 3)
         .map((n, i) => add(g, 'tamandare', n, 'enemy', offset(anch, 250 + i * 70 + r() * 30, 12 + r() * 4), r() * 360, 8, { mode: 'patrol', legT: 500 }));
       const subs = fresh(carry, ['Riachuelo (S40)', 'Humaitá (S41)', 'Tonelero (S42)', 'Angostura (S43)'], 2)
-        .map((n, i) => add(g, 'riachuelo', n, 'enemy', offset(anch, i ? 60 + r() * 30 : 300 + r() * 30, i ? 16 : 10), 0, 4, i ? { mode: 'raider', cruise: 6, decoys: 2, torps: 4 } : { mode: 'patrol', legT: 500, decoys: 2 }, 1));
+        .map((n, i) => add(g, 'riachuelo', n, 'enemy', offset(anch, i ? 60 + r() * 30 : 300 + r() * 30, i ? 16 : 13), 0, 4, i ? { mode: 'raider', cruise: 6, decoys: 2, torps: 4 } : { mode: 'patrol', legT: 500, decoys: 2 }, 1));
       add(g, 'p3am', 'P-3AM Orion', 'enemy', offset(anch, r() * 360, 40), 0, 230, { mode: 'search', center: anch, wp: anch, buoyT: 0, torps: 2, datum: null });
       setGoal(g, { targets: [], protect: ids(convoy), maxLosses: 1, lossText: 'Two relief ships are gone. Ascension stays under siege.', win: '', timeout: 'The convoy never made the anchorage. Ascension stays under siege.' });
       g.script = (gg) => {
@@ -241,7 +241,7 @@ export const missions: Record<MissionKey, Mission> = {
         // Each frigate inside 25 nm of the convoy gets a MANSUP off every 20 minutes.
         if (gg.t % 1500 === 750) for (const f of frig) {
           const near = convoy.filter((v) => v.alive && dist(v, f) < 20);
-          if (f.alive && near.length) missileSalvo(gg, f.name, 'MANSUP', 1, near, 0.3, 2);
+          if (f.alive && near.length) missileSalvo(gg, f.name, 'MANSUP', 1, near, 0.25, 2);
         }
         const left = convoy.filter((v) => v.alive).length;
         if (!left && flag(gg, 'arrived') >= 2) end(gg, true, 'The relief convoy is in Clarence Bay. The siege of Ascension is broken.');

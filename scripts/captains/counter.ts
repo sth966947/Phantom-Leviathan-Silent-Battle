@@ -15,7 +15,7 @@ export function evade(g: Game, i: number, s: CaptainState, snap = true) {
   for (const e of g.events) {
     const m = /Launch transient, bearing (\d+)/.exec(e.text);
     if (!m) continue;
-    const find = () => g.contacts.find((x) => x.held && x.est && !x.air && g.vessels.find((v) => v.id === x.vid)?.cls.kind === 'sub' && Math.abs(angDiff(x.bearing!, Number(m[1]))) < 15);
+    const find = () => g.contacts.find((x) => x.held && x.est && !x.air && g.vessels.find((v) => v.id === x.vid && v.side === 'enemy')?.cls.kind === 'sub' && Math.abs(angDiff(x.bearing!, Number(m[1]))) < 15);
     // Nothing on that bearing: a quiet diesel boat. One ping finds it.
     let c = find();
     if (!snap) continue;
@@ -73,6 +73,14 @@ export const captains: Record<string, Captain> = {
     if (evade(g, i, s)) return true;
     // The frigates are round the anchorage, 24 nm south: go ahead of the convoy to find them.
     if (!threat(g, ['tamandare'], 30) && !g.contacts.some((c) => c.held && c.classified === 'tamandare')) { steerTo(g, i, offset({ x: 0, y: 0 }, 170, 18), 10); if (i % 900 === 450) orders.depth(g, 0); if (i % 900 === 600) orders.depth(g, 1); if (atPeriscopeDepth(g)) orders.radar(g, true); return true; }
+    // Frigates gone: back to the convoy, on its eastern side where the raiding Riachuelo comes from, pinging for her.
+    if (!g.vessels.some((v) => v.cls.key === 'tamandare' && v.alive)) {
+      const lead = g.vessels.find((v) => v.alive && v.side === 'allied' && ['type26', 'tanker', 'boxship'].includes(v.cls.key));
+      if (threat(g, ['riachuelo'], 8) || !lead) return { extra: ['riachuelo'] };
+      if (i % 300 === 150) orders.ping(g);
+      steerTo(g, i, offset(lead, 120, 3), dist(g.own, offset(lead, 120, 3)) > 2 ? 12 : 8);
+      return true;
+    }
     return { extra: ['tamandare'] };
   },
   CA2: (g, i, s) => evade(g, i, s) || { extra: ['yasen', 'udaloy', 'gorshkov'] },
