@@ -86,6 +86,14 @@ function hunter(g: Game, i: number, s: CaptainState, targets: string[], threats:
   }
   return true;
 }
+/** A pinging ship gives herself away: when her pings are loud, turn and send a fish down the bearing. */
+function pingShot(g: Game, i: number, s: CaptainState) {
+  for (const e of g.events) { const p = /active sonar intercept, bearing (\d+), loud/.exec(e.text); if (p) { s.m.pB = Number(p[1]); s.m.pT = i; } }
+  if (s.m.pT === undefined || i - s.m.pT >= 90 || i - (s.m.pShot ?? -1e9) <= 360) return false;
+  orders.heading(g, s.m.pB); orders.speed(g, 5);
+  if (Math.abs(angDiff(g.own.hdg, s.m.pB)) < 8) { g.selected = null; orders.fire(g, 'mk48'); s.m.pShot = i; }
+  return true;
+}
 /** SM-6 at the nearest strike flight held on radar. */
 function sm6(g: Game, i: number) {
   if (!atPeriscopeDepth(g)) return;
@@ -139,19 +147,29 @@ export const captains: Record<string, Captain> = {
   A11(g, i, s) {
     if (i === 0) s.m.axis = g.own.hdg;
     if (evade(g, i, s)) return true;
+    // The Udaloy's pings tell us where she is: stay out of her way rather than start a fight in here.
+    for (const e of g.events) { const p = /active sonar intercept, bearing (\d+), (loud|clear)/.exec(e.text); if (p) { s.m.uB = Number(p[1]); s.m.uT = i; s.m.uR = p[2] === 'loud' ? 2 : 6; } }
     const ready = !!g.flags.ready;
     const threat = find(g, ['akula', 'yasen', 'udaloy'], 60);
     if (threat && threat.q > 0.65 && shoot(g, i, threat, guess(threat, 60)!, 0.65, 120)) return true;
     if (g.own.ordDepth !== 2 && i % 60 === 0) orders.depth(g, 2);
-    if (ready) { if (i % 60 === 0) quietGo(g, { x: 0, y: 0 }, 10); return true; }
     const b = find(g, ['borei'], 40);
+    // Keep clear of any other submarine we hear close by.
+    const other = g.contacts.filter((c) => c.held && c.est && !c.air && c !== b && dist(g.own, c.est) < 3.5).sort((x, y) => dist(g.own, x.est!) - dist(g.own, y.est!))[0];
+    const away = (want: number, b: number, r: number) => want + Math.sign(angDiff(b, want) || 1) * -Math.max(0, 70 - 15 * r);
+    const push = (want: number) => {
+      let h = other ? away(want, brg(g.own, other.est!), dist(g.own, other.est!)) : want;
+      if (s.m.uT !== undefined && i - s.m.uT < 300 && Math.abs(angDiff(s.m.uB, h)) < 60) h = away(h, s.m.uB, s.m.uR);
+      return h;
+    };
+    if (ready) { if (i % 30 === 0) { orders.heading(g, push(brg(g.own, { x: 0, y: 0 }))); orders.speed(g, 6); } return true; }
     if (b) {
       g.selected = b.id;
       const r = dist(g.own, b.est!);
-      if (i % 60 === 0) { orders.heading(g, r > 4 ? brg(g.own, b.est!) : brg(g.own, b.est!) + 90); orders.speed(g, r > 4 ? 6 : 4); }
+      if (i % 30 === 0) { orders.heading(g, push(r > 4 ? brg(g.own, b.est!) : brg(g.own, b.est!) + 90)); orders.speed(g, r > 4 ? 5 : 4); }
       return true;
     }
-    if (i % 600 === 0) { orders.heading(g, s.m.axis + (s.legs++ % 2 ? 20 : -20)); orders.speed(g, i % 1200 ? 5 : 9); }
+    if (i % 30 === 0) { orders.heading(g, push(brg(g.own, offset({ x: 0, y: 0 }, s.m.axis, 17)))); orders.speed(g, 5); }
     return true;
   },
 
@@ -195,7 +213,17 @@ export const captains: Record<string, Captain> = {
       if (!underIce(g)) { orders.depth(g, 0); orders.speed(g, 3); } else if (i % 30 === 0) { steerTo(g, p, 10); }
       return true;
     }
-    if (find(g, ['yasen'], 50)) return { minPct: 50 };
+    // Nothing else lives under the pack: any submerged contact is the Yasen.
+    const c = g.contacts.filter((k) => k.held && k.est && !k.air).sort((a, b) => dist(g.own, a.est!) - dist(g.own, b.est!))[0];
+    if (c) {
+      const d = dist(g.own, c.est!);
+      if (d < 6 && d > 1.2 && i - (s.m.shotT ?? -1e9) > 180) { g.selected = c.id; orders.fire(g, 'mk48'); s.m.shotT = i; }
+      // Head for a point between it and the open water it wants.
+      const pol = g.env.polynyas[0];
+      const aim = { x: (c.est!.x + pol.x) / 2, y: (c.est!.y + pol.y) / 2 };
+      if (i % 30 === 0) { orders.depth(g, 2); orders.heading(g, brg(g.own, d < 3 ? c.est! : aim)); orders.speed(g, d > 4 && i % 600 < 420 ? 12 : 5); }
+      return true;
+    }
     // Cut across its track toward the polynya: sprint, then drift and listen.
     if (i % 600 === 0) { orders.depth(g, 2); orders.heading(g, brg(g.own, offset({ x: 0, y: 0 }, 35, 14))); orders.speed(g, 10); }
     if (i % 600 === 420) orders.speed(g, 4);
@@ -275,9 +303,12 @@ export const captains: Record<string, Captain> = {
   A24(g, i, s) {
     if (evade(g, i, s)) return true;
     const box = pt(g, 'bx', 'by'), mouth = pt(g, 'mx', 'my');
-    const threat = find(g, ['kilo', 'steregushchiy'], 60);
-    if (shoot(g, i, threat, threat ? guess(threat, 60)! : '')) return true;
+    for (const e of g.events) { const m = /Launch transient, bearing (\d+)/.exec(e.text); if (m) { s.m.shB = Number(m[1]); s.m.shT = i; } }
     if (g.own.ordDepth !== 2 && i % 30 === 0) orders.depth(g, 2);
+    if (pingShot(g, i, s)) return true;
+    // No friendly or neutral traffic in the bay: anything held close in is the Kilo or the corvette.
+    const near = g.contacts.filter((c) => c.held && c.est && !c.air && dist(g.own, c.est) > 1.2 && dist(g.own, c.est) < 6.5).sort((a, b) => dist(g.own, a.est!) - dist(g.own, b.est!))[0];
+    if (near && i - (s.m.shotT ?? -1e9) > 150 && (near.q > 0.15 || i - (s.m.shT ?? -1e9) < 600)) { g.selected = near.id; orders.fire(g, 'mk48'); s.m.shotT = i; }
     if ((g.flags.laid ?? 0) >= 6 || !g.flags.minesAboard) { if (i % 20 === 0) quietGo(g, offset(mouth, brg(mouth, { x: 0, y: 0 }), 16), 10); return true; }
     const r = dist(g.own, box);
     if (r < 1.1) { orders.speed(g, 5); if (i % 15 === 0) orders.layMine(g); if (i % 20 === 0) orders.heading(g, safeHeading(g, brg(g.own, box) + 60)); return true; }

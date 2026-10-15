@@ -39,6 +39,14 @@ function cue(g: Game, v: Vessel, err: number) {
   v.ai.knows = { x: o.x + gauss(g.r) * err, y: o.y + gauss(g.r) * err, t: g.t, deep: o.depthT > 1.5 };
   v.ai.mode = 'attack';
 }
+/** A quiet ASW ship hunting with active sonar: heard far off, with a rough strength, and it finds us inside `findR`. */
+function activeSonar(g: Game, v: Vessel, findR: number, every = 120) {
+  if (!v.alive || g.t % every !== 0) return;
+  const d = dist(v, g.own);
+  if (d > 18) return;
+  log(g, 'info', `Sonar: active sonar intercept, bearing ${String(Math.round(brg(g.own, v))).padStart(3, '0')}, ${d < 5 ? 'loud: she is close' : d < 10 ? 'clear' : 'faint'}. ${v.name} is pinging.`);
+  if (d < findR) cue(g, v, 0.3);
+}
 const site = (g: Game, name: string, p: Vec) => { const s = { id: -(g.sites.length + 1), name, x: p.x, y: p.y, hits: 0 }; g.sites.push(s); return s; };
 const sunkOf = (vs: Vessel[]) => vs.filter(isSunk).length;
 const ended = (g: Game, s: string) => !!g.over?.reason.includes(s);
@@ -200,17 +208,19 @@ export const missions: Record<MissionKey, Mission> = {
   A11: {
     key: 'A11', title: 'Into the Bastion', era: '2029', place: 'Barents Sea', date: 'May 2029, 0100', night: true,
     library: ['borei', 'yasen', 'akula', 'udaloy', 'ka27', 'il38', 'virginia'],
-    brief: 'The Bastion: the stretch of the Barents Sea where Russia hides its missile submarines, behind a wall of attack boats, ships and aircraft. No Western boat has been inside since the war began. Somewhere about 17 nm northeast of you, the Borei-A Knyaz Pozharsky is circling slowly with sixteen Bulava missiles aboard. Two Akulas patrol a barrier line about 8 nm out, a Udaloy hunts closer in, and Kazan, your old rival, rides shotgun on the Borei. Get through the barrier, find the Borei and hold it on sonar inside 6 nm for 20 minutes to get its full signature and patrol box. Then get back out past the barrier, to within 8 nm of where you started. Do NOT sink the Borei: sinking a missile submarine is a strategic attack, and Moscow will answer it. Once you are inside, expect the Bastion to wake up.',
+    brief: 'The Bastion: the stretch of the Barents Sea where Russia hides its missile submarines, behind a wall of attack boats, ships and aircraft. No Western boat has been inside since the war began. Somewhere about 14 nm northeast of you, the Borei-A Knyaz Pozharsky is circling slowly with sixteen Bulava missiles aboard. Two Akulas patrol a barrier line about 6 nm out, each beating up and down its own half of it: listen for them and slip through the gap between them, slowly, the Udaloy Admiral Levchenko hunts closer in with her active sonar (quiet, but you will hear her pings from far off), and Kazan, your old rival, rides shotgun on the Borei. Get through the barrier, find the Borei and hold it on sonar inside 6 nm for 20 minutes to get its full signature and patrol box. Then get back out past the barrier, to within 8 nm of where you started. Do NOT sink the Borei: sinking a missile submarine is a strategic attack, and Moscow will answer it. Once you are inside, expect the Bastion to wake up.',
     build(g, r) {
       g.startClock = clock(1);
       g.timeLimit = 4.5 * 3600;
       const start = { x: g.own.x, y: g.own.y };
       const axis = 35 + r() * 20;
       g.own.hdg = g.own.ordHdg = axis;
-      const bc = offset(start, axis + (r() * 2 - 1) * 15, 16 + r() * 3);
+      const bc = offset(start, axis + (r() * 2 - 1) * 15, 13 + r() * 2);
       const borei = boat(g, 'borei', 'Knyaz Pozharsky', offset(bc, r() * 360, 1.5), r() * 360, 5);
-      const bar = offset(start, axis, 8);
-      const akulas = ['Akula (Samara)', 'Akula (Volk)'].map((n, i) => boat(g, 'akula', n, offset(bar, axis + (i ? 90 : -90), 2 + r() * 3), axis + (i ? 90 : -90), 6, i ? 1 : 2));
+      // Each Akula beats up and down its own half of the barrier line. Where the halves meet there is a gap.
+      const bar = offset(offset(start, axis, 6), axis + 90, (r() * 2 - 1) * 1.5);
+      const ends = [-1, 1].map((sd) => [offset(bar, axis + sd * 90, 2.5), offset(bar, axis + sd * 90, 8)]);
+      const akulas = ['Akula (Samara)', 'Akula (Volk)'].map((n, i) => boat(g, 'akula', n, offset(bar, axis + (i ? 90 : -90), 3 + r() * 4), axis + (i ? 90 : -90), 6, i ? 1 : 2));
       const kazan = boat(g, 'yasen', 'Kazan (K-561)', offset(borei, r() * 360, 3), r() * 360, 6);
       kazan.hp = 99; // Kazan is the rival: she can be hurt but not sunk here
       const udaloy = add(g, 'udaloy', 'Admiral Levchenko', 'enemy', offset(bc, brg(bc, start) + (r() * 2 - 1) * 40, 6), r() * 360, 10, { mode: 'patrol', legT: 600 });
@@ -220,11 +230,16 @@ export const missions: Record<MissionKey, Mission> = {
       g.flags.trail = 0;
       g.script = (gg) => {
         // The barrier boats beat back and forth across the approach; the Borei circles its box with Kazan close by.
-        const leg = Math.floor(gg.t / 1800) % 2 ? 90 : -90;
-        akulas.forEach((a, i) => keepCourse(a, brg(a, offset(bar, axis + leg * (i ? 1 : -1), 6)), 6));
+        akulas.forEach((a, i) => {
+          if (!a.alive || a.ai!.mode !== 'patrol') return;
+          const k = `ak${i}`, to = ends[i][flag(gg, k)];
+          if (dist(a, to) < 0.5) gg.flags[k] = 1 - flag(gg, k);
+          keepCourse(a, brg(a, to), 6);
+        });
         keepCourse(borei, brg(borei, offset(bc, gg.t / 15, 2)), 5);
         keepCourse(kazan, brg(kazan, offset(borei, gg.t / 10, 3)), 7);
         if (udaloy.alive && udaloy.ai!.mode === 'patrol' && dist(udaloy, bc) > 9) { udaloy.ordHdg = brg(udaloy, bc); udaloy.ordSpd = 12; }
+        activeSonar(gg, udaloy, 3);
         // The Bastion wakes: an Il-38 comes out from Severomorsk once we are past the barrier.
         if (dist(gg.own, start) > 9) at(gg, 0, 'woke', () => {
           add(gg, 'il38', 'Il-38N May', 'enemy', offset(bc, 120, 70), 300, 230, { mode: 'search', center: { x: bc.x, y: bc.y }, wp: { x: bc.x, y: bc.y }, buoyT: 0, torps: 2, datum: null });
@@ -243,7 +258,6 @@ export const missions: Record<MissionKey, Mission> = {
           log(gg, 'good', 'XO: We have twenty minutes on the Borei: her full signature and her patrol box. Now get us out of here, back past the barrier.');
           log(gg, 'danger', 'Sonar: Kazan has turned toward us and is coming up to speed. The Bastion knows we are here.', 'alarm');
           if (!gg.flags.kazanHit) cue(gg, kazan, 2);
-          cue(gg, udaloy, 3);
         }
         if (gg.flags.ready && dist(gg.own, start) < 8) end(gg, true, gg.goal.win);
       };
@@ -370,7 +384,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.flags.inPol = 0;
       g.script = (gg) => {
         if (yasen.alive) {
-          keepCourse(yasen, brg(yasen, target), dist(yasen, target) > 2 ? 7 : 3);
+          keepCourse(yasen, brg(yasen, target), dist(yasen, target) > 2 ? 6 : 3);
           if (dist(yasen, target) < 1.2) {
             if (!gg.flags.inPol) log(gg, 'danger', 'Sonar: the Yasen has reached open water and is coming shallow. It is setting up to fire!', 'alarm');
             gg.flags.inPol++;
@@ -592,7 +606,7 @@ export const missions: Record<MissionKey, Mission> = {
   A24: {
     key: 'A24', title: 'Kaliningrad', era: '2029', place: 'Gulf of Danzig', date: 'May 2029, 0100', night: true,
     library: ['kilo', 'steregushchiy', 'ka27', 'virginia'],
-    brief: 'Bottle up the Baltic Fleet in Baltiysk. Tang has 8 mines aboard: lay at least 6 of them in the approach channel, inside 1.5 nm of the marked point 2 nm off the harbour mouth, which is about 16 nm east-southeast of you. Slow to 12 knots or less and use the Lay mine button. Then get at least 14 nm clear of the harbour mouth. The Russians have their own defensive minefields north and south of the approach, the Kilo Dmitrov patrols the entrance, and the corvette Soobrazitelny sweeps the approach. Coastal radars cover the bay: stay at periscope depth inside 14 nm of the coast for more than a minute and they will see your masts and call the hunters onto you. Part of the fleet will sortie in about two hours, and any mines you have laid by then will be waiting for it.',
+    brief: 'Bottle up the Baltic Fleet in Baltiysk. Tang has 8 mines aboard: lay at least 6 of them in the approach channel, inside 1.5 nm of the marked point 2 nm off the harbour mouth, which is about 16 nm east-southeast of you. Slow to 12 knots or less and use the Lay mine button. Then get at least 14 nm clear of the harbour mouth. The Russians have their own defensive minefields north and south of the approach, the Kilo Dmitrov patrols the entrance, a Ka-27 is dipping its sonar over the approach, and the corvette Soobrazitelny sweeps the approach. She is very quiet, but she searches with active sonar: you will hear her pings, their bearing and roughly how close she is, from a long way off. Close in, those pings will find you whatever depth you are at. Coastal radars cover the bay: stay at periscope depth inside 14 nm of the coast for more than a minute and they will see your masts and call the hunters onto you. Part of the fleet will sortie in about two hours, and any mines you have laid by then will be waiting for it.',
     build(g, r) {
       g.startClock = clock(1);
       g.timeLimit = 3.5 * 3600;
@@ -608,11 +622,16 @@ export const missions: Record<MissionKey, Mission> = {
       const kilo = boat(g, 'kilo', 'Kilo (Dmitrov)', offset(mouth, app + (r() * 2 - 1) * 30, 3), r() * 360, 3, 1);
       kilo.ai!.legT = 400;
       const corv = add(g, 'steregushchiy', 'Soobrazitelny', 'enemy', offset(mouth, app + (r() * 2 - 1) * 20, 8), r() * 360, 8, { mode: 'patrol', legT: 400 });
+      // Neither answers a launch transient blind: they have to find us first.
+      corv.ai!.snapTaken = true; kilo.ai!.snapTaken = true;
+      add(g, 'ka27', 'Ka-27PL Helix', 'enemy', offset(mouth, app, 1), app, 120, { mode: 'search', center: box, wp: offset(box, app, 4), torps: 1, datum: null, hits: 0, dipT: 0 });
       setGoal(g, { targets: [], need: 1, win: 'The approach to Baltiysk is mined and we are clear. The Baltic Fleet is bottled up in port.', timeout: 'Time is up and the approach is still open.' });
       g.flags.seenT = 0;
       g.script = (gg) => {
         if (corv.alive && corv.ai!.mode === 'patrol' && dist(corv, box) > 8) { corv.ordHdg = brg(corv, box); corv.ordSpd = 10; }
         if (kilo.alive && kilo.ai!.mode === 'patrol' && dist(kilo, mouth) > 5) { kilo.ordHdg = brg(kilo, mouth); }
+        // The corvette hunts with active sonar: easy to hear, and it finds us inside about 2.5 nm.
+        activeSonar(gg, corv, 3.5);
         if (atPeriscopeDepth(gg) && dist(gg.own, mouth) < 14) gg.flags.seenT++;
         if (gg.flags.seenT === 60) {
           log(gg, 'danger', 'ESM: coastal surveillance radar has locked on to our masts. The hunters are being called onto us!', 'alarm');
@@ -624,8 +643,9 @@ export const missions: Record<MissionKey, Mission> = {
         });
         const atBox = dist(gg.own, box) <= 1.5;
         if (atBox !== !!gg.flags.atBox) { gg.flags.atBox = atBox ? 1 : 0; log(gg, 'info', atBox ? 'Navigator: we are on the mining point. Mines laid here will count.' : 'Navigator: we are off the mining point.'); }
-        const laid = gg.mines.filter((m) => m.side === 'us' && dist(m, box) <= 1.5).length;
-        gg.flags.laid = laid;
+        // A mine that has already sunk a ship still counts as laid.
+        for (const m of gg.mines) if (m.side === 'us' && dist(m, box) <= 1.5 && !gg.flags[`mb${m.id}`]) { gg.flags[`mb${m.id}`] = 1; gg.flags.laid = flag(gg, 'laid') + 1; }
+        const laid = flag(gg, 'laid');
         if (laid >= 6 && dist(gg.own, mouth) >= 14) end(gg, true, gg.goal.win);
       };
     },
@@ -778,6 +798,7 @@ export const extras: Record<MissionKey, ObjectiveFn> = {
     return [
       { text: 'Lay 6 mines within 1.5 nm of the marked point off the harbour mouth', state: flag(g, 'laid') >= 6 ? 'done' : 'open', detail: `${flag(g, 'laid')} of 6 laid there. ${flag(g, 'minesAboard')} left aboard.` },
       { text: 'Then get 14 nm clear of the harbour mouth', state: g.over?.win ? 'done' : 'open', detail: `${dist(g.own, mouth).toFixed(1)} nm from it now.` },
+      { text: 'Watch the corvette\'s pings', state: g.vessels.some((v) => v.name === 'Soobrazitelny' && !v.alive) ? 'done' : 'open', detail: 'She is too quiet to hear, but her active sonar gives her bearing away.' },
       watch('Stay off the coastal radars', flag(g, 'seenT') >= 60, 'No more than a minute at periscope depth inside 14 nm of the coast.'),
       ...b,
     ];
