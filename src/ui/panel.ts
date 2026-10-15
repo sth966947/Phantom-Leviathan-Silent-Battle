@@ -70,6 +70,7 @@ function identHTML(g: Game) {
 export function updatePanel(g: Game) {
   const o = g.own;
   setText('clock', clock(g.startClock + g.t));
+  setText('mtime', `+${Math.floor(g.t / 3600)}:${String(Math.floor((g.t % 3600) / 60)).padStart(2, '0')}`);
   const turning = Math.abs(angDiff(o.ordHdg, o.hdg)) > 1;
   setText('oHdg', `${fmtBrg(o.hdg)}°${turning ? ` → ${fmtBrg(o.ordHdg)}°` : ''}`);
   setText('oSpd', `${o.spd.toFixed(1)} kt${Math.abs(o.ordSpd - o.spd) > 0.3 ? ` → ${o.ordSpd}` : ''}`);

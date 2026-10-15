@@ -894,7 +894,7 @@ export const MISSIONS: Record<MissionKey, Mission> = {
   vortex: {
     key: 'vortex', title: 'Out of the Vortex', era: '2029', place: 'Norwegian Sea', date: 'March 2029, 0400', night: true,
     library: ['akula', 'il38', 'virginia'],
-    brief: 'The vortex has put Tang back in 2029, and the war started while you were gone. Your first orders: an Akula is heading southwest for the GIUK Gap, and the fleet wants to know where it goes. It is running deep, below the layer. Trail it inside 15 nm for half an hour, then come to periscope depth and get the report out. Don\'t sink it unless it turns on you. An Il-38 is on its way to cover it.',
+    brief: 'The vortex has put Tang back in 2029, and the war started while you were gone. Your first orders: an Akula is heading southwest for the GIUK Gap, and the fleet wants to know where it goes. It is running deep, below the layer. Trail it inside 10 nm for half an hour, then come to periscope depth and get the report out. Don\'t sink it unless it turns on you. An Il-38 is on its way to cover it.',
     build(g, r) {
       g.startClock = clock(4);
       g.timeLimit = 3 * 3600;
@@ -919,7 +919,7 @@ export const MISSIONS: Record<MissionKey, Mission> = {
           gg.goal.win = 'The Akula turned on us and we sank it. The report went out with the kill.';
           log(gg, 'danger', 'The Akula has counter-detected us and is turning to attack. Weapons free: sink it.', 'alarm');
         }
-        if (held(gg, ak) && dist(gg.own, ak) < 15) gg.flags.trail++;
+        if (held(gg, ak) && dist(gg.own, ak) < 10) gg.flags.trail++;
         if (gg.flags.trail === 1800 && !gg.flags.ready) {
           gg.flags.ready = 1;
           log(gg, 'good', 'XO: We have half an hour of track on the Akula. Come to periscope depth to send the report.');
@@ -1200,7 +1200,7 @@ const EXTRA: Partial<Record<MissionKey, (g: Game, base: Objective[]) => Objectiv
       { text: 'Sink the Akula', state: ak && isSunk(ak) ? 'done' : 'open' },
     ];
     return [
-      { text: 'Trail the Akula inside 15 nm for 30 minutes', state: trail >= 1800 ? 'done' : 'open', detail: trail >= 1800 ? 'Enough track.' : `${mins(trail)} of 30 min held so far. Only time with the contact held inside 15 nm counts.` },
+      { text: 'Trail the Akula inside 10 nm for 30 minutes', state: trail >= 1800 ? 'done' : 'open', detail: trail >= 1800 ? 'Enough track.' : `${mins(trail)} of 30 min held so far. Only time with the contact held inside 10 nm counts.` },
       { text: 'Come to periscope depth and send the report', state: g.over?.win ? 'done' : 'open', detail: flag(g, 'ready') ? 'Ready: come up to periscope depth now.' : 'After the trail.' },
       watch('Don\'t sink it unless it attacks you', !!ak && isSunk(ak)),
       watch('Don\'t lose it: more than 35 nm away and the trail is cold', !!g.over?.reason.includes('lost the Akula')),
