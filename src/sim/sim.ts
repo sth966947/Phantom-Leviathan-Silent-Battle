@@ -289,6 +289,16 @@ export const orders = {
   heading(g: Game, hdg: number) { g.own.ordHdg = norm(Math.round(hdg)); },
   turn(g: Game, delta: number) { g.own.ordHdg = norm(Math.round(g.own.ordHdg + delta)); },
   speed(g: Game, kts: number) { g.own.ordSpd = clamp(kts, 0, g.own.cls.maxSpd); },
+  /** Set our speed to the selected contact's, from its solution. */
+  matchSpeed(g: Game) {
+    const c = contactById(g, g.selected);
+    if (!c) return log(g, 'warn', 'Match target: select a contact first.');
+    if (c.air) return log(g, 'warn', 'Match target: we can\'t keep pace with an aircraft.');
+    if (!c.held || !c.motion) return log(g, 'warn', `Match target: no speed on ${contactLabel(c)} yet. Keep tracking until the solution shows its course and speed.`);
+    const kts = Math.round(clamp(c.motion.spd, 0, g.own.cls.maxSpd));
+    orders.speed(g, kts);
+    log(g, 'info', `Matching ${contactLabel(c)}: ${kts} knots.`);
+  },
   depth(g: Game, d: Depth) {
     if (g.own.arraySide !== 'with') { g.own.arraySide = 'with'; g.own.arrayStableAt = g.t + ARRAY.settle; log(g, 'info', 'Towed array streaming with the boat again.'); }
     if (g.own.ordDepth === d) return;

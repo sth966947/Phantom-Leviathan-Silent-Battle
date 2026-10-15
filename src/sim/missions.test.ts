@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { create, orders, tick } from './sim';
-import { CAMPAIGN, MISSIONS, MODERN, PREQUELS } from './missions';
+import { CAMPAIGN, MISSIONS, MODERN, PREQUELS, objectives } from './missions';
 import { CLASSES } from './classes';
 
 describe('missions', () => {
@@ -12,6 +12,9 @@ describe('missions', () => {
       for (const k of MISSIONS[key].library) expect(CLASSES[k], k).toBeDefined();
       for (let i = 0; i < 3600 && !g.over; i++) tick(g, 1);
       expect(g.t).toBeGreaterThan(0);
+      const obs = objectives(g);
+      expect(obs.length).toBeGreaterThan(0);
+      for (const o of obs) expect(o.text).not.toMatch(/undefined|NaN/);
     });
   }
   it('a land-attack Tomahawk flies to Japan by terrain maps and hits its site', () => {
