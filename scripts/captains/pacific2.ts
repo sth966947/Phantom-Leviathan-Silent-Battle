@@ -67,9 +67,39 @@ captains.P7 = plain({});
 captains.P10 = plain({});
 captains.P22 = plain({ extra: ['type093b'] });
 captains.P23 = plain({ extra: ['type093b'] });
-captains.P19 = plain({ extra: ['type093b'] });
-captains.P20 = plain({ minPct: 40 });
-captains.P26 = plain({ extra: ['type093b', 'kilo'] });
+captains.P20 = (g, i, s) => {
+  if (guard(g, i, s)) return true;
+  if (g.contacts.some((c) => c.held && c.est && guess(c, 40) === 'type039')) return { minPct: 40 };
+  // No friendlies in the strait: ping every ten minutes and shoot on a fresh return.
+  if (i % 600 === 300) {
+    orders.ping(g);
+    const c = g.contacts.find((x) => x.held && x.est && !x.air && x.q >= 1 && g.t - x.est.t < 2);
+    if (c) {
+      g.selected = c.id; orders.classify(g, c.id, 'type039');
+      const r = dist(g.own, c.est!);
+      orders.fire(g, r > 1.5 && r < 12 && g.own.depthT <= 1.05 ? 'asroc' : 'mk48');
+    }
+  }
+  if (closeOnNoise(g, i, [], 5)) return true;
+  // A slow barrier patrol across the strait, holding up against the current.
+  const wp = { x: (s.m.leg ?? 0) % 2 ? 4 : -4, y: 3 };
+  if (dist(g.own, wp) < 0.8) s.m.leg = (s.m.leg ?? 0) + 1;
+  if (i % 60 === 0) { goTo(g, wp, 5); orders.depth(g, 1); }
+  return true;
+};
+captains.P26 = (g, i, s) => {
+  if (guard(g, i, s)) return true;
+  // A quiet hunter: never above 8 knots, ASROC from range, Mk 48 close in.
+  const t = g.contacts.filter((c) => c.held && c.est && !c.air && ['type093b', 'kilo'].includes(guess(c) ?? '')).sort((a, b) => dist(g.own, a.est!) - dist(g.own, b.est!))[0];
+  if (!t) { if (i % 600 === 0) { orders.heading(g, Math.hypot(g.own.x, g.own.y) > 5 ? brg(g.own, { x: 0, y: 0 }) : (i / 600) % 2 ? 45 : 225); orders.speed(g, 5); } return true; }
+  g.selected = t.id;
+  if (!t.classified) orders.classify(g, t.id, guess(t)!);
+  const r = dist(g.own, t.est!);
+  if (i % 120 === 0) { orders.heading(g, r > 4 ? brg(g.own, t.est!) : t.bearing! + (s.legs++ % 2 ? 50 : -50)); orders.speed(g, r > 4 ? 8 : 5); orders.depth(g, 1); }
+  if (t.q > 0.6 && r > 1.5 && r < 12 && i % 120 === 0) orders.fire(g, 'asroc');
+  if (t.q > 0.6 && r < 7 && i % 90 === 0) orders.fire(g, 'mk48');
+  return true;
+};
 
 // Carriers and missile boats: close on the noise until the signature firms up, then hunt.
 const closer = (want: string, skip: string[], min = 50): Captain => (g, i, s) => {
@@ -79,6 +109,15 @@ const closer = (want: string, skip: string[], min = 50): Captain => (g, i, s) =>
   return true;
 };
 captains.P8 = closer('fujian', ['type093b', 'kq200', 'ka28']);
+captains.P19 = (g, i, s) => {
+  if (guard(g, i, s)) return true;
+  // Up for the raids: radar on at periscope depth when the bombers are due, so the generic captain's SM-6s can fly.
+  const due = (g.t > 24 * 60 && g.t < 40 * 60) || (g.t > 59 * 60 && g.t < 75 * 60);
+  if (due) { orders.depth(g, 0); if (atPeriscopeDepth(g)) orders.radar(g, true); orders.speed(g, 6); return { extra: ['type093b'], minPct: 50 }; }
+  if (g.contacts.some((c) => c.held && c.est && guess(c, 50) === 'type093b')) return { extra: ['type093b'], minPct: 50 };
+  if (!closeOnNoise(g, i, ['collins', 'h6k', 'kq200'], 6) && i % 120 === 0) { orders.heading(g, Math.hypot(g.own.x, g.own.y) > 10 ? brg(g.own, { x: 0, y: 0 }) : 300); orders.speed(g, 6); }
+  return true;
+};
 captains.P21 = closer('shandong', ['tanker', 'type039', 'ka28']);
 captains.P12 = (g, i, s) => {
   if (guard(g, i, s)) return true;

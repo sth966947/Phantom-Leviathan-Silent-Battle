@@ -112,10 +112,10 @@ missions.P19 = {
       keepCourse(shang, brg(shang, wharf), dist(shang, wharf) > 10 ? 9 : 6);
       const leg = legs[Math.floor(gg.t / 1500) % 2];
       steer(rankin, leg, 6);
-      skirmish(gg, [rankin], [shang], 5, 0.12, 0.08, 0.6);
-      at(gg, 25 * 60, 'raid1', () => wave(gg, ['H-6K flight 1', 'H-6K flight 2']));
-      at(gg, 60 * 60, 'raid2', () => wave(gg, ['H-6K flight 3', 'H-6K flight 4', 'H-6K flight 5']));
-      pressRaids(gg, raids, 2, 0.45, 'YJ-12 missiles');
+      skirmish(gg, [rankin], [shang], 4, 0.03, 0.02, 0.5);
+      at(gg, 25 * 60, 'raid1', () => wave(gg, ['H-6K flight 1', 'H-6K flight 2', 'H-6K flight 3']));
+      at(gg, 60 * 60, 'raid2', () => wave(gg, ['H-6K flight 4', 'H-6K flight 5', 'H-6K flight 6']));
+      pressRaids(gg, raids, 4, 0.7, 'YJ-12 missiles');
       if (shang.alive && dist(shang, wharf) < 6) end(gg, false, 'Changzheng 21 got inside 6 nm of the wharf and torpedoed the ships alongside.');
       if (isSunk(rankin)) end(gg, false, 'HMAS Rankin has been sunk.');
       const raidsDone = gg.flags.raid2 && raids.every((x) => x.done);
@@ -129,8 +129,8 @@ extras.P19 = (g, b) => {
   const raids = g.vessels.filter((v) => v.cls.key === 'h6k');
   return [
     { text: 'Sink the Type 093B, Changzheng 21', state: sh && isSunk(sh) ? 'done' : 'open', detail: sh && isSunk(sh) ? 'Sunk.' : 'Coming in from the northwest. HMAS Rankin is a friendly sub: check before you shoot.' },
-    { text: 'Beat off both H-6K raids', state: flag(g, 'raid2') && raids.every((v) => !v.alive) ? 'done' : 'open',
-      detail: `${raids.filter(isSunk).length} of ${raids.length} bombers shot down. ${g.t < 25 * 60 ? 'First raid due about 25 minutes in.' : g.t < 60 * 60 ? 'Second raid due about 60 minutes in.' : 'Both raids launched.'}` },
+    { text: 'Beat off both H-6K raids', state: flag(g, 'raid2') && raids.every(isSunk) ? 'done' : 'open',
+      detail: `${raids.filter(isSunk).length} of ${raids.length} bombers shot down${raids.some((v) => v.gone) ? `, ${raids.filter((v) => v.gone).length} got through` : ''}. ${g.t < 25 * 60 ? 'First raid due about 25 minutes in.' : g.t < 60 * 60 ? 'Second raid due about 60 minutes in.' : 'Both raids launched.'}` },
     watch('Keep the Shang more than 6 nm from the wharf', !!g.over?.reason.includes('inside 6 nm')),
     watch('Keep HMAS Rankin afloat', !!rk && isSunk(rk)),
     ...b,
@@ -141,7 +141,7 @@ extras.P19 = (g, b) => {
 missions.P20 = {
   key: 'P20', title: 'Lombok Strait', era: '2029', place: 'Lombok Strait, Indonesia', date: 'June 2029, 2300', night: true,
   library: ['type039', 'type093b', 'kilo', 'collins'],
-  brief: 'Malacca and Sunda are too shallow for a submarine to pass unseen, so China\'s boats go to the Indian Ocean through Lombok, between Bali and Lombok: deep, narrow, and swept by the Indonesian Throughflow, a current that sets south at more than a knot and carries everything with it, Tang included. Three Type 039 Yuan AIP boats are coming down the strait from the north, a few miles apart, to hunt Allied shipping off Australia. They are about as quiet as a submarine gets, but slow and short of hearing. Sink two of the three. If two of them get past you and out of the south end of the strait, about 14 nm south of you, the cork has failed. Any of them that hears you will fight.',
+  brief: 'Malacca and Sunda are too shallow for a submarine to pass unseen, so China\'s boats go to the Indian Ocean through Lombok, between Bali and Lombok: deep, narrow, and swept by the Indonesian Throughflow, a current that sets south at more than a knot and carries everything with it, Tang included. Three Type 039 Yuan AIP boats are coming down the strait from the north, a few miles apart, to hunt Allied shipping off Australia. They are about as quiet as a submarine gets, but slow and short of hearing. Sink two of the three. If two of them get past you and out of the south end of the strait, about 16 nm south of you, the cork has failed. Any of them that hears you will fight. They are hard to hear even close aboard, but there are no friendly submarines in the strait: an active ping finds anything within several miles, at the price of telling every Yuan where you are.',
   build(g, r) {
     g.startClock = clock(23);
     g.timeLimit = 5 * 3600;
@@ -149,15 +149,15 @@ missions.P20 = {
     const names = ['Yuan (Changcheng 335)', 'Yuan (Changcheng 337)', 'Yuan (Changcheng 341)'];
     const boats = names.map((name, i) => {
       const p = { x: (r() * 2 - 1) * 4, y: 15 + i * 7 + r() * 3 };
-      const exit = { x: (r() * 2 - 1) * 4, y: -14 };
-      return { v: add(g, 'type039', name, 'enemy', p, brg(p, exit), 9, { mode: 'patrol', legT: 1e9, decoys: 2 }, r() < 0.6 ? 2 : 1), exit };
+      const exit = { x: (r() * 2 - 1) * 4, y: -16 };
+      return { v: add(g, 'type039', name, 'enemy', p, brg(p, exit), 8, { mode: 'patrol', legT: 1e9, decoys: 2 }, r() < 0.6 ? 2 : 1), exit };
     });
     setGoal(g, { targets: boats.map((b) => b.v.id), need: 2, win: 'Two of the Yuans are on the bottom of Lombok Strait. The Indian Ocean stays closed to them.', timeout: 'The Yuans waited us out in the strait.' });
     g.flags.through = 0;
     g.script = (gg) => {
       // The Throughflow carries everyone in the water south.
       for (const v of gg.vessels) if (v.alive && v.cls.kind !== 'air') v.y -= 1.2 * KT;
-      for (const b of boats) keepCourse(b.v, brg(b.v, b.exit), 9);
+      for (const b of boats) keepCourse(b.v, brg(b.v, b.exit), 8);
       for (const b of boats) if (arrive(gg, b.v, b.exit, 2.5) || (b.v.alive && b.v.y < b.exit.y)) {
         b.v.alive = false; b.v.gone = true;
         gg.flags.through++;
@@ -167,7 +167,7 @@ missions.P20 = {
     };
   },
 };
-extras.P20 = (g, b) => [...b, watch('Don\'t let two Yuans out of the south end of the strait', flag(g, 'through') >= 2, `${flag(g, 'through')} of 2 have got through. The exit is about 14 nm south of where you started.`)];
+extras.P20 = (g, b) => [...b, watch('Don\'t let two Yuans out of the south end of the strait', flag(g, 'through') >= 2, `${flag(g, 'through')} of 2 have got through. The exit is about 16 nm south of where you started.`)];
 
 // ---- P8 Carrier Killer: the fleet comes out ------------------------------------------------------------------
 missions.P8 = {
@@ -361,7 +361,8 @@ extras.P9 = (g) => {
   const tags = [0, 1, 2].map((i) => flag(g, `tag${i}`));
   return [
     { text: 'Tag two of the three Jins', state: flag(g, 'tagged') >= 2 ? 'done' : g.over && !g.over.win ? 'failed' : 'open',
-      detail: `${flag(g, 'tagged')} of 2 tagged. ${jins.length} of 3 out of the tunnels. ${tags.filter((t) => t > 0 && t < 120).map((t) => `One is ${Math.round((t / 120) * 100)}% tagged.`).join(' ')} Hold it, classify it Type 094, keep a good solution within 10 nm for 2 minutes.` },
+      detail: [`${flag(g, 'tagged')} of 2 tagged. ${jins.length} of 3 out of the tunnels.`, ...tags.filter((t) => t > 0 && t < 120).map((t) => `One is ${Math.round((t / 120) * 100)}% tagged.`),
+        'Hold it, classify it Type 094, keep a good solution within 10 nm for 2 minutes.'].join(' ') },
     { text: 'Come to periscope depth and send the report', state: g.over?.win ? 'done' : 'open', detail: flag(g, 'ready') ? 'Ready: come up now.' : 'After two tags.' },
     watch('Don\'t sink a Jin', jins.some(isSunk)),
     { text: 'Get through the mine barrier by the swept gap', state: g.own.y > 10.5 ? 'done' : 'open', detail: 'About 2 nm wide, 10 nm out on bearing 011 from where you started.' },
@@ -373,13 +374,14 @@ extras.P9 = (g) => {
 missions.P10 = {
   key: 'P10', title: 'Malacca Plug', era: '2029', place: 'Strait of Malacca', date: 'August 2029, 1100',
   library: ['tanker', 'lng', 'boxship', 'type052d', 'type054a', 'ka28'],
-  brief: 'Most of China\'s oil still comes through the Strait of Malacca, and Beijing is now running it in escorted convoys. One is coming down the strait toward Singapore: four Chinese-flagged crude tankers, Yuan Chen Hu, Yuan Ping Hu, Kai Yuan Yang and Xin Shun Yang, led by the Type 052D Changsha with the frigates Xiangtan and Zhoushan. It is about 23 nm northwest of you, making 15 knots on course 135, with a Ka-28 flying over it. Sink three of the four tankers before they clear the strait, about 34 nm on from where the convoy is now; if two get through, the plug has failed. The strait is full of neutral traffic: Qatari LNG carriers bound for Japan, and container ships. They are not targets. Sinking a neutral ends the mission. Chinese jamming over the strait blocks the anti-ship Tomahawk\'s satellite updates, so it is Harpoons and torpedoes, and the escorts\' guns stop most Harpoons.',
+  brief: 'Most of China\'s oil still comes through the Strait of Malacca, and Beijing is now running it in escorted convoys. One is coming down the strait toward Singapore: four Chinese-flagged crude tankers, Yuan Chen Hu, Yuan Ping Hu, Kai Yuan Yang and Xin Shun Yang, led by the Type 052D Changsha with the frigates Xiangtan and Zhoushan. It is about 23 nm northwest of you, making 15 knots on course 135, with a Ka-28 flying over it. It keeps to the far side of the traffic lanes: its track will pass 9 to 13 nm from you, so you will have to go to it. Sink three of the four tankers before they clear the strait, about 34 nm on from where the convoy is now; if two get through, the plug has failed. The strait is full of neutral traffic: Qatari LNG carriers bound for Japan, and container ships. They are not targets. Sinking a neutral ends the mission. Chinese jamming over the strait blocks the anti-ship Tomahawk\'s satellite updates, so it is Harpoons and torpedoes, and the escorts\' guns stop most Harpoons.',
   build(g, r) {
     g.startClock = clock(11);
     g.timeLimit = 3.5 * 3600;
     g.own.hdg = g.own.ordHdg = 315;
     const course = 135;
-    const p = offset(g.own, 315 + (r() * 2 - 1) * 25, 22 + r() * 3);
+    // The convoy keeps to the far side of the traffic lanes: its track passes 9 to 13 nm from Tang.
+    const p = offset(offset(g.own, r() < 0.5 ? 45 : 225, 9 + r() * 4), 315, 20 + r() * 3);
     const exit = mark(g, 'exit', offset(p, course, 34));
     const lead = add(g, 'type052d', 'Changsha', 'enemy', p, course, 15, go(course, 15));
     const tankers = screen(g, lead, 'tanker', ['Yuan Chen Hu', 'Yuan Ping Hu', 'Kai Yuan Yang', 'Xin Shun Yang'], [[180, 1.5], [180, 3], [180, 4.5], [180, 6]]);
@@ -412,10 +414,10 @@ extras.P10 = (g, b) => [...b,
 missions.P11 = {
   key: 'P11', title: 'Kazan Returns', era: '2029', place: 'Bussol Strait, off the Kurils', date: 'August 2029, 0500',
   library: ['yasen', 'akula', 'kilo', 'virginia', 'il38'],
-  brief: 'Kazan (K-561) is back. Your old rival has moved to the Pacific Fleet and is lying in the Bussol Strait in the middle of the Kurils, killing anything that tries to cross. Round two: find her and sink her. She is somewhere ahead of you, 10 to 16 nm out. The Oyashio fog and a heavy swell (sea state 4) mean noise for everyone and a short periscope range. An Il-38 is working the strait for her. She also carries mobile decoys built to sound exactly like a Yasen: when she is pressed she lets one run on at speed down her old course and slips away slow and quiet. A decoy runs straight and dies after about 15 minutes; Kazan turns and creeps. You have three hours.',
+  brief: 'Kazan (K-561) is back. Your old rival has moved to the Pacific Fleet and is lying in the Bussol Strait in the middle of the Kurils, killing anything that tries to cross. Round two: find her and sink her. She is somewhere ahead of you, 10 to 16 nm out. The Oyashio fog and a heavy swell (sea state 4) mean noise for everyone and a short periscope range. An Il-38 is working the strait for her. She also carries mobile decoys built to sound exactly like a Yasen: when she is pressed she lets one run on at speed down her old course and slips away slow and quiet. A decoy runs straight and dies after about 15 minutes; Kazan turns and creeps. You have three and a half hours.',
   build(g, r) {
     g.startClock = clock(5);
-    g.timeLimit = 3 * 3600;
+    g.timeLimit = 3.5 * 3600;
     g.env.sea = 4;
     g.own.hdg = g.own.ordHdg = 0;
     const b = (r() * 2 - 1) * 50;
@@ -449,13 +451,13 @@ extras.P11 = (g, b) => [...b, { text: 'Kazan\'s decoys', state: 'open', detail: 
 missions.P23 = {
   key: 'P23', title: 'Jin Breakout', era: '2029', place: 'South China Sea', date: 'August 2029, 0100', night: true,
   library: ['type094', 'type093b', 'type054a', 'type039', 'ka28', 'kq200'],
-  brief: 'A Type 094 Jin, Changzheng 19, has left the Hainan bastion and is running east across the South China Sea for the Bashi Channel and the deep Pacific, where her missiles can reach the United States. A P-8A fixed her about 33 nm west of you at midnight, making 14 knots on an easterly course that will take her well clear of you, 18 to 23 nm to the north or south at her closest: you will have to run to catch her. Her escort sweeps ahead: the Type 093B Changzheng 15 delousing her track, the frigate Hengshui riding ahead of her, a Ka-28 overhead and a KQ-200 laying sonobuoys along her track. Sink the Jin before she gets about 36 nm on from where she was fixed: past that, the water is too deep and wide to find her again. The Jin is loud; her escort is not. At the first sign of an attack she will run at over 20 knots, so make your first shot count.',
+  brief: 'A Type 094 Jin, Changzheng 19, has left the Hainan bastion and is running east across the South China Sea for the Bashi Channel and the deep Pacific, where her missiles can reach the United States. A P-8A fixed her about 33 nm west of you at midnight, making 14 knots on an easterly course that will take her well clear of you, 22 to 27 nm to the north or south at her closest: you will have to run to catch her. Her escort sweeps ahead: the Type 093B Changzheng 15 delousing her track, the frigate Hengshui riding ahead of her, a Ka-28 overhead and a KQ-200 laying sonobuoys along her track. Sink the Jin before she gets about 32 nm on from where she was fixed: past that, the water is too deep and wide to find her again. The Jin is loud; her escort is not. At the first sign of an attack she will run at over 20 knots, so make your first shot count.',
   build(g, r) {
     g.startClock = clock(1);
     g.timeLimit = 4 * 3600;
     g.own.hdg = g.own.ordHdg = 270;
     const p = offset(g.own, 270 + (r() * 2 - 1) * 15, 31 + r() * 4);
-    const out = mark(g, 'out', offset(p, brg(p, g.own) + (r() < 0.5 ? 1 : -1) * (40 + r() * 12), 36));
+    const out = mark(g, 'out', offset(p, brg(p, g.own) + (r() < 0.5 ? 1 : -1) * (45 + r() * 12), 32));
     const jin = add(g, 'type094', 'Changzheng 19', 'enemy', p, brg(p, out), 14, { mode: 'raider', goal: out, cruise: 14, decoys: 2 }, 1);
     const ssn = add(g, 'type093b', 'Changzheng 15', 'enemy', offset(jin, jin.hdg, 6), jin.hdg, 10, { mode: 'patrol', legT: 1e9, decoys: 2 }, 2);
     const ff = add(g, 'type054a', 'Hengshui', 'enemy', offset(jin, jin.hdg + 30, 4), jin.hdg, 14, { mode: 'station', leader: jin.id, rel: 30, rng: 4 });
@@ -603,7 +605,7 @@ extras.P12 = (g, b) => [...b, watch('Don\'t let the second Borei reach the Kuril
 
 // ---- P25 Vladivostok ---------------------------------------------------------------------------------------------------
 missions.P25 = {
-  key: 'P25', title: 'Vladivostok', era: '2029', place: 'Peter the Great Gulf', date: 'September 2029, 0100', night: true,
+  key: 'P25', title: 'Vladivostok', era: '2029', place: 'Peter the Great Gulf', date: 'September 2029, 0030', night: true,
   library: ['kilo', 'steregushchiy', 'ka27', 'udaloy'],
   brief: 'Mine the Pacific Fleet\'s home port. You have 8 mines aboard; lay them from the torpedo tubes at 12 knots or less. Seed two zones, at least 3 mines in each, then get back out south through the Russian minefield. Zone A is the approach to the Eastern Bosphorus, 12 nm due north of you. Zone B is the entrance to Ussuri Bay, the fleet\'s way east to its Fokino base, 13 nm away on bearing 032. Each zone is about 1 nm across. Russia\'s own defensive minefield crosses the gulf about 4 nm north of you; their ships use a swept channel about 1.5 nm wide, 4.6 nm out on bearing 029. Go through it at 10 knots or less and let the HF sonar find the mines. The Kilo Ust-Bolsheretsk and the corvette Sovershenny patrol inside, and the corvette Gromky is alongside at Fokino with steam up: their hull sonars are good, so stay deep and slow. A Ka-27 waits ashore and will come out if they know you are there. The Bastion-P shore missile batteries on Russky Island and Cape Basargin have coastal radars that will spot masts within 10 nm of them. Five hours to dawn.',
   build(g, r) {
@@ -646,7 +648,7 @@ missions.P25 = {
 };
 extras.P25 = (g) => [
   { text: 'Lay 3 mines in Zone A (Eastern Bosphorus approach)', state: flag(g, 'doneA') ? 'done' : 'open', detail: `${flag(g, 'inA')} of 3. 12 nm due north of where you started.` },
-  { text: 'Lay 3 mines in Zone B (Strelok Strait)', state: flag(g, 'doneB') ? 'done' : 'open', detail: `${flag(g, 'inB')} of 3. 13 nm on bearing 032 from where you started.` },
+  { text: 'Lay 3 mines in Zone B (Ussuri Bay entrance)', state: flag(g, 'doneB') ? 'done' : 'open', detail: `${flag(g, 'inB')} of 3. 13 nm on bearing 032 from where you started.` },
   { text: 'Get back out through their minefield', state: g.over?.win ? 'done' : 'open', detail: `${flag(g, 'minesAboard')} mines left aboard. Their swept channel through the field: 4.6 nm out on bearing 029 from where you started.` },
   watch('Don\'t run out of mines before both zones are seeded', flag(g, 'empty') > 0),
   ...baseObjectives(g),
@@ -656,36 +658,39 @@ extras.P25 = (g) => [
 missions.P26 = {
   key: 'P26', title: 'Korea Strait', era: '2029', place: 'Tsushima Strait', date: 'September 2029, 1700',
   library: ['type093b', 'kilo', 'taigei', 'maya', 'type039'],
-  brief: 'China and Russia want to join hands in the Sea of Japan, and the way through is the Korea Strait. The Korean navy holds the western channel. You hold the eastern one, the Tsushima Strait, with the Japanese submarine JS Taigei and the destroyer JS Haguro. Two Chinese Type 093Bs are coming up from the East China Sea to the southwest, and two Russian Kilos down from Vladivostok to the northeast, all trying to get through. If two of the four get past, the strait has failed. Hold it for four hours. Taigei is a diesel boat like the Kilos: identify before you shoot. Don\'t lose both Japanese units.',
+  brief: 'China and Russia want to join hands in the Sea of Japan, and the way through is the Korea Strait. The Korean navy holds the western channel. You hold the eastern one, the Tsushima Strait, with the Japanese submarine JS Taigei, which holds the northeast end, and the destroyer JS Haguro, which sweeps the western side of the channel about 9 nm west of you. Two Chinese Type 093Bs are coming up from the East China Sea to the southwest, and two Russian Kilos down from Vladivostok to the northeast, all trying to get through. Deal with all four: sink them, or let no more than one get 12 nm past you. If two get through, or any are still in the strait when night falls in four and a half hours, the strait has failed. They come one at a time, a few miles apart. The Shangs will fight if they hear you; the Kilos will try to creep past. Taigei is a diesel boat like the Kilos: identify before you shoot. Don\'t lose both Japanese units.',
   build(g, r) {
     g.startClock = clock(17);
-    g.timeLimit = 4 * 3600;
+    g.timeLimit = 4.5 * 3600;
     g.own.hdg = g.own.ordHdg = 45;
     const foe = (cls: string, name: string, from: number, d: number, to: number, spd: number) => {
       const p = offset(g.own, from + (r() * 2 - 1) * 15, d);
-      const exit = offset(g.own, to + (r() * 2 - 1) * 15, 26);
-      return { v: add(g, cls, name, 'enemy', p, brg(p, exit), spd, { mode: 'patrol', legT: 1e9, decoys: 2 }, r() < 0.5 ? 2 : 1), exit, spd };
+      const exit = offset(g.own, to + (r() * 2 - 1) * 15, 12);
+      // The Shangs will fight their way through; the Kilos try to creep past and only run if attacked.
+      const ai = cls === 'kilo' ? { mode: 'raider' as const, goal: exit, cruise: spd } : { mode: 'patrol' as const, legT: 1e9, decoys: 2 };
+      return { v: add(g, cls, name, 'enemy', p, brg(p, exit), spd, ai, r() < 0.5 ? 2 : 1), exit, spd };
     };
     const boats = [
-      foe('type093b', 'Changzheng 13', 225, 22 + r() * 4, 45, 10), foe('type093b', 'Changzheng 17', 225, 34 + r() * 4, 45, 10),
-      foe('kilo', 'Mozhaisk', 45, 22 + r() * 4, 225, 7), foe('kilo', 'Ufa', 45, 30 + r() * 4, 225, 7),
+      // They come one at a time, the hard way: first a Shang, then a Kilo, then the second of each.
+      foe('type093b', 'Changzheng 13', 225, 12 + r() * 2, 45, 10), foe('type093b', 'Changzheng 17', 225, 27 + r() * 3, 45, 10),
+      foe('kilo', 'Mozhaisk', 45, 15 + r() * 2, 225, 8), foe('kilo', 'Ufa', 45, 20 + r() * 2, 225, 8),
     ];
     const taigei = add(g, 'taigei', 'JS Taigei', 'allied', offset(g.own, 45, 8), 45, 5, undefined, 1);
-    const haguro = add(g, 'maya', 'JS Haguro', 'allied', offset(g.own, 225, 9), 225, 12, go(225, 12));
-    setGoal(g, { protect: [taigei.id, haguro.id], maxLosses: 1, surviveWin: true,
+    const haguro = add(g, 'maya', 'JS Haguro', 'allied', { x: -9, y: 0 }, 180, 12, go(180, 12));
+    setGoal(g, { protect: [taigei.id, haguro.id], maxLosses: 1,
       lossText: 'Taigei and Haguro are both lost. The Japanese line has gone.',
-      win: 'The Tsushima Strait held. China and Russia are still apart.', timeout: '' });
+      timeout: 'Night fell with enemy boats still in the strait, and they slipped through in the dark.' });
     g.flags.through = 0;
     g.script = (gg) => {
       for (const b of boats) keepCourse(b.v, brg(b.v, b.exit), b.spd);
       for (const b of boats) if (arrive(gg, b.v, b.exit, 2.5)) { gg.flags.through++; log(gg, 'danger', `${b.v.name} is through the strait.`); }
-      // Taigei holds the northeast end, Haguro sweeps up and down the southwest.
+      // Taigei holds the northeast end; Haguro sweeps up and down the western side of the channel, off Tsushima.
       steer(taigei, offset({ x: 0, y: 0 }, 45, Math.floor(gg.t / 1800) % 2 ? 12 : 6), 5);
-      if (haguro.alive && haguro.ai!.mode === 'transit') haguro.ai!.baseCourse = brg(haguro, offset({ x: 0, y: 0 }, 225, Math.floor(gg.t / 2400) % 2 ? 16 : 4));
-      skirmish(gg, [taigei, haguro], boats.map((b) => b.v), 5, 0.12, 0.05, 0.5);
+      if (haguro.alive && haguro.ai!.mode === 'transit') haguro.ai!.baseCourse = brg(haguro, { x: -9, y: Math.floor(gg.t / 2400) % 2 ? 7 : -7 });
+      skirmish(gg, [taigei, haguro], boats.map((b) => b.v), 4, 0.012, 0.01, 0.5);
       at(gg, 90 * 60, 'rok', () => log(gg, 'info', 'ROK Navy: a Chinese boat tried the western channel and was sunk by a Korean P-3C. They are holding.'));
       if (gg.flags.through >= 2) end(gg, false, 'Two enemy boats got through the Tsushima Strait.');
-      if (boats.every((b) => !b.v.alive)) end(gg, true, 'All four boats are sunk or past us, and no more than one got through. The strait held.');
+      if (boats.every((b) => !b.v.alive)) end(gg, true, 'All four boats are sunk or past us, and no more than one got through. The Tsushima Strait held: China and Russia are still apart.');
     };
   },
 };
