@@ -21,9 +21,13 @@ function evade(g: Game, i: number, s: CaptainState, spd = 25) {
   const t = torps.sort((a, b) => dist(a, g.own) - dist(b, g.own))[0];
   if (t && (s.sprintT < 0 || i - s.sprintT > 60)) {
     const tb = brg(g.own, t);
-    orders.decoy(g); orders.speed(g, spd); orders.layer(g);
+    // One countermeasure and one change of depth for each new torpedo, not one a minute for the same one.
+    if (!s.m[`ev${t.id}`]) { s.m[`ev${t.id}`] = 1; orders.decoy(g); if (s.sprintT < 0) orders.layer(g); }
+    orders.speed(g, spd);
     orders.heading(g, tb + (angDiff(g.own.hdg, tb) > 0 ? 90 : -90)); s.sprintT = i;
   }
+  // A seeker that has locked on gets another countermeasure.
+  if (t && g.events.some((e) => /seeker has acquired us/.test(e.text))) orders.decoy(g);
   if (s.sprintT < 0) return false;
   if (i - s.sprintT > (t ? 300 : 120)) { s.sprintT = -1; orders.speed(g, 6); orders.depth(g, 1); return false; }
   return true;
@@ -94,6 +98,12 @@ function cueTo(g: Game, i: number, s: CaptainState, within: number, keep = 900) 
   if (i % 30 === 0) { const p = { x: s.m.cx, y: s.m.cy }; const r = dist(g.own, p); orders.heading(g, brg(g.own, p)); orders.speed(g, r > 2 ? 12 : 4); }
   return true;
 }
+/** At periscope depth, a JATM at any enemy aircraft held (one in the air at a time). */
+function jatm(g: Game, i: number) {
+  if (!atPeriscopeDepth(g) || i % 30 || g.weapons.some((w) => w.type === 'jatm' && !w.dead)) return;
+  const air = g.contacts.find((c) => c.held && c.air && c.bearing !== null && g.vessels.find((v) => v.id === c.vid && v.alive && v.side === 'enemy'));
+  if (air) { const keep = g.selected; g.selected = air.id; orders.fire(g, 'jatm'); g.selected = keep; }
+}
 const allied = (g: Game, name: string) => g.vessels.find((v) => v.name === name && v.alive) ?? null;
 
 captains.I5 = (g, i, s) => {
@@ -101,7 +111,7 @@ captains.I5 = (g, i, s) => {
   harpoonBoats(g, i, s, ['fac']);
   const threat = seen(g, ['ghadir', 'kilo'], 50).filter((c) => dist(g.own, c.est!) < (guess(c, 50) === 'kilo' ? 12 : 6));
   if (threat.length && subHunt(g, i, s, ['ghadir', 'kilo'])) return true;
-  if (cueTo(g, i, s, 10)) return true;
+  if (cueTo(g, i, s, 12)) return true;
   if (i % 10 === 0) laneLead(g, offset(O, 300, 3), 120, allied(g, 'MT Ocean Pride') ?? g.vessels.find((v) => v.cls.key === 'tanker' && v.side === 'allied' && v.alive && !v.name.includes('Kaveh')) ?? null, 3);
   return true;
 };
@@ -117,8 +127,8 @@ captains.I7 = (g, i, s) => {
     return true;
   }
   if (i % 20 === 0) {
-    if (!strike(g, 'Kharg air-defence radar', 1)) {
-      const radarDown = (g.sites.find((x) => x.name.includes('radar'))?.hits ?? 0) > 0;
+    if (!strike(g, 'Kharg air-defence radar', 2)) {
+      const radarDown = (g.sites.find((x) => x.name.includes('radar'))?.hits ?? 0) >= 2;
       if (radarDown || i - (s.m.inT ??= i) > 900) for (const n of ['Kharg T-jetty', 'Sea Island terminal', 'Kharg tank farm']) if (strike(g, n, 3)) break;
     }
   }
@@ -140,6 +150,9 @@ captains.I18 = (g, i, s) => {
 captains.I19 = (g, i, s) => {
   if (evade(g, i, s)) return true;
   harpoonBoats(g, i, s, ['fac']);
+  const threat = seen(g, ['ghadir'], 50).filter((c) => dist(g.own, c.est!) < 6);
+  if (threat.length && subHunt(g, i, s, ['ghadir'])) return true;
+  if (cueTo(g, i, s, 10)) return true;
   if (i % 10 === 0) laneLead(g, offset(O, 240, 3), 60, allied(g, 'Mozah') ?? g.vessels.find((v) => v.cls.key === 'lng' && v.alive) ?? null, 3);
   return true;
 };
@@ -147,7 +160,11 @@ captains.I19 = (g, i, s) => {
 captains.I6 = (g, i, s) => {
   if (evade(g, i, s)) return true;
   harpoonBoats(g, i, s, ['droneboat']);
-  if (i > 20 && i % 20 === 0) strike(g, 'Perim Island radar', 1) || strike(g, 'Dhubab launcher site', 2) || strike(g, 'Mocha launcher site', 2);
+  // The launchers can only be hit once they have fired (the brief says so; the log reports each salvo).
+  // and only for seven minutes after each salvo: fire as soon as one shows, if the Tomahawk can get there in time.
+  for (const e of g.events) { const m = /^Vampire, vampire! (Mocha|Dhubab|Zuqar Island) launcher/.exec(e.text); if (m) s.m[m[1]] = i; }
+  const up = (n: string, at: number) => s.m[n] !== undefined && i - s.m[n] < 7 * 60 - dist(g.own, at === 0 ? offset(O, 45, 14) : at === 1 ? offset(O, 22, 25) : offset(O, 345, 32)) / 0.133 - 20;
+  if (i > 20 && i % 20 === 0) strike(g, 'Perim Island radar', 1) || (up('Dhubab', 0) && strike(g, 'Dhubab launcher site', 2)) || (up('Mocha', 1) && strike(g, 'Mocha launcher site', 2)) || (up('Zuqar Island', 2) && strike(g, 'Zuqar Island launcher site', 2));
   look(g, i);
   if (seen(g, ['jamaran']).length) return { extra: ['jamaran'] };
   if (i % 120 === 0) { orders.heading(g, 340); orders.speed(g, 8); }
@@ -164,7 +181,8 @@ captains.I20 = (g, i, s) => {
   if (i % 60 === 0) {
     const p = s.m.ct !== undefined && i - s.m.ct < 1500 ? { x: s.m.cx, y: s.m.cy } : offset(O, 270, 4);
     const r = dist(g.own, p);
-    orders.heading(g, brg(g.own, p)); orders.speed(g, r > 3 ? 12 : 5);
+    // Sprint to within 6 nm of the report, then creep: the Kilo hears a boat closing fast and turns on it.
+    orders.heading(g, brg(g.own, p)); orders.speed(g, r > 6 ? 12 : 4);
   }
   return true;
 };
@@ -205,15 +223,22 @@ captains.I22 = (g, i, s) => {
 
 captains.I23 = (g, i, s) => {
   if (evade(g, i, s)) return true;
-  look(g, i);
-  // Close slowly and quietly; hand over to the generic captain inside 12 nm or when a sub is near.
+  // Stand off and shoot: Tomahawks at the landing ship from 12 to 25 nm, outside the frigates' sonar and ahead of
+  // the Yuan's sweep; fight only a submarine that comes close.
+  jatm(g, i);
   const lhd = near(g, seen(g, ['type071']));
-  const sub = seen(g, ['type039'], 40).some((c) => dist(g.own, c.est!) < 8);
-  if (!sub && (!lhd || dist(g.own, lhd.est!) > 12)) {
-    if (i % 120 === 0) { orders.heading(g, lhd ? brg(g.own, lhd.est!) : 215); orders.speed(g, 7); }
-    return true;
+  if (seen(g, ['type039'], 40).some((c) => dist(g.own, c.est!) < 6)) return { extra: ['type039'], minPct: 40 };
+  if (!lhd) { look(g, i); if (i % 120 === 0) { orders.heading(g, 215); orders.speed(g, 7); } return true; }
+  const r = dist(g.own, lhd.est!);
+  if (lhd.q > 0.6 && r < 25 && i % 90 === 0 && g.weapons.filter((w) => w.type === 'mst' && !w.dead).length < 2) {
+    if (g.own.depthT > 1.05) orders.depth(g, 1);
+    else { g.selected = lhd.id; if (!lhd.classified) orders.classify(g, lhd.id, 'type071'); orders.fire(g, 'mst'); }
+  } else look(g, i);
+  if (i % 120 === 0) {
+    const b = brg(g.own, lhd.est!);
+    orders.heading(g, r < 14 ? b + 180 : r > 20 ? b : b + 90); orders.speed(g, r < 14 ? 10 : 6);
   }
-  return { extra: ['type054a', 'type039'], minPct: 40 };
+  return true;
 };
 
 captains.I10 = (g, i, s) => {
