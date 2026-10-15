@@ -529,6 +529,7 @@ export const REFERENCE: Record<string, Reference> = {
     notes: 'Workhorse U-boat of the Atlantic. Slow and short-legged on batteries, poor hydrophones at speed. Two shafts.',
   },
   fw200: {
+    photo: { file: 'fw200.jpg', credit: 'Focke-Wulf Fw 200C Condor in flight over the sea, 1940. Via Wikimedia Commons; tail swastika painted out · Public domain (per Wikimedia Commons)' },
     displacement: '24,500 kg max takeoff',
     armament: ['Up to 2,100 kg of bombs', '1 to 2 × 20 mm cannon, 3 to 4 machine guns', 'Later models: FuG 200 search radar'],
     armor: 'Light crew armor',
@@ -563,6 +564,7 @@ export const REFERENCE: Record<string, Reference> = {
     notes: 'Friendly. Anti-aircraft cruiser: twin 5 in mounts stacked three high fore and aft, two funnels. Two shafts.',
   },
   flower: {
+    photo: { file: 'flower.jpg', credit: 'HMS Delphinium (K77), Flower-class corvette, 1943. Photo: Cmdr Vivian Funge Smith RNR, via Wikimedia Commons · Public domain (per Wikimedia Commons)' },
     displacement: '1,170 t full load',
     armament: ['1 × 4 in gun', '1 × 2-pounder pom-pom', 'Depth charges, later Hedgehog', 'ASDIC'],
     armor: 'None',
@@ -588,12 +590,14 @@ export const REFERENCE: Record<string, Reference> = {
     notes: 'German cargo steamer. Single funnel amidships, cargo masts fore and aft. Single screw.',
   },
   renown: {
+    photo: { file: 'renown.jpg', credit: 'HMS Repulse (Renown class) escorting a troop convoy, 1941. Royal Navy official photographer, IWM A 6793, via Wikimedia Commons, cropped · Public domain (UK Crown Copyright expired)' },
     displacement: '37,400 t full load',
     armament: ['6 × 15 in guns in three twin turrets', '20 × 4 in guns (Renown, twin DP mounts) or 9 × 4 in in triple mounts (Repulse)', '2-pounder pom-poms', '8 × 21 in torpedo tubes', '4 floatplanes'],
     armor: '152 to 229 mm belt, 76 to 127 mm deck (Renown after rebuild)',
     notes: 'Long, lean battlecruisers: two turrets forward, one aft, two funnels. Renown rebuilt with a tower bridge, Repulse kept a tripod. Four shafts.',
   },
   g4m: {
+    photo: { file: 'g4m.jpg', credit: 'Mitsubishi G4M "Betty" on an airfield. San Diego Air and Space Museum archive, via Wikimedia Commons · Public domain (per Wikimedia Commons)' },
     displacement: '12,900 kg max takeoff',
     armament: ['1 × Type 91 aerial torpedo or 800 kg of bombs', '1 × 20 mm tail cannon', '4 × 7.7 mm machine guns'],
     armor: 'None, and unprotected fuel tanks',
@@ -635,6 +639,7 @@ export const REFERENCE: Record<string, Reference> = {
     notes: 'Three turrets forward, two aft, and one big trunked funnel. Compact bridge, long open quarterdeck. Four shafts.',
   },
   scharnhorst: {
+    photo: { file: 'scharnhorst.jpg', credit: 'Scharnhorst in harbour, early 1939. Via Wikimedia Commons; bow jack flag (swastika) painted out · Public domain (per Wikimedia Commons)' },
     displacement: '38,100 t full load',
     armament: ['9 × 28 cm guns in three triple turrets', '12 × 15 cm secondary guns', '14 × 10.5 cm AA guns', '6 × 53.3 cm torpedo tubes (from 1942)', '3 to 4 Arado Ar 196 floatplanes'],
     armor: '350 mm belt, 360 mm turret faces, up to 105 mm deck',
@@ -662,6 +667,7 @@ export const REFERENCE: Record<string, Reference> = {
     notes: 'Friendly. Converted battlecruisers, long and big: small island and a huge flat-sided funnel on the starboard side. Turbo-electric drive, four shafts.',
   },
   deruyter: {
+    photo: { file: 'deruyter.jpg', credit: 'HNLMS De Ruyter, circa 1942. Australian War Memorial 305837, via Wikimedia Commons, caption strip cropped · Public domain (per Wikimedia Commons)' },
     displacement: '7,550 t (De Ruyter) to 8,200 t (Java) full load',
     armament: ['De Ruyter: 7 × 15 cm guns in three twin and one single turret', 'Java: 10 × 15 cm guns in single mounts', '4 to 6 × 40 mm AA guns', '2 floatplanes'],
     armor: '50 to 75 mm belt, 25 to 30 mm deck',
