@@ -64,17 +64,24 @@ export const captains: Record<string, Captain> = {
   },
   V4: (g, i, s) => {
     if (evade(g, i, s)) return true;
-    // Slow and deep toward her; one Mk 48 at her once the solution is good.
-    if (g.own.ordDepth < 2 && i % 60 === 0) orders.depth(g, 2);
-    const agi = contactOn(g, byName(g, 'Viktor Leonov')?.id);
     const k = quarry(g, ['kilo'], 60, s, i);
-    if (k && dist(g.own, k.est!) < 5) return attack(g, i, s, k), true;
-    if (!agi) { goTo(g, i, { x: 0, y: 8 }, 5); return true; }
-    g.selected = agi.id;
-    if (!agi.classified) orders.classify(g, agi.id, 'trawler');
-    const r = dist(g.own, agi.est!);
-    goTo(g, i, agi.est!, 5);
-    if (agi.q > 0.6 && r < 8 && i % 120 === 0 && !g.weapons.some((w) => w.side === 'us' && !w.dead)) orders.fire(g, 'mk48');
+    if (k && dist(g.own, k.est!) < 4) return attack(g, i, s, k), true;
+    const agi = contactOn(g, byName(g, 'Viktor Leonov')?.id);
+    if (agi && agi.q > 0.6) {
+      // Seen through the periscope: a Mk 48 from outside 6 nm, then back down.
+      g.selected = agi.id;
+      if (!agi.classified) orders.classify(g, agi.id, 'trawler');
+      const running = g.weapons.some((w) => w.side === 'us' && !w.dead);
+      if (dist(g.own, agi.est!) < 14 && i - (s.m.shotT ?? -1e9) > 600 && !running) { orders.fire(g, 'mk48'); s.m.shotT = i; }
+      if (running && i % 60 === 0) { orders.depth(g, 1); orders.speed(g, 4); }
+      return true;
+    }
+    for (const e of g.events) { const m = /HF radio, bearing (\d+)/.exec(e.text); if (m) { s.m.esmB = Number(m[1]); s.m.esmX = g.own.x; s.m.esmY = g.own.y; } }
+    // Creep along the ESM bearing above the layer; every few minutes, a periscope look while still well outside 6 nm.
+    const y = Math.min(4.5, i / 700);
+    if (i % 600 < 90 && i > 600) { if (i % 30 === 0) { orders.depth(g, 0); orders.speed(g, 3); } return true; }
+    if (i % 60 === 0) orders.depth(g, 1);
+    goTo(g, i, s.m.esmB !== undefined ? offset({ x: s.m.esmX, y: s.m.esmY }, s.m.esmB, Math.min(4, i / 700)) : { x: 0, y }, 4);
     return true;
   },
   V5: (g, i, s) => {
@@ -90,21 +97,27 @@ export const captains: Record<string, Captain> = {
     return true;
   },
   V6: (g, i, s) => {
+    listen(g, i, s);
     if (evade(g, i, s)) return true;
     const ten = byName(g, 'USS Emory S. Land');
     if (!g.flags.rearmed && ten?.alive) {
       // Alongside at periscope depth, 5 knots on her course.
       const r = dist(g.own, ten);
-      if (r > 0.3) { goTo(g, i, offset(ten, ten.hdg, Math.min(1, r / 6)), r > 2 ? 14 : 8); if (r < 1.5 && !atPeriscopeDepth(g)) orders.depth(g, 0); return true; }
+      if (r > 0.3) { goTo(g, i, offset(ten, ten.hdg, Math.min(1, r / 6)), r > 1 ? 14 : 8); if (r < 1.5 && !atPeriscopeDepth(g)) orders.depth(g, 0); return true; }
       if (i % 30 === 0) { orders.heading(g, ten.hdg); orders.speed(g, 5); }
       if (!atPeriscopeDepth(g)) orders.depth(g, 0);
       return true;
     }
     if (airDefence(g, i, s)) return true;
-    // Rearmed: stay near the tender and sink anything that closes her.
-    const t = quarry(g, ['akula', 'kilo'], 50, s, i);
-    if (t && ten && dist(ten, t.est!) < 12) return attack(g, i, s, t), true;
-    if (ten) goTo(g, i, offset(ten, i / 20, 2.5), 7);
+    // Rearmed: stay near the tender and sink anything that closes her; meet the P-8's fixes on her side.
+    const t = quarry(g, ['akula', 'kilo'], 40, s, i);
+    if (t && ten && dist(ten, t.est!) < 12 && (t.q >= 0.6 || dist(g.own, t.est!) < 4)) return attack(g, i, s, t), true;
+    if (ten && s.m.fixX !== undefined && i - s.m.fixT < 1500) {
+      const f = { x: s.m.fixX, y: s.m.fixY };
+      goTo(g, i, offset(ten, brg(ten, f), Math.min(6, dist(ten, f) / 2)), i % 600 < 400 ? 12 : 5);
+    } else if (ten) goTo(g, i, offset(ten, i / 20, 2.5), 7);
+    // Raiders come in shallow, as the Kilo and Akula do: patrol above the layer.
+    if (!atPeriscopeDepth(g) && g.own.ordDepth !== 1 && i % 60 === 0) orders.depth(g, 1);
     return true;
   },
 };

@@ -145,7 +145,7 @@ export const missions: Record<MissionKey, Mission> = {
   V4: {
     key: 'V4', title: 'Spy Trawler', era: '2029', place: PLACE, date: `${DATE}, 1000`,
     library: ['trawler', 'kilo', 'steregushchiy', 'virginia'],
-    brief: 'An intelligence trawler, the Vishnya-class Viktor Leonov, is sitting on your route to the next mission, about 10 nm north, streaming towed hydrophones. If she hears you for ten minutes in all, or sees your masts within 6 nm, she will report Tang and the next mission will be blown. Sink her, or put a weapon in the water close enough (within 3 nm) to send her running, then let her go: if she gets 20 nm away she has run. She is noisy; you will hear her long before she hears you, unless you go fast. A Kilo is keeping her company.',
+    brief: 'An intelligence trawler, the Vishnya-class Viktor Leonov, is sitting on your route to the next mission, about 10 nm north, streaming towed hydrophones. If she hears you for ten minutes in all, or sees your masts within 6 nm, she will report Tang and the next mission will be blown. Sink her, or put a weapon in the water close enough (within 3 nm) to send her running, then let her go: if she gets 20 nm away she has run. At 3 knots she is hard to hear, but she is tall, and she is on the radio: at periscope depth your ESM mast will give her bearing, and from periscope depth you can see her from 8 nm, outside the 6 nm where she would see your masts. A Kilo is keeping her company.',
     build(g, r) {
       g.startClock = clock(10);
       g.timeLimit = 2.5 * 3600;
@@ -162,6 +162,8 @@ export const missions: Record<MissionKey, Mission> = {
           const se = excess(vesselSL(o), o, { x: agi.x, y: agi.y, hdg: agi.hdg, spd: agi.spd, depthT: 1, array: true }, 23);
           if (se > 0) gg.flags.heard++;
           if (atPeriscopeDepth(gg) && dist(o, agi) < 6) gg.flags.heard += 5;
+          // She talks to Severomorsk on HF: at periscope depth our ESM mast takes a bearing on it.
+          if (atPeriscopeDepth(gg) && gg.t % 60 === 0) log(gg, 'contact', `ESM: Viktor Leonov's HF radio, bearing ${fmtBrg(brg(o, agi))}.`);
           if (gg.flags.heard >= 300 && !gg.flags.warned) { gg.flags.warned = 1; log(gg, 'warn', 'Radio intercept: Viktor Leonov is on the air, short coded bursts. She may be on to us.'); }
           if (gg.flags.heard >= 600) return end(gg, false, 'Viktor Leonov has reported us. The pact knows Tang is coming.');
           if (gg.weapons.some((w) => w.side === 'us' && !w.dead && dist(w, agi) < 3)) {
@@ -225,13 +227,13 @@ export const missions: Record<MissionKey, Mission> = {
   V6: {
     key: 'V6', title: 'Running Low', era: '2029', place: PLACE, date: `${DATE}, 0700`,
     library: ['tender', 'akula', 'kilo', 'yasen', 'virginia'],
-    brief: 'Tang is nearly dry: two Mk 48s left in the tubes, the vertical tubes empty. The tender USS Emory S. Land has come out to meet you in open ocean, 8 nm north of you, steaming north at 5 knots. Get within half a mile of her at periscope depth and 6 knots or less, and stay there 20 minutes in all to take on weapons. A pact Akula has had a tip about where she is, and a Kilo may follow it. Rearm, then keep the tender afloat until she turns for home, two and a half hours from now.',
+    brief: 'Tang is nearly dry: two Mk 48s left in the tubes, the vertical tubes empty. The tender USS Emory S. Land has come out to meet you in open ocean, 5 nm north of you, steaming north at 5 knots. Get within half a mile of her at periscope depth and 6 knots or less, and stay there 20 minutes in all to take on weapons. A pact Akula has had a tip about where she is, and a Kilo may follow it. A P-8 sweeping ahead of the tender will pass you rough fixes on anything it finds. Rearm, then keep the tender afloat until she turns for home, two and a half hours from now.',
     build(g, r) {
       g.startClock = clock(7);
       g.timeLimit = 2.5 * 3600;
-      const ten = add(g, 'tender', 'USS Emory S. Land (AS-39)', 'allied', offset(g.own, (r() * 2 - 1) * 20, 8), 0, 5, go(0, 5, 1e9));
+      const ten = add(g, 'tender', 'USS Emory S. Land (AS-39)', 'allied', offset(g.own, (r() * 2 - 1) * 20, 5), 0, 5, go(0, 5, 1e9));
       const a = r() * 360;
-      raider(g, 'akula', 'Tigr', offset(ten, a, 22 + r() * 3), 12);
+      const ak = raider(g, 'akula', 'Tigr', offset(ten, a, 24 + r() * 3), 10);
       const kl = raider(g, 'kilo', 'Krasnodar', offset(ten, a + 120 + r() * 120, 14), 6);
       setGoal(g, { protect: [ten.id], maxLosses: 0, surviveWin: true, lossText: 'Emory S. Land is sinking, and Tang\'s reloads with her.',
         win: 'Emory S. Land is turning for home, and Tang is full of fish again.', timeout: '' });
@@ -252,6 +254,8 @@ export const missions: Record<MissionKey, Mission> = {
             log(gg, 'good', 'Rearmed: tubes loaded, vertical tubes full. Weapons free.');
           }
         }
+        // A P-8 is sweeping ahead of the tender and passes on what it finds.
+        for (const v of [ak, kl]) if (v.alive && ten.alive && gg.t % 900 === 450 && dist(v, ten) > 2 && dist(v, ten) < 30 && (v === ak || gg.t > 3600)) passFix(gg, v, 'P-8 Poseidon reports', 2, 0.3);
         // The Kilo waits an hour before it starts its run in.
         if (gg.t < 3600) kl.ordSpd = 0;
         at(gg, 60 * 60, 'kilo', () => { if (kl.alive) { log(gg, 'warn', 'Intelligence: a Kilo was seen leaving its patrol area, heading for the tender\'s position.'); } });
