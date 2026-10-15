@@ -1,11 +1,12 @@
 // Modern war missions: chance. Surprise missions the news can swap in for the next slot (V1 to V6).
 // They happen "near the next mission", so each is set in generic open ocean on passage, and says so.
 import { brg, dist, fmtBrg, norm, offset } from '../math';
-import { atPeriscopeDepth, end, excess, log, makeVessel, vesselSL, type Game, type Vessel } from '../sim';
+import { atPeriscopeDepth, end, excess, log, vesselSL, type Game, type Vessel } from '../sim';
 import {
   add, at, byId, clock, flag, go, ids, isSunk, keepCourse, mins, screen, setGoal, steer, watch,
   type Mission, type MissionKey, type ObjectiveFn,
 } from '../kit';
+import { passFix } from './arctic';
 
 const PLACE = 'Open ocean, on passage';
 const DATE = 'On passage, wartime';
@@ -18,19 +19,19 @@ export const missions: Record<MissionKey, Mission> = {
   V1: {
     key: 'V1', title: 'Mayday', era: '2029', place: PLACE, date: `${DATE}, 0300`, night: true,
     library: ['udaloy', 'steregushchiy', 'ka27', 'virginia', 'gorshkov'],
-    brief: 'Change of plan on the way to your next mission. USS Delaware has gone down in open ocean after a collision with a seamount: she is lying on the bottom 8 nm north of you, crew alive, too deep to escape on their own. A rescue ship with the SRDRS rescue system is coming up from the south and will be on site in about an hour; it needs 30 minutes over her. A Udaloy and a Steregushchiy corvette heard her go down and are searching the area with a Ka-27, circling in closer as they go. If one of them spends two minutes within 1.5 nm of Delaware, its sonar will find her and it will attack. Keep them off her, and keep the rescue ship afloat, until the crew is up. Sink them, or draw them away.',
+    brief: 'Change of plan on the way to your next mission. USS Delaware has gone down in open ocean after a collision with a seamount: she is lying on the bottom 8 nm north of you, crew alive, too deep to escape on their own. A rescue ship with the SRDRS rescue system is coming in from the east or west (she will say which on the radio) and will be on site in about an hour; it needs 30 minutes over her. A Udaloy and a Steregushchiy corvette heard her go down and are searching the area from the north with a Ka-27, circling in closer as they go. If one of them spends two minutes within 1.5 nm of Delaware, its sonar will find her and it will attack. Keep them off her, and keep the rescue ship afloat, until the crew is up. Sink them, or draw them away.',
     build(g, r) {
       g.startClock = clock(3);
       g.timeLimit = 2.5 * 3600;
       const wreck = offset(g.own, (r() * 2 - 1) * 20, 8);
-      const del = makeVessel(g, 'virginia', 'USS Delaware (SSN-791)', 'allied', wreck, r() * 360, 0, 2);
-      g.vessels.push(del);
-      const rescue = add(g, 'rescueship', 'MV Dakota Rescue', 'allied', offset(wreck, 180 + (r() * 2 - 1) * 20, 12), 0, 12);
+      // Delaware lies on the bottom: not a vessel in the fight (a seeker can't pick her out of the seabed), just a spot to guard.
+      const rescue = add(g, 'rescueship', 'MV Dakota Rescue', 'allied', offset(wreck, (r() < 0.5 ? 90 : 270) + (r() * 2 - 1) * 20, 12), 0, 12);
       const hunt = (cls: string, name: string, a: number) => add(g, cls, name, 'enemy', offset(wreck, a, 6 + r() * 2), 0, 12, { mode: 'patrol', legT: 1e9 });
-      const a0 = r() * 360;
-      const hunters = [hunt('udaloy', 'Admiral Panteleyev', a0), hunt('steregushchiy', 'Sovershenny', a0 + 140 + r() * 80)];
+      // They came in from the north when they heard her go down.
+      const a0 = (r() * 2 - 1) * 50;
+      const hunters = [hunt('udaloy', 'Admiral Panteleyev', a0), hunt('steregushchiy', 'Sovershenny', a0 + (r() < 0.5 ? 1 : -1) * (50 + r() * 30))];
       add(g, 'ka27', 'Ka-27PL Helix', 'enemy', offset(hunters[0], 90, 2), 0, 120, { mode: 'search', center: { x: wreck.x, y: wreck.y }, wp: offset(wreck, r() * 360, 4), torps: 1, datum: null, hits: 0, dipT: 0 });
-      setGoal(g, { targets: [], protect: [del.id, rescue.id], maxLosses: 0, lossText: 'We lost them. Delaware\'s crew will not be coming home.', timeout: 'Out of time: the rescue never finished.' });
+      setGoal(g, { targets: [], protect: [rescue.id], maxLosses: 0, lossText: 'The rescue ship is sinking. Delaware\'s crew will not be coming home.', timeout: 'Out of time: the rescue never finished.' });
       g.flags.found = 0; g.flags.rescue = 0;
       g.script = (gg) => {
         // The hunters circle the spot where they heard her, closing in by a mile every quarter hour.
@@ -40,11 +41,12 @@ export const missions: Record<MissionKey, Mission> = {
           if (!gg.flags.found) log(gg, 'danger', 'Sonar: a hunter is pinging right over Delaware!', 'alarm');
           gg.flags.found++;
         } else gg.flags.found = Math.max(0, gg.flags.found - 1);
-        if (gg.flags.found >= 120 && del.alive) {
-          del.alive = false;
-          gg.sunk.push({ name: del.name, cls: del.cls.key, side: 'allied', by: 'enemy' });
+        if (gg.flags.found >= 120 && !gg.flags.lost) {
+          gg.flags.lost = 1;
           log(gg, 'danger', 'RBU rockets are exploding over Delaware. Her hull has given way.', 'boom');
+          end(gg, false, 'The hunters found Delaware on the bottom. We lost them: her crew will not be coming home.');
         }
+        at(gg, 5, 'radio', () => log(gg, 'info', `MV Dakota Rescue on the radio: inbound from the ${rescue.x > wreck.x ? 'east' : 'west'}, 12 nm out from Delaware, 12 knots.`));
         if (rescue.alive) steer(rescue, wreck, 12);
         if (rescue.alive && dist(rescue, wreck) < 1) {
           if (!gg.flags.rescue) log(gg, 'good', 'The rescue ship is over Delaware. The SRDRS is going down to her hatch.');
@@ -59,24 +61,31 @@ export const missions: Record<MissionKey, Mission> = {
   V2: {
     key: 'V2', title: 'Ghost Contact', era: '2029', place: PLACE, date: `${DATE}, 1400`,
     library: ['reis', 'kalvari', 'virginia', 'taigei', 'collins', 'kilo', 'type039'],
-    brief: 'On passage to your next mission, a P-8 has passed you a fleeting contact: a quiet submarine, about 9 nm to the north, nationality unknown. It could be a neutral Turkish Reis on its own business, an Indian Kalvari hunting for the pact, or one of ours that nobody told you about. Identify it by its signature, classify it, and come to periscope depth to report. If it is Indian, you will then be cleared to sink it. If you report it wrongly, or fire on a neutral or a friend, the mission fails. You have three hours.',
+    brief: 'On passage to your next mission, a P-8 has passed you a fleeting contact: a quiet submarine, about 9 nm to the north, working a patrol box about 4 nm across at 8 knots, nationality unknown. Its signature will be faint: expect to close to a mile or two to read it. The P-8 will pass a rough position every 10 minutes until you can read its signature yourself. It could be a neutral Turkish Reis on its own business, an Indian Kalvari hunting for the pact, or one of ours that nobody told you about. Identify it by its signature, classify it, and come to periscope depth to report. If it is Indian, you will then be cleared to sink it; it is hunting shipping, and will only turn on you if you come within 2 nm or shoot. If you report it wrongly, or fire on a neutral or a friend, the mission fails. You have three hours.',
     build(g, r) {
       g.startClock = clock(14);
       g.timeLimit = 3 * 3600;
+      g.env.sea = 1;
       const roll = r();
       const [cls, name] = roll < 0.35 ? ['reis', 'TCG Hızırreis'] : roll < 0.7 ? ['kalvari', 'INS Vagsheer'] : roll < 0.85 ? ['virginia', 'USS Iowa (SSN-797)'] : ['taigei', 'JS Raigei'];
       const hostile = cls === 'kalvari';
       const p = offset(g.own, (r() * 2 - 1) * 35, 8 + r() * 2);
-      const course = norm(brg(p, g.own) + 90 + (r() * 2 - 1) * 40);
+      const course = norm(brg(p, g.own) + 90 + (r() * 2 - 1) * 40), dir = r() < 0.5 ? 1 : -1;
       const ghost = hostile ? add(g, cls, name, 'enemy', p, course, 5, { mode: 'patrol', legT: 1e9, decoys: 2 }, r() < 0.5 ? 2 : 1)
         : add(g, cls, name, 'allied', p, course, 5, undefined, r() < 0.5 ? 2 : 1);
       g.flags.hostile = hostile ? 1 : 0;
       setGoal(g, hostile ? { targets: [], win: '', timeout: 'Three hours, and we never pinned it down.' }
         : { protect: [ghost.id], maxLosses: 0, lossText: `We sank ${name}. She was ${cls === 'reis' ? 'a neutral' : 'one of ours'}.`, timeout: 'Three hours, and we never pinned it down.' });
       g.script = (gg) => {
-        // It goes quietly about its business, weaving slowly.
-        const c = norm(course + Math.sin(gg.t / 900) * 40);
-        if (hostile) keepCourse(ghost, c, 5); else steer(ghost, offset(ghost, c, 5), 5);
+        // It works a patrol box: a slow racetrack about 4 nm across, at 8 knots.
+        const c = brg(ghost, offset(p, (gg.t / 9) * dir, 2));
+        if (hostile) keepCourse(ghost, c, 8); else steer(ghost, offset(ghost, c, 5), 8);
+        // The Kalvari is after shipping: it only turns on a submarine that comes within 2 nm or shoots.
+        const weFired = Object.values(gg.stats.fired).some((n) => n > 0);
+        if (hostile && ghost.alive && ghost.ai!.mode === 'attack' && !weFired && dist(gg.own, ghost) > 2) { ghost.ai!.mode = 'patrol'; ghost.ai!.holdT = 0; }
+        // The P-8 stays on station and passes a rough position every 10 minutes until we can read it ourselves.
+        const own = gg.contacts.find((x) => x.vid === ghost.id);
+        if (ghost.alive && gg.t % 600 === 300 && !(own?.held && own.matches.length)) passFix(gg, ghost, 'P-8 Poseidon reports', 1, 0.3);
         if (hostile && gg.stats.enemyFired > 0 && !Object.values(gg.stats.fired).some((n) => n > 0)) gg.flags.shotFirst = 1;
         if (!hostile && ghost.alive && ourHits(gg, ghost)) end(gg, false, `We put a torpedo into ${name}. She was ${cls === 'reis' ? 'a neutral Turkish boat' : 'one of ours'}.`);
         if (gg.flags.reported) {
@@ -101,15 +110,15 @@ export const missions: Record<MissionKey, Mission> = {
   V3: {
     key: 'V3', title: 'Storm Front', era: '2029', place: PLACE, date: `${DATE}, 2100`, night: true,
     library: ['yasen', 'akula', 'kilo', 'boxship', 'arleigh', 'virginia'],
-    brief: 'A full gale has caught you on passage, and the pact is using it. A Yasen-M is closing on an allied convoy about 25 nm east of you, under cover of the storm: nothing is flying, wave noise is drowning out quiet contacts for everyone, and the periscope sees half as far. If the Yasen spends 15 minutes within 20 nm of the convoy, it will fire its Oniks missiles. Find it and sink it first. It is somewhere between you and the convoy. The storm will peak in about half an hour and ease after two.',
+    brief: 'A full gale has caught you on passage, and the pact is using it. A Yasen-M is closing on an allied convoy about 40 nm east of you, steaming north, under cover of the storm: nothing is flying, wave noise is drowning out quiet contacts for everyone, and the periscope sees half as far. If the Yasen spends 15 minutes within 20 nm of the convoy, it will fire its Oniks missiles. Find it and sink it first. It is somewhere between you and the convoy, probably 9 to 14 nm east of you now. The destroyer with the convoy, USS Paul Ignatius, will pass you a rough fix whenever her towed array catches it. The storm will peak in about half an hour and ease after two.',
     build(g, r, carry) {
       g.startClock = clock(21);
       g.timeLimit = 3 * 3600;
       g.env.sea = 5;
       g.own.hdg = g.own.ordHdg = 90;
-      const lead = add(g, 'arleigh', 'USS Paul Ignatius', 'allied', offset(g.own, 80 + r() * 20, 25), 180, 10, go(180, 10, 1e9));
+      const lead = add(g, 'arleigh', 'USS Paul Ignatius', 'allied', offset(g.own, 80 + r() * 20, 40), 0, 10, go(0, 10, 1e9));
       const ships = screen(g, lead, 'boxship', ['MV Maersk Kensington', 'MV Cape Orlando', 'MV Atlantic Sun'], [[150, 2], [210, 2], [180, 4]]);
-      const p = offset(g.own, 60 + r() * 60, 8 + r() * 6);
+      const p = offset(g.own, 70 + r() * 40, 9 + r() * 5);
       const names = ['Arkhangelsk', 'Perm', 'Novosibirsk', 'Krasnoyarsk'].filter((n) => !carry.sunk.includes(n));
       const ys = add(g, 'yasen', names[0] ?? 'Perm', 'enemy', p, brg(p, lead), 8, { mode: 'patrol', legT: 1e9, decoys: 2 }, 2);
       setGoal(g, { targets: [ys.id], need: 1, protect: ids(ships), maxLosses: 0, lossText: 'The Oniks got through. A convoy ship is burning in the gale.',
@@ -120,8 +129,10 @@ export const missions: Record<MissionKey, Mission> = {
         at(gg, 120 * 60, 'ease', () => { gg.env.sea = 4; log(gg, 'info', 'The storm is easing: sea state 4.'); });
         if (!ys.alive) return;
         // The Yasen closes the convoy for a missile shot, but fights if it hears us.
-        keepCourse(ys, brg(ys, offset(lead, 270, 18)), 9);
+        keepCourse(ys, brg(ys, offset(lead, 270, 18)), 8);
         if (dist(ys, lead) < 20) gg.flags.salvoT++;
+        // Paul Ignatius's towed array catches it now and then through the storm, and passes us a rough fix.
+        if (lead.alive && gg.t % 900 === 450 && dist(ys, lead) < 26) passFix(gg, ys, 'USS Paul Ignatius reports', 2, 0.3);
         if (gg.flags.salvoT === 600) log(gg, 'warn', `Sonar: the Yasen is slowing and coming shallow, bearing ${fmtBrg(brg(gg.own, ys))}. It's setting up a missile shot!`);
         if (gg.flags.salvoT >= 900) {
           const t = ships.find((s) => s.alive);
@@ -255,7 +266,7 @@ export const extras: Record<MissionKey, ObjectiveFn> = {
     const res = flag(g, 'rescue'), f = flag(g, 'found');
     return [
       { text: 'Guard the rescue for 30 minutes', state: res >= 1800 ? 'done' : 'open', detail: res ? `${mins(res)} of 30 min done.` : 'The rescue ship is still on its way.' },
-      watch('Keep the hunters more than 1.5 nm from Delaware', g.sunk.some((s) => s.name.startsWith('USS Delaware')), f ? `A hunter is over her: ${mins(120 - f)} until it finds her.` : 'Delaware is 8 nm north of where you started.'),
+      watch('Keep the hunters more than 1.5 nm from Delaware', !!flag(g, 'lost'), f ? `A hunter is over her: ${mins(120 - f)} until it finds her.` : 'Delaware is 8 nm north of where you started.'),
       ...b,
     ];
   },

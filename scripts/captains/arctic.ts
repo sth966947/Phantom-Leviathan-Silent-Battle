@@ -15,9 +15,9 @@ export function evade(g: Game, i: number, s: CaptainState) {
     const m = /Torpedo in the water, bearing (\d+)/.exec(e.text);
     if (!m || (s.sprintT >= 0 && i - s.sprintT < 60)) continue;
     if (s.sprintT < 0) { orders.decoy(g); orders.layer(g); }
-    orders.heading(g, Number(m[1]) + (i % 2 ? 100 : -100)); orders.speed(g, 25); s.sprintT = i;
+    orders.heading(g, Number(m[1]) + 150 * (i % 2 ? 1 : -1)); orders.speed(g, 28); s.sprintT = i;
   }
-  if (s.sprintT >= 0) { if (i - s.sprintT > 150) { s.sprintT = -1; orders.speed(g, 6); } else return true; }
+  if (s.sprintT >= 0) { if (i - s.sprintT > 420) { s.sprintT = -1; orders.speed(g, 6); } else return true; }
   // Shot at by something we can't hear: slow down and ping for it.
   if (s.m.shotAtT !== undefined && i - s.m.shotAtT < 900 && i - (s.m.pingT ?? -1e9) > 300 && i - (s.m.dodgeT ?? -1e9) > 900 && g.own.spd < 9) { s.m.pingT = i; orders.ping(g); }
   return false;
@@ -32,17 +32,22 @@ export function listen(g: Game, i: number, s: CaptainState, pref = 300) {
       const p = offset(g.own, Number(a[2]), Number(a[3]) / (a[4] === 'yd' ? 2025 : 1));
       s.m[`ally:${a[1]}:x`] = p.x; s.m[`ally:${a[1]}:y`] = p.y; s.m[`ally:${a[1]}:t`] = i;
     }
+    const fx = /On the plot as (Sierra \d+)/.exec(e.text);
+    if (fx) s.m[`fix:${fx[1]}`] = i;
+    const ic = /Xue Long 2's ice-profiling sonar. Intercept fix on the plot as (Sierra \d+)/.exec(e.text);
+    const icc = ic && g.contacts.find((c) => c.name === ic[1]);
+    if (icc && icc.classified !== 'xuelong2') orders.classify(g, icc.id, 'xuelong2');
     const f = /submarine, bearing (\d+) from us, ([\d.]+) (nm|yd)/.exec(e.text);
     if (f) { const p = offset(g.own, Number(f[1]), Number(f[2]) / (f[3] === 'yd' ? 2025 : 1)); s.m.fixX = p.x; s.m.fixY = p.y; s.m.fixT = i; }
-    const b = /bearing (\d+)\. (?:Something big|Xue Long 2)/.exec(e.text);
-    if (b) { s.m.cueB = Number(b[1]); s.m.cueT = i; }
+    const b = /bearing (\d+)\. (?:Something big|Xue Long 2)|launch transients near bearing (\d+)\. Enemy/.exec(e.text);
+    if (b) { s.m.cueB = Number(b[1] ?? b[2]); s.m.cueT = i; s.m.cueX = g.own.x; s.m.cueY = g.own.y; }
   }
-  if (s.m.keelT !== undefined && i - s.m.keelT > 400 && i % 60 === 0) orders.depthTo(g, pref);
+  if (s.m.keelT !== undefined && i - s.m.keelT > 400 && s.sprintT < 0) { delete s.m.keelT; orders.depthTo(g, pref); }
 }
 /** Where allied boats were last reported, if within the last 20 minutes (allowing for their drift). */
 const alliesNear = (s: CaptainState, i: number, p: Vec, within: number) => Object.keys(s.m).filter((k) => k.endsWith(':t')).some((k) => {
   const n = k.slice(0, -2);
-  return i - s.m[k] < 1200 && dist(p, { x: s.m[`${n}:x`], y: s.m[`${n}:y`] }) < within + (i - s.m[k]) * 5 / 3600;
+  return i - s.m[k] < 1200 && dist(p, { x: s.m[`${n}:x`], y: s.m[`${n}:y`] }) < within + (i - s.m[k]) * 3 / 3600;
 });
 /**
  * What the player would call a contact: the accepted class, or the best match if it is sure enough,
@@ -64,6 +69,9 @@ export function quarry(g: Game, want: string[], minPct = 60, s?: CaptainState, i
       && !isFriendlyClass(guess(c, minPct)));
     if (shooter) return shooter;
   }
+  // A fix passed by the tracking range or an ally in the last two minutes: shoot on it.
+  const fixed = s && g.contacts.find((c) => c.est && i - (s.m[`fix:${c.name}`] ?? -1e9) < 120 && !isFriendlyClass(c.classified));
+  if (fixed) return fixed;
   return g.contacts.filter((c) => c.held && c.est && !c.air && guess(c, minPct) && want.includes(guess(c, minPct)!) && !isFriendlyClass(guess(c, minPct)))
     .sort((a, b) => dist(g.own, a.est!) - dist(g.own, b.est!))[0];
 }
@@ -81,8 +89,10 @@ export function attack(g: Game, i: number, s: CaptainState, t: Contact, fireR = 
   const r = dist(g.own, t.est!);
   const sub = !k || CLASSES[k].kind === 'sub';
   if (s.m.dodgeT !== undefined && i - s.m.dodgeT < 240) return;
-  if (i % 60 === 0) { orders.heading(g, brg(g.own, t.est!)); orders.speed(g, r > 9 ? fast : 6); }
-  if (t.q < 0.6 || i % 90 !== 0 || alliesNear(s, i, t.est!, sub ? 3 : 1.5)) return;
+  // Weak solution: legs across the bearing, as the duel captain does. Good solution: close it.
+  if (t.q < 0.6) { if (i - (s.m.legT ?? -1e9) > 240) { s.m.legT = i; s.legs++; orders.heading(g, t.bearing! + (s.legs % 2 ? 50 : -50)); orders.speed(g, 6); } }
+  else if (i % 60 === 0) { orders.heading(g, brg(g.own, t.est!)); orders.speed(g, r > 9 ? fast : 6); }
+  if (t.q < 0.6 || i % 90 !== 0 || alliesNear(s, i, t.est!, sub ? 2 : 1.5)) return;
   const asroc = sub && !underIce(g) && r > 1.5 && r < 14 && g.own.depthT <= 1.05;
   if (asroc) orders.fire(g, 'asroc');
   else if (r < fireR && running(g) < 2) orders.fire(g, 'mk48'); else return;
@@ -92,6 +102,7 @@ export function attack(g: Game, i: number, s: CaptainState, t: Contact, fireR = 
 export function hunt(g: Game, i: number, s: CaptainState, want: string[], search: Vec | null = null, minPct = 60) {
   const t = quarry(g, want, minPct, s, i);
   if (t) return attack(g, i, s, t);
+  if (s.m.cueT !== undefined && i - s.m.cueT < 900) return goTo(g, i, offset({ x: s.m.cueX, y: s.m.cueY }, s.m.cueB, 6), 8);
   if (search && dist(g.own, search) > 1.5) { if (i % 60 === 0) { orders.heading(g, brg(g.own, search)); orders.speed(g, i % 900 < 420 ? 10 : 5); } }
   else if (i % 600 === 0) { orders.turn(g, 70); orders.speed(g, 6); }
 }
@@ -114,8 +125,9 @@ const nearestLead = (g: Game) => g.env.polynyas.filter((p) => p.r < 100).sort((a
 /** Get into open water, come up, and fire `n` TLAMs at the sites in turn. */
 function strikeFrom(g: Game, i: number, s: CaptainState, lead: Vec & { r: number }, n: number) {
   const fired = g.stats.fired.tlam;
-  if (fired >= n) { if (i % 60 === 0) { orders.depthTo(g, 400); orders.speed(g, 8); orders.turn(g, 90); } return; }
-  if (underIce(g)) { goTo(g, i, lead, dist(g.own, lead) > 2 ? 12 : 5); return; }
+  const flying = g.weapons.filter((w) => w.type === 'tlam' && !w.dead).length;
+  if (fired >= 12 || (g.flags.landHits ?? 0) + flying >= n) { if (i % 60 === 0) { orders.depthTo(g, 400); orders.speed(g, 8); orders.turn(g, 90); } return; }
+  if (underIce(g)) { goTo(g, i, lead, dist(g.own, lead) > 1 ? 9 : 6); return; }
   if (i % 30 === 0) { orders.speed(g, 3); orders.heading(g, brg(g.own, lead)); }
   if (!atPeriscopeDepth(g)) { orders.depth(g, 0); return; }
   if (i % 10 === 0) orders.strike(g, g.sites[fired % g.sites.length].id);
@@ -143,22 +155,26 @@ export const captains: Record<string, Captain> = {
   R3: (g, i, s) => {
     listen(g, i, s);
     if (evade(g, i, s)) return true;
-    hunt(g, i, s, ['arc7lng'], { x: 0, y: 4 });
+    hunt(g, i, s, ['arc7lng'], g.stats.fired.mk48 ? { x: g.own.x + 6, y: 6 } : { x: 0, y: 5 });
     return true;
   },
   R4: (g, i, s) => {
     listen(g, i, s);
     if (evade(g, i, s)) return true;
+    const t = quarry(g, ['yasen'], 60, s, i);
+    if (t && dist(g.own, t.est!) < 8) return attack(g, i, s, t), true;
+    // Search the two reported leads in turn, in widening circles; a lead found and lost crosses its area off.
+    const legs = [offset({ x: 0, y: 0 }, 115, 12), offset({ x: 0, y: 0 }, 225, 16)];
+    for (const e of g.events) if (/lead is closing/.test(e.text)) s.m.done0 = 1;
     const lead = nearestLead(g);
-    if (lead) return strikeFrom(g, i, s, lead, 6), true;
-    // Search the two reported leads in turn, in widening circles.
-    const legs = [offset({ x: 0, y: 0 }, 115, 12), offset({ x: 0, y: 0 }, 225, 20)];
-    const at = legs[s.m.leg ?? 0];
+    if (lead) return strikeFrom(g, i, s, lead, 5), true;
+    const leg = s.m.done0 ? 1 : s.m.done1 ? 0 : s.m.leg ?? 0;
+    const at = legs[leg];
     if (dist(g.own, at) < 1.5 && !s.m.circT) s.m.circT = i;
     if (s.m.circT) {
-      goTo(g, i, offset(at, (i - s.m.circT) / 6, 2.5), 8);
-      if (i - s.m.circT > 1500) { s.m.leg = ((s.m.leg ?? 0) + 1) % 2; s.m.circT = 0; }
-    } else goTo(g, i, at, 12);
+      goTo(g, i, offset(at, (i - s.m.circT) / 6, 2.5), 7);
+      if (i - s.m.circT > 1500) { s.m.leg = (leg + 1) % 2; s.m.circT = 0; }
+    } else goTo(g, i, at, dist(g.own, at) > 6 ? 10 : 7);
     return true;
   },
   R5: (g, i, s) => {
@@ -173,7 +189,7 @@ export const captains: Record<string, Captain> = {
     if (evade(g, i, s)) return true;
     const t = quarry(g, ['yasen', 'type095'], 60, s, i);
     if (t && dist(g.own, t.est!) < 6) attack(g, i, s, t, 6, 8);
-    else goTo(g, i, { x: g.own.x, y: 30 }, 7);
+    else goTo(g, i, { x: g.own.x, y: 30 }, Math.abs(g.own.y - 10) < 2.6 ? 5 : 9);
     return true;
   },
   R7: (g, i, s) => {
@@ -185,14 +201,20 @@ export const captains: Record<string, Captain> = {
   R8: (g, i, s) => {
     listen(g, i, s);
     if (evade(g, i, s)) return true;
-    const t = quarry(g, ['borei'], 50) ?? quarry(g, ['yasen'], 60, s, i);
-    if (t) attack(g, i, s, t);
-    else if (s.m.cueT !== undefined) goTo(g, i, offset(g.own, s.m.cueB, 4), 12);
-    else hunt(g, i, s, [], { x: 0, y: 14 });
+    const t = quarry(g, ['borei'], 50, s, i) ?? quarry(g, ['yasen', 'akula'], 60, s, i);
+    // A rough fix on the ice noise: close it fast, then work up a solution.
+    if (t && t.q < 0.6 && i - (s.m[`fix:${t.name}`] ?? -1e9) < 300 && dist(g.own, t.est!) > 5) return goTo(g, i, t.est!, 16), true;
+    if (t) return attack(g, i, s, t), true;
+    // Any submarine contact at all: go and look. Otherwise sweep across the Borei's likely route.
+    const last = g.contacts.filter((c) => !c.air && c.est && g.t - c.lastSeen < 900).sort((a, b) => b.lastSeen - a.lastSeen)[0];
+    if (s.m.cueT !== undefined) goTo(g, i, offset(g.own, s.m.cueB, 4), 12);
+    else if (last) goTo(g, i, last.est!, 8);
+    else goTo(g, i, { x: Math.floor(i / 1800) % 2 ? -4 : 4, y: Math.min(7, 1 + i / 1200) }, 5);
     return true;
   },
   R9: (g, i, s) => {
     listen(g, i, s);
+    if (g.events.some((e) => /clearing its baffles/.test(e.text))) { s.m.ivanT = i; orders.speed(g, 4); }
     if (evade(g, i, s)) return true;
     if (g.flags.ready) {
       const lead = nearestLead(g);
@@ -205,9 +227,10 @@ export const captains: Record<string, Captain> = {
       const crs = c.motion?.crs ?? 100;
       const astern = offset(c.est!, crs + 180, 4.5);
       const r = dist(g.own, astern);
-      orders.heading(g, r > 1 ? brg(g.own, astern) : crs); orders.speed(g, r > 2 ? 9 : Math.max(4, Math.round(c.motion?.spd ?? 5)));
+      const near = dist(g.own, c.est!) < 6.5 || i - (s.m.ivanT ?? -1e9) < 300;
+      orders.heading(g, r > 1 ? brg(g.own, astern) : crs); orders.speed(g, r > 2 && !near ? 9 : Math.min(6, Math.max(4, Math.round(c.motion?.spd ?? 5))));
     }
-    if (!c && i % 120 === 0) { const last = g.contacts.find((x) => !x.air && x.est); orders.heading(g, last?.est ? brg(g.own, last.est) : 100); orders.speed(g, 8); }
+    if (!c && i % 120 === 0) { const last = g.contacts.find((x) => !x.air && x.est); orders.heading(g, last?.est ? brg(g.own, last.est) : 100); orders.speed(g, last?.est && dist(g.own, last.est) < 7 ? 6 : 8); }
     return true;
   },
   R10: (g, i, s) => {
@@ -223,9 +246,13 @@ export const captains: Record<string, Captain> = {
     listen(g, i, s, 220);
     if (evade(g, i, s)) return true;
     const open = g.env.polynyas.find((p) => p.r < 1);
-    if (open) return strikeFrom(g, i, s, open, 12), true;
+    if (open) return strikeFrom(g, i, s, open, 10), true;
     // Go to the west patch and push up through it: slow, at 220 feet.
-    const patch = { x: -5, y: 0 };
+    for (const e of g.events) {
+      const m = /thin ice, bearing (\d+), ([\d.]+) (nm|yd)/.exec(e.text);
+      if (m) { const p = offset(g.own, Number(m[1]), Number(m[2]) / (m[3] === 'yd' ? 2025 : 1)); s.m.patchX = p.x; s.m.patchY = p.y; }
+    }
+    const patch = s.m.patchX !== undefined ? { x: s.m.patchX, y: s.m.patchY } : { x: -5, y: Math.sin(i / 300) };
     const d = dist(g.own, patch);
     if (i % 20 === 0) { orders.heading(g, brg(g.own, patch)); orders.speed(g, d > 1.5 ? 10 : d > 0.25 ? 3 : 0); if (d < 1.5) orders.depthTo(g, 220); }
     return true;
@@ -238,12 +265,14 @@ export const captains: Record<string, Captain> = {
   R13: (g, i, s) => {
     listen(g, i, s);
     if (evade(g, i, s)) return true;
+    // She is faster than a quiet Tang: get out ahead of her track first, then lie in wait and listen.
     const t = quarry(g, ['xuelong2'], 50);
     const esc = quarry(g, ['type095'], 60, s, i);
-    if (t) attack(g, i, s, t, 6);
-    else if (esc && dist(g.own, esc.est!) < 4) attack(g, i, s, esc, 4);
-    else if (s.m.cueT !== undefined) goTo(g, i, offset(g.own, s.m.cueB, 3), 8);
-    else goTo(g, i, offset({ x: 0, y: 0 }, 330, 6), 8);
+    if (esc && dist(g.own, esc.est!) < 4) attack(g, i, s, esc, 4);
+    else if (t && dist(g.own, t.est!) < 12) attack(g, i, s, t, 9, 14);
+    else if (i < 2400) goTo(g, i, { x: 4, y: 14 }, 14);
+    else if (s.m.cueT !== undefined && i - s.m.cueT < 600) goTo(g, i, offset({ x: s.m.cueX, y: s.m.cueY }, s.m.cueB, 5), 12);
+    else goTo(g, i, { x: 6, y: 16 }, 5);
     return true;
   },
 };
