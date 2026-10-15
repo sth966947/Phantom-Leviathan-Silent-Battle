@@ -269,8 +269,9 @@ export const MISSIONS: Record<MissionKey, Mission> = {
       add(g, 'mavis', 'Kawanishi H6K', 'enemy', offset(line, 0, 40), 180, 120, { mode: 'wander', center: line, rng: 40, cruise: 120 });
       // Doolittle's targets, roughly 650 nm west. Tokyo is the reference point.
       const tokyo = offset(tfPos, course, 650);
-      g.sites = ([['Yokosuka naval yard', 200, 25], ['Tokyo: army arsenal and steel works', 0, 0], ['Yokohama docks', 210, 14], ['Nagoya: Mitsubishi aircraft works', 250, 140], ['Kobe: Kawasaki aircraft works', 255, 245]] as const)
-        .map(([name, b, d], i) => ({ id: -(i + 1), name, ...offset(tokyo, b, d), hits: 0 }));
+      g.sites = ([['Yokosuka naval yard', 200, 25, 'shipyard'], ['Tokyo: army arsenal and steel works', 0, 0, 'factory'], ['Yokohama docks', 210, 14, 'docks'],
+        ['Nagoya: Mitsubishi aircraft works', 250, 140, 'factory'], ['Kobe: Kawasaki aircraft works', 255, 245, 'factory']] as const)
+        .map(([name, b, d, kind], i) => ({ id: -(i + 1), name, kind, ...offset(tokyo, b, d), hits: 0 }));
       setGoal(g, { targets: ids(pickets), need: 99, win: '', timeout: 'Fewer than three Tomahawks reached Japan before the raid launched.' });
       g.script = (gg) => {
         const sender = pickets.find((p) => p.alive && (p.ai!.reportT ?? 0) >= 240);
