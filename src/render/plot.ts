@@ -95,6 +95,7 @@ export class Plot {
     const k = Math.min(W, H) / this.span;
     const own = g.own, over = !!g.over || !!g.replay;
     const cx = W / 2, cy = H / 2, ctr = { x: cx, y: cy };
+    const fmtTime = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
     const scr = (p: Vec): P => ({ x: cx + (p.x - own.x) * k, y: cy - (p.y - own.y) * k });
     const ray = (b: number, len: number): P => ({ x: cx + Math.sin((b * Math.PI) / 180) * len, y: cy - Math.cos((b * Math.PI) / 180) * len });
     const R = Math.min(W, H) * 0.47;
@@ -256,11 +257,33 @@ export class Plot {
         d.moveTo(q.x - hx, q.y - hy).lineTo(q.x + hx, q.y + hy).stroke({ width: spec.missile ? 2 : 3, color: col, cap: 'round' });
         if (spec.missile) d.circle(q.x + hx, q.y + hy, 2.5).fill({ color: col });
         this.label(w.label, q.x + 9, q.y + 9, col);
-      } else if (w.heardBrg != null) {
+      } else if (w.heardBrg != null && w.heardEst) {
+        // A torpedo coming at us: bearing line, sonar's estimated position and track, where it is
+        // heading, and range, speed and time to us if it keeps closing.
         dashed(d, ctr, ray(w.heardBrg, R), 10, 4);
-        d.stroke({ width: 2, color: COL.threat, alpha: pulse });
-        const p = ray(w.heardBrg, R * 0.8);
-        this.label('TORPEDO', p.x, p.y - 12, COL.threat, 0.5);
+        d.stroke({ width: 1, color: COL.threat, alpha: 0.35 * pulse });
+        (w.heardTrail ?? []).forEach((p, i, a) => { const q = scr(p); d.circle(q.x, q.y, 1.6).fill({ color: COL.threat, alpha: 0.15 + 0.6 * (i / a.length) }); });
+        const q = scr(w.heardEst), vel = w.heardVel;
+        if (vel) {
+          const ahead = scr(offset(w.heardEst, vel.hdg, vel.spd / 60)); // where it will be in a minute
+          dashed(d, q, ahead, 5, 3);
+          d.stroke({ width: 2, color: COL.threat, alpha: 0.85 });
+          const hx = ahead.x - q.x, hy = ahead.y - q.y, l = Math.hypot(hx, hy) || 1, ux = hx / l, uy = hy / l;
+          d.poly([ahead.x, ahead.y, ahead.x - ux * 8 - uy * 4, ahead.y - uy * 8 + ux * 4, ahead.x - ux * 8 + uy * 4, ahead.y - uy * 8 - ux * 4]).fill({ color: COL.threat });
+        }
+        d.circle(q.x, q.y, 5 + pulse * 3).stroke({ width: 2, color: COL.threat, alpha: 0.9 });
+        d.circle(q.x, q.y, 2.5).fill({ color: COL.threat });
+        const rng = dist(own, w.heardEst);
+        let sub = '';
+        if (vel) {
+          const closing = vel.spd * Math.cos(((vel.hdg - (w.heardBrg + 180)) * Math.PI) / 180) + own.spd * Math.cos(((own.hdg - w.heardBrg) * Math.PI) / 180);
+          sub = `${Math.round(vel.spd)} kt · ${closing > 2 ? `closing, ${fmtTime(rng / closing * 3600)}` : 'opening'}`;
+        }
+        if (w.target === own) sub += `${sub ? ' · ' : ''}HOMING ON US`;
+        // Labels sit on the side of the marker away from the edge of the plot.
+        const left = q.x > cx, lx = left ? q.x - 12 : q.x + 12, ax = left ? 1 : 0;
+        this.label(`TORPEDO · ${fmtBrg(w.heardBrg)}° · ${rng.toFixed(1)} nm`, lx, q.y - 20, COL.threat, ax, 12);
+        if (sub) this.label(sub, lx, q.y - 5, COL.threat, ax, 11);
       }
     }
 

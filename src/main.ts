@@ -56,7 +56,7 @@ const HOLD = 60;
 /** Picks up new arrivals from the sim (not in a replay: they've been seen). True if there were any. */
 function collectArrivals(): boolean {
   const fresh: Impact[] = replay ? [] : [
-    ...g.strikes.slice(strikesSeen).map((s): Impact => ({ type: 'land', t: s.t, weapon: s.weapon, site: s.siteName, siteId: s.siteId, kind: s.kind, hit: s.hit })),
+    ...g.strikes.slice(strikesSeen).map((s): Impact => ({ type: 'land', t: s.t, weapon: s.weapon, site: s.siteName, siteId: s.siteId, kind: s.kind, hit: s.hit, nuke: s.nuke })),
     ...g.hits.slice(hitsSeen).map((h): Impact => ({ type: 'hit', ...h })),
   ];
   strikesSeen = g.strikes.length; hitsSeen = g.hits.length;
@@ -170,6 +170,7 @@ on('droneActive', () => orders.droneMode(g, 'active'));
 on('droneDecoy', () => orders.droneMode(g, 'decoy'));
 on('radar', () => orders.radar(g));
 on('fireTlam', () => orders.strike(g, Number(($('tlamSite') as HTMLSelectElement).value)));
+on('fireNuke', () => orders.strike(g, Number(($('nukeSite') as HTMLSelectElement).value), true));
 on('layMine', () => orders.layMine(g));
 on('scopeBtn', togglePeriscope);
 on('solBtn', () => { depthView.close(); solution.toggle(); });
@@ -254,6 +255,7 @@ document.addEventListener('keydown', (ev) => {
   // Shift picks the experimental weapons, and cycles the newest drone's mode.
   const shifted: Record<string, () => void> = {
     f: () => orders.fire(g, 'mk96'), t: () => orders.fire(g, 'mjolnir'),
+    y: () => orders.strike(g, Number(($('nukeSite') as HTMLSelectElement).value), true),
     o: () => { const d = g.drones[g.drones.length - 1]; if (d) orders.droneMode(g, d.mode === 'passive' ? 'active' : d.mode === 'active' ? 'decoy' : 'passive'); },
   };
   const k = ev.key.toLowerCase();
@@ -298,6 +300,8 @@ function setUp(key: ScenarioKey) {
   $('tlamRow').hidden = !g.sites.length;
   $('mineRow').hidden = !g.flags.minesAboard;
   $('tlamSite').innerHTML = g.sites.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join('');
+  $('nukeRow').hidden = !g.sites.length;
+  $('nukeSite').innerHTML = $('tlamSite').innerHTML;
   periscope.close();
   solution.close();
   depthView.close();

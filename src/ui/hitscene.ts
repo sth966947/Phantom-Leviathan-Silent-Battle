@@ -25,6 +25,7 @@ export interface ShotSpec {
 /** How long each weapon is on screen before it lands. */
 export function approachTime(kind: ShotKind, weapon: string) {
   if (weapon === 'mine') return 0.4;
+  if (weapon === 'tlamn') return 2.6;
   if (kind === 'land') return 2.1;
   if (kind === 'air') return 1.8;
   if (weapon === 'mk96') return 1.1; // the last stretch at 250 knots
@@ -591,6 +592,41 @@ function drawAir(ctx: CanvasRenderingContext2D, W: number, H: number, s: ShotSpe
   return { flash };
 }
 
+/** A nuclear detonation at ground zero `p`: the fireball, the stem and cap of the mushroom cloud
+ *  boiling up and cooling from fire to grey, and the dust of the base surge rolling outward. */
+function mushroom(out: Sprite[], seed: number, p: V3, age: number, sk: Sky) {
+  if (age < 0) return;
+  const r = mulberry32(seed);
+  const rise = 1 - Math.exp(-age / 2.6), capZ = 60 + rise * 620, capR = 70 + rise * 230;
+  const cool = clamp01(age / 10);
+  const glow = (k: number): RGB => mix(fireCol(Math.min(0.9, 0.04 + age * 0.06 + k * 0.3)), mix(sk.smokeLit, sk.fog, 0.15), clamp01(cool * 1.4 + k * 0.35 - 0.1));
+  // The first fireball, white-hot, swelling and lifting.
+  if (age < 3) {
+    const R = 80 + Math.min(1, age * 2) * 170;
+    blobPush(out, [p[0], p[1], p[2] + 40 + age * 70], R, mix([255, 252, 235], fireCol(0.25), clamp01(age / 1.5)), [255, 255, 245], 1 - clamp01((age - 1.8) / 1.2), 0);
+  }
+  // The base surge: a ring of dust spreading over the ground.
+  const surgeR = 120 + rise * 520;
+  for (let i = 0; i < 26; i++) {
+    const a = (i / 26) * Math.PI * 2 + r() * 0.2, k = 0.8 + r() * 0.3;
+    blobPush(out, [p[0] + Math.cos(a) * surgeR * k, p[1] + Math.sin(a) * surgeR * k, 12 + r() * 20], 40 + rise * 50, mix(sk.smoke, sk.fog, 0.45), mix(sk.smokeLit, sk.fog, 0.3), 0.85 * clamp01(age * 2), i);
+  }
+  // The stem, fire at the root and dust above.
+  for (let i = 0; i < 14; i++) {
+    const f = i / 14, z = f * capZ * 0.92, w = 34 + (1 - f) * 30 + rise * 20;
+    blobPush(out, [p[0] + (r() - 0.5) * 20, p[1] + (r() - 0.5) * 20, p[2] + z], w, glow(0.5 + f * 0.5), glow(0.2 + f * 0.4), 0.95, i + 40);
+  }
+  // The cap: a rolling torus with a dome over it.
+  for (let i = 0; i < 30; i++) {
+    const a = (i / 30) * Math.PI * 2 + r() * 0.15, rr = capR * (0.6 + 0.4 * r());
+    blobPush(out, [p[0] + Math.cos(a) * rr, p[1] + Math.sin(a) * rr, p[2] + capZ + (r() - 0.6) * capR * 0.35], capR * (0.32 + 0.12 * r()), glow(0.1 + r() * 0.3), glow(0), 1, i + 80);
+  }
+  for (let i = 0; i < 9; i++) {
+    const a = r() * Math.PI * 2, rr = capR * 0.45 * r();
+    blobPush(out, [p[0] + Math.cos(a) * rr, p[1] + Math.sin(a) * rr, p[2] + capZ + capR * (0.25 + 0.2 * r())], capR * 0.42, glow(r() * 0.2), glow(0), 1, i + 120);
+  }
+}
+
 // ---- Land strikes ---------------------------------------------------------------------------------
 const RAMP: [number, string][] = [[0, '#0a1018'], [0.12, '#1c3048'], [0.18, '#2a4660'], [0.23, '#35525c'], [0.28, '#3e5a44'], [0.34, '#4e6442'],
   [0.4, '#6a724e'], [0.45, '#7e7c62'], [0.5, '#8a8678'], [0.56, '#9a968c'], [0.62, '#ab9c86'], [0.7, '#bcae98'], [0.8, '#d8c8a8'], [1, '#f2ead8']];
@@ -627,25 +663,31 @@ function drawLand(ctx: CanvasRenderingContext2D, W: number, H: number, s: ShotSp
     : ([sc.miss[0] + (r() - 0.5) * 40, sc.miss[1] + (r() - 0.5) * 30, 0] as V3))));
   const firstHit = s.at.find((_, i) => s.hits[i]);
   const damage = firstHit === undefined ? 0 : ease(firstHit, firstHit + 1.2, t);
+  // A nuclear Tomahawk flattens the whole site, not just the target, as the shock front passes.
+  const nukeAt = s.at[s.weapons.indexOf('tlamn')];
+  const flatten = nukeAt === undefined ? 0 : ease(nukeAt + 0.1, nukeAt + 1.4, t);
+  const crush = (q: V3[]) => (flatten > 0 ? q.map(([x, y, z]) => [x, y, z * (1 - 0.9 * flatten)] as V3) : q);
   const flick = 0.85 + 0.15 * Math.sin(t * 23) * Math.sin(t * 7.3);
-  const groups = [...rig.still, ...rig.targets.map((o) => ({
+  const still = flatten > 0 ? rig.still.map((g) => ({ ...g, parts: g.parts.map((pt) => ({ ...pt, faces: pt.faces.map((f) => ({ ...f, p: crush(f.p), col: mix(f.col, [36, 30, 26], flatten * 0.7), emis: Math.max(f.emis ?? 0, flatten * 0.5 * flick) })) })) })) : rig.still;
+  const groups = [...still, ...rig.targets.map((o) => ({
     c: o.c, base: [] as PObj[], parts: [{
       c: o.c, faces: o.faces.map((f) => ({
-        p: damage > 0 ? f.p.map(([x, y, z]) => [x, y, z * (1 - 0.72 * damage) * (0.85 + 0.15 * Math.sin(x * 0.3 + y * 0.2))] as V3) : f.p,
+        p: crush(damage > 0 ? f.p.map(([x, y, z]) => [x, y, z * (1 - 0.72 * damage) * (0.85 + 0.15 * Math.sin(x * 0.3 + y * 0.2))] as V3) : f.p),
         n: f.n, col: mix(ramp(f.tone), [40, 34, 30], damage * 0.6), emis: Math.min(0.9, f.heat * 1.3 + damage * 0.45 * flick),
       })),
     }],
   }))];
   const w: World = {
     skyTop: sk.top, skyLow: sk.low, ground: mix(ramp(sc.ground), sk.fog, 0.75), fog: sk.fog, fogD: 3200, sun: sk.sun, amb: sk.amb, exposure: s.night ? 0.55 : 1,
-    flat: rig.flat, groups, sprites: [...rig.balls],
+    flat: rig.flat, groups, sprites: flatten > 0.5 ? [] : [...rig.balls],
   };
+  if (nukeAt !== undefined) w.fogD = 5200;
   const out = w.sprites;
   // Chimney smoke.
   for (const st of sc.stacks) smokeFrom(out, t, -5, s.dur, () => [st[0], st[1], st[2]], sk, 1.4, 0.2, 4, false);
   let flash = 0;
-  s.weapons.forEach((_, i) => {
-    const ti = s.at[i], ta = approachTime('land', 'tlam'), p = pts[i];
+  s.weapons.forEach((wk, i) => {
+    const ti = s.at[i], ta = approachTime('land', wk), p = pts[i];
     // The Tomahawk diving in at 15 degrees from down its track.
     const dir = unit([fwd[0], fwd[1], -Math.tan((15 * Math.PI) / 180)]);
     const pos = (tt: number): V3 => { const d = (ti - tt) * 245; return [p[0] - dir[0] * d + right[0] * Math.sin(tt * 2 + i) * 2, p[1] - dir[1] * d, p[2] - dir[2] * d]; };
@@ -657,6 +699,13 @@ function drawLand(ctx: CanvasRenderingContext2D, W: number, H: number, s: ShotSp
     }
     const age = t - ti;
     if (age < 0) return;
+    if (wk === 'tlamn') {
+      // White-out, then the cloud.
+      flash = Math.max(flash, age < 0.3 ? 1 : Math.max(0, 1 - (age - 0.3) / 1.4));
+      mushroom(out, s.seed + i * 13, [p[0], p[1], p[2]], age, sk);
+      for (let k = 0; k < 6; k++) flames(out, t, [p[0] + Math.cos(k) * 160, p[1] + Math.sin(k * 1.7) * 120, 2], 9, k + i);
+      return;
+    }
     if (age < 0.15) flash = Math.max(flash, 1 - age / 0.15);
     const water = !s.hits[i] && sc.missWater;
     if (water) { waterColumn(w, s.seed + i * 9, p, 70, age, sk, 1.4); return; }
@@ -666,8 +715,9 @@ function drawLand(ctx: CanvasRenderingContext2D, W: number, H: number, s: ShotSp
     if (s.hits[i]) for (let k = 0; k < 4; k++) flames(out, t, [p[0] + (k - 1.5) * 14, p[1] + Math.sin(k * 2) * 10, 2], 5, k + i);
   });
   // A fixed camera standing off to one side of the missiles' track, the whole site in view.
-  const camD = 1250;
-  const cam: Cam = { pos: [sc.aim[0] + right[0] * camD - fwd[0] * 250, sc.aim[1] + right[1] * camD - fwd[1] * 250, 240], look: [sc.aim[0] - fwd[0] * 60, sc.aim[1] - fwd[1] * 60, 30], fov: 40, roll: 0 };
+  // For a nuclear strike it stands well back and looks up, to take in the cloud.
+  const nk = nukeAt !== undefined, camD = nk ? 2300 : 1250;
+  const cam: Cam = { pos: [sc.aim[0] + right[0] * camD - fwd[0] * 250, sc.aim[1] + right[1] * camD - fwd[1] * 250, nk ? 260 : 240], look: [sc.aim[0] - fwd[0] * 60, sc.aim[1] - fwd[1] * 60, nk ? 300 : 30], fov: nk ? 54 : 40, roll: 0 };
   draw3d(ctx, W, H, w, cam);
   return { flash };
 }

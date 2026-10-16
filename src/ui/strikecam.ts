@@ -11,7 +11,7 @@ import { ps1Post } from './ps1';
 
 /** One arrival: a Tomahawk on a site ashore, or a hit on a vessel or aircraft. `t` is game seconds. */
 export type Impact =
-  | { type: 'land'; t: number; weapon: string; site: string; siteId: number; kind: SiteKind; hit: boolean }
+  | { type: 'land'; t: number; weapon: string; site: string; siteId: number; kind: SiteKind; hit: boolean; nuke?: boolean }
   | { type: 'hit'; t: number; weapon: WeaponKey | 'mine'; label: string; vid: number; name: string; cls: string; kind: 'surface' | 'sub' | 'air'; sunk: boolean };
 export interface Reel {
   impacts: Impact[]; modern: boolean; night: boolean;
@@ -30,7 +30,7 @@ const hms = (s: number) => `${pad((s / 3600) % 24)}:${pad((s / 60) % 60)}:${pad(
 const WNAME: Record<string, [string, string]> = {
   mk48: ['MK 48 ADCAP', 'HEAVYWEIGHT TORPEDO'], mk54: ['MK 54', 'ASROC LIGHTWEIGHT TORPEDO'], harpoon: ['UGM-84 HARPOON', 'ANTI-SHIP MISSILE'],
   mst: ['TOMAHAWK MST', 'MARITIME STRIKE MISSILE'], jatm: ['JATM', 'SURFACE-TO-AIR MISSILE'], sm6: ['SM-6', 'SURFACE-TO-AIR MISSILE'],
-  mine: ['MINE', 'LAID BY TANG'], tlam: ['TOMAHAWK', 'LAND ATTACK MISSILE'],
+  mine: ['MINE', 'LAID BY TANG'], tlam: ['TOMAHAWK', 'LAND ATTACK MISSILE'], tlamn: ['TOMAHAWK W80', 'NUCLEAR LAND ATTACK · EXPERIMENTAL'],
   mk96: ['MK 96', 'SUPERCAVITATING TORPEDO · EXPERIMENTAL'], mjolnir: ['MJOLNIR', 'HYPERSONIC STRIKE MISSILE · EXPERIMENTAL'],
 };
 const isTorpKey = (w: string) => w === 'mk48' || w === 'mk54' || w === 'wwtorp' || w === 'mk96';
@@ -53,14 +53,15 @@ export function planReel(reel: Reel): { shots: Omit<Shot, 'cache' | 'start'>[]; 
   [...groups.values()].forEach((ims, gi) => {
     const first = gi === 0, im0 = ims[0];
     const kind: ShotKind = im0.type === 'land' ? 'land' : im0.kind === 'surface' ? 'ship' : im0.kind;
-    const weapons = ims.map((m) => (m.type === 'land' ? 'tlam' : m.weapon));
+    const weapons = ims.map((m) => (m.type === 'land' ? (m.nuke ? 'tlamn' : 'tlam') : m.weapon));
+    const nuke = weapons.includes('tlamn');
     const hits = ims.map((m) => (m.type === 'land' ? m.hit : true));
     const sunk = ims.some((m) => (m.type === 'land' ? m.hit : m.sunk));
     // Later targets in a reel get quicker cuts.
     const pace = first ? 1 : many > 3 ? 0.7 : 0.8;
     const at: number[] = [];
     weapons.forEach((w, i) => at.push(i === 0 ? (first ? 1.4 : 0.6) + approachTime(kind, w) : at[i - 1] + Math.max(1.3, approachTime(kind, w) * 0.55)));
-    const tail = (sunk ? (kind === 'ship' ? 5.4 : kind === 'sub' ? 5.2 : kind === 'air' ? 4.3 : 3.6) : 3) * pace;
+    const tail = nuke ? 9 : (sunk ? (kind === 'ship' ? 5.4 : kind === 'sub' ? 5.2 : kind === 'air' ? 4.3 : 3.6) : 3) * pace;
     const seed = ((im0.t * 7919) ^ ((im0.type === 'land' ? im0.siteId : im0.vid) * 104729)) | 0;
     const spec: ShotSpec = {
       kind, cls: im0.type === 'land' ? im0.site : im0.cls, siteKind: im0.type === 'land' ? im0.kind : undefined,
@@ -71,7 +72,8 @@ export function planReel(reel: Reel): { shots: Omit<Shot, 'cache' | 'start'>[]; 
     const classLine = im0.type === 'land' ? `${im0.kind.toUpperCase()} · LAND TARGET` : card ? [card.name !== name ? card.name : '', card.type, card.nation].filter(Boolean).join(' · ').toUpperCase() : '';
     const n = weapons.length, landHits = hits.filter(Boolean).length;
     let headline: string;
-    if (kind === 'land') headline = landHits ? (n > 1 ? `${landHits} IMPACT${landHits > 1 ? 'S' : ''}` : 'IMPACT') : n > 1 ? `${n} MISSES` : 'MISS';
+    if (nuke) headline = 'NUCLEAR DETONATION';
+    else if (kind === 'land') headline = landHits ? (n > 1 ? `${landHits} IMPACT${landHits > 1 ? 'S' : ''}` : 'IMPACT') : n > 1 ? `${n} MISSES` : 'MISS';
     else if (kind === 'air') headline = sunk ? 'SPLASH ONE' : 'MISSILE HIT';
     else if (weapons.every((w) => w === 'mine')) headline = 'MINE';
     else if (weapons.every(isTorpKey)) headline = n > 1 ? `${n} TORPEDO HITS` : 'TORPEDO HIT';
@@ -80,6 +82,7 @@ export function planReel(reel: Reel): { shots: Omit<Shot, 'cache' | 'start'>[]; 
     const fa = fate(spec), last = at[at.length - 1];
     const sinkDur = Math.max(3, spec.dur - last - 0.3), crushT = last + 0.4 + sinkDur * 0.62;
     const status = (t: number) => {
+      if (nuke) return 'DESTROYED';
       if (kind === 'land') return landHits ? 'SEVERE DAMAGE' : 'NO DAMAGE';
       if (kind === 'air') return sunk ? 'SHOT DOWN' : 'DAMAGED';
       if (kind === 'sub') return !sunk ? 'DAMAGED · LEAKING AIR' : t > crushT ? 'PAST CRUSH DEPTH · LOST' : 'HULL BREAKING UP';

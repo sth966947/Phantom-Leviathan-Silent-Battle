@@ -116,6 +116,7 @@ export function updatePanel(g: Game) {
     $(id).classList.toggle('on', dr?.mode === m);
   }
   dis('fireTlam', !ready(o.vls) || !depthOk || !g.sites.length);
+  dis('fireNuke', !ready(o.vls) || !depthOk || !g.sites.length);
   dis('layMine', !ready(o.tubes) || !g.flags.minesAboard || o.spd > 12);
   dis('radar', !o.radar && !atPeriscopeDepth(g));
   dis('scopeBtn', !inPeriscope(g, sel));
