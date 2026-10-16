@@ -126,6 +126,14 @@ button:focus-visible { outline: 2px solid var(--own); outline-offset: 1px; }
 button.on { background: var(--own); color: var(--sea); border-color: var(--own); }
 button.fire { background: #4a1e1a; border-color: #7a2e26; color: #ffd9d4; }
 button.fire:hover { background: #622520; }
+button.fire.exp { background: #3a2350; border-color: #6a3f8e; color: #ecdcff; }
+button.fire.exp:hover { background: #4a2d66; }
+.wtabs { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.wtabs h2 { margin: 0 auto 0 0 !important; }
+.wtabs button { flex: 0 0 auto; padding: 4px 9px; font-size: 12px; }
+#tabExp.on { background: #6a3f8e; border-color: #8a5bb0; color: #fff; }
+.row.drones button { flex: 1; }
+.row.drones #launchDrone { flex: 2; }
 button:disabled { opacity: 0.4; cursor: default; }
 kbd {
   font: 11px var(--f-data); color: var(--dim); border: 1px solid var(--rule); padding: 0 3px; margin-left: 4px;

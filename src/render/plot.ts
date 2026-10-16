@@ -133,7 +133,7 @@ export class Plot {
     // Radar: classification ring and a sweeping trace.
     if (own.radar) {
       d.circle(cx, cy, RADAR.classify * k).stroke({ width: 1, color: COL.friend, alpha: 0.35 });
-      this.label('radar ID 15 nm', cx, cy - RADAR.classify * k + 9, COL.friend, 0.5);
+      this.label(`radar ID ${RADAR.classify} nm`, cx, cy - RADAR.classify * k + 9, COL.friend, 0.5);
       const sw = ((now / 1000) * 90) % 360;
       for (let i = 0; i < 12; i++) {
         const e = ray(sw - i * 2.5, Math.min(R, RADAR.horizon * k));
@@ -223,9 +223,17 @@ export class Plot {
 
     // Countermeasures.
     for (const dc of g.decoys) {
-      if (dc.side !== 'us' && !over) continue;
+      if ((dc.side !== 'us' && !over) || g.drones.some((x) => x.id === dc.id)) continue;
       const q = scr(dc), col = dc.side === 'us' ? COL.own : COL.threat;
       d.circle(q.x, q.y, 4).circle(q.x, q.y, 8 + 3 * pulse).stroke({ width: 1, color: col, alpha: 0.8 });
+    }
+
+    // Sonar drones: a small square with its mode; active and decoy drones pulse.
+    for (const dr of g.drones) {
+      const q = scr(dr), loud = dr.mode !== 'passive';
+      d.rect(q.x - 3.5, q.y - 3.5, 7, 7).stroke({ width: 1.2, color: COL.own, alpha: 0.9 });
+      if (loud) d.circle(q.x, q.y, 9 + 4 * pulse).stroke({ width: 1, color: COL.own, alpha: 0.5 * (1 - pulse) + 0.2 });
+      this.label(`drone ${dr.n} · ${dr.mode}`, q.x + 8, q.y - 8, COL.own);
     }
 
     // Weapons. Own weapons are tracked; enemy torpedoes show as bearings.
@@ -278,7 +286,7 @@ export class Plot {
     d.poly([n.x, n.y, r1.x, r1.y, t.x, t.y, l1.x, l1.y]).fill({ color: own.alive ? COL.own : COL.threat });
 
     // Effects: ping rings and detonations.
-    for (; this.seenPings < g.pings.length; this.seenPings++) this.effects.push({ kind: 'ping', at: now, pos: { x: own.x, y: own.y } });
+    for (; this.seenPings < g.pings.length; this.seenPings++) { const pg = g.pings[this.seenPings]; this.effects.push({ kind: 'ping', at: now, pos: { x: pg.x ?? own.x, y: pg.y ?? own.y } }); }
     for (; this.seenBlasts < g.blasts.length; this.seenBlasts++) this.effects.push({ kind: 'blast', at: now, pos: g.blasts[this.seenBlasts], missile: g.blasts[this.seenBlasts].missile });
     const f = this.fx.clear();
     this.effects = this.effects.filter((ef) => {

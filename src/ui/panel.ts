@@ -91,7 +91,11 @@ export function updatePanel(g: Game) {
   const next = (bank: number[]) => { const l = bank.filter((x) => x > 0); return l.length ? ` · next ${Math.ceil(Math.min(...l))}s` : ''; };
   setText('wTubes', `${ready(o.tubes)} of ${o.tubes.length} ready${next(o.tubes)}`);
   setText('wVls', `${ready(o.vls)} of ${o.vls.length} ready${next(o.vls)}`);
+  setText('wTubesX', $('wTubes').textContent!);
+  setText('wVlsX', $('wVls').textContent!);
   setText('wDecoys', String(o.decoys));
+  const dr = g.drones[g.drones.length - 1];
+  setText('wDrones', `${o.drones} aboard${g.drones.length ? ` · ${g.drones.length} out` : ''}`);
   setText('wJatm', o.jatm ? `${o.jatm} of ${JATM_PER_CANISTER} left` : `fresh, ${JATM_PER_CANISTER} rounds`);
   const over = !!g.over, depthOk = missileDepthOk(g);
   const ship = targetContact(g, false), air = targetContact(g, true);
@@ -103,6 +107,14 @@ export function updatePanel(g: Game) {
   dis('fireAsroc', !ready(o.vls) || !depthOk || !asrocRange);
   dis('fireJatm', (!o.jatm && !ready(o.vls)) || !depthOk);
   dis('fireSm6', !ready(o.vls) || !depthOk);
+  dis('fireMk96', !ready(o.tubes));
+  const mjRange = ship?.est ? (() => { const r = dist(o, ship.est!); return r >= WEAPONS.mjolnir.minRun! && r <= WEAPONS.mjolnir.maxRun; })() : false;
+  dis('fireMjolnir', !ready(o.vls) || !depthOk || !mjRange);
+  dis('launchDrone', !ready(o.tubes) || !o.drones);
+  for (const [id, m] of [['dronePassive', 'passive'], ['droneActive', 'active'], ['droneDecoy', 'decoy']] as const) {
+    dis(id, !dr);
+    $(id).classList.toggle('on', dr?.mode === m);
+  }
   dis('fireTlam', !ready(o.vls) || !depthOk || !g.sites.length);
   dis('layMine', !ready(o.tubes) || !g.flags.minesAboard || o.spd > 12);
   dis('radar', !o.radar && !atPeriscopeDepth(g));

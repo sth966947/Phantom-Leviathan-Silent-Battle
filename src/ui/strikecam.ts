@@ -31,8 +31,9 @@ const WNAME: Record<string, [string, string]> = {
   mk48: ['MK 48 ADCAP', 'HEAVYWEIGHT TORPEDO'], mk54: ['MK 54', 'ASROC LIGHTWEIGHT TORPEDO'], harpoon: ['UGM-84 HARPOON', 'ANTI-SHIP MISSILE'],
   mst: ['TOMAHAWK MST', 'MARITIME STRIKE MISSILE'], jatm: ['JATM', 'SURFACE-TO-AIR MISSILE'], sm6: ['SM-6', 'SURFACE-TO-AIR MISSILE'],
   mine: ['MINE', 'LAID BY TANG'], tlam: ['TOMAHAWK', 'LAND ATTACK MISSILE'],
+  mk96: ['MK 96', 'SUPERCAVITATING TORPEDO · EXPERIMENTAL'], mjolnir: ['MJOLNIR', 'HYPERSONIC STRIKE MISSILE · EXPERIMENTAL'],
 };
-const isTorpKey = (w: string) => w === 'mk48' || w === 'mk54' || w === 'wwtorp';
+const isTorpKey = (w: string) => w === 'mk48' || w === 'mk54' || w === 'wwtorp' || w === 'mk96';
 
 interface Shot {
   spec: ShotSpec; cache: ShotCache; start: number;

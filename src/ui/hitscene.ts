@@ -27,6 +27,8 @@ export function approachTime(kind: ShotKind, weapon: string) {
   if (weapon === 'mine') return 0.4;
   if (kind === 'land') return 2.1;
   if (kind === 'air') return 1.8;
+  if (weapon === 'mk96') return 1.1; // the last stretch at 250 knots
+  if (weapon === 'mjolnir') return 1.6; // straight down out of the sky
   if (weapon === 'mk48' || weapon === 'mk54' || weapon === 'wwtorp') return kind === 'sub' ? 2.6 : 2.4;
   return 2.2;
 }
@@ -34,7 +36,7 @@ export function approachTime(kind: ShotKind, weapon: string) {
 export function fate(s: ShotSpec): 'break' | 'founder' | 'magazine' | 'damaged' {
   if (!s.sunk) return 'damaged';
   const r = mulberry32(s.seed ^ 0xfa7e)();
-  const torp = s.weapons.some((w) => w === 'mk48' || w === 'mk54' || w === 'mine' || w === 'wwtorp');
+  const torp = s.weapons.some((w) => isTorp(w) || w === 'mine');
   if (s.kind === 'ship') {
     const big = (silOf(s.cls)?.len ?? 120) > 200;
     if (big && r < (torp ? 0.25 : 0.55)) return 'magazine';
@@ -45,7 +47,7 @@ export function fate(s: ShotSpec): 'break' | 'founder' | 'magazine' | 'damaged' 
 
 const ease = (a: number, b: number, x: number) => { const k = Math.max(0, Math.min(1, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
-const isTorp = (w: string) => w === 'mk48' || w === 'mk54' || w === 'wwtorp';
+const isTorp = (w: string) => w === 'mk48' || w === 'mk54' || w === 'wwtorp' || w === 'mk96';
 
 /** Per-shot cache: models are built once, not every frame. */
 export type ShotCache = Record<string, unknown>;
@@ -285,15 +287,22 @@ function drawShip(ctx: CanvasRenderingContext2D, W: number, H: number, s: ShotSp
       const tgt = at(aim, ti);
       // It comes in past the camera from the left, low over the waves, and runs away into the target.
       const fw = unit([cam.look[0] - cam.pos[0], cam.look[1] - cam.pos[1], 0]), rt: V3 = [fw[1], -fw[0], 0], d0 = 130 + i * 30, l0 = Math.tan((cam.fov * Math.PI) / 360) * d0 + 12;
-      const from: V3 = [cam.pos[0] + fw[0] * d0 - rt[0] * l0, cam.pos[1] + fw[1] * d0 - rt[1] * l0, 3 + i];
-      const path = (u: number): V3 => { const q = lerp3(from, tgt, u); q[2] = from[2] + (tgt[2] - from[2]) * u * u * u + Math.sin(u * Math.PI) * 2; return q; };
+      // Mjolnir comes almost straight down out of the sky at the end of its ballistic arc.
+      const dive = wk === 'mjolnir';
+      const from: V3 = dive ? [tgt[0] - rt[0] * (70 + i * 15), tgt[1] - rt[1] * (70 + i * 15), tgt[2] + 190] : [cam.pos[0] + fw[0] * d0 - rt[0] * l0, cam.pos[1] + fw[1] * d0 - rt[1] * l0, 3 + i];
+      const path = (u: number): V3 => { const q = lerp3(from, tgt, u); if (!dive) q[2] = from[2] + (tgt[2] - from[2]) * u * u * u + Math.sin(u * Math.PI) * 2; return q; };
       if (t > ti - ta && t < ti + 3.5) {
         const u = Math.min(1, (t - (ti - ta)) / ta), pos = path(u);
-        const dir = unit([tgt[0] - from[0], tgt[1] - from[1], 0]);
+        const dir = dive ? unit([tgt[0] - from[0], tgt[1] - from[1], tgt[2] - from[2]]) : unit([tgt[0] - from[0], tgt[1] - from[1], 0]);
         if (u < 1) {
-          w.groups.push(place(cached(c, 'msl', () => weaponModel(8, 0.5, hex("#d8dce0"), 1)), { pos, hdg: Math.atan2(dir[0], dir[1]) * 180 / Math.PI }));
-          const tail: V3 = [pos[0] - dir[0] * 3.1, pos[1] - dir[1] * 3.1, pos[2]];
+          w.groups.push(place(cached(c, dive ? 'mj' : 'msl', () => dive ? weaponModel(9, 0.6, hex('#3c4044'), 1) : weaponModel(8, 0.5, hex("#d8dce0"), 1)), { pos, hdg: Math.atan2(dir[0], dir[1]) * 180 / Math.PI, pitch: dive ? Math.asin(dir[2]) : undefined }));
+          const tail: V3 = [pos[0] - dir[0] * 3.1, pos[1] - dir[1] * 3.1, pos[2] - dir[2] * 3.1];
           for (let k = 0; k < 4; k++) out.push(blob([tail[0] - dir[0] * k * 1.6, tail[1] - dir[1] * k * 1.6, tail[2]], (1.1 - k * 0.2) * (1 + Math.sin(t * 40 + k) * 0.15), fireCol(0.1 + k * 0.12), k ? null : fireCol(0), 1 - k * 0.15));
+          // At Mach 6 the air ahead of it glows: a white-hot streak running back up the arc.
+          if (dive) for (let k = 0; k < 18; k++) {
+            const q = path(Math.max(0, u - k * 0.012));
+            out.push(blob(q, (2.6 - k * 0.1) * (1 + Math.sin(t * 50 + k) * 0.1), fireCol(Math.min(0.9, 0.02 + k * 0.05)), k < 3 ? fireCol(0) : null, 1 - k / 20, null, k));
+          }
         }
         // The smoke trail hangs in the air behind it, spreading and thinning.
         for (let k = 3; k < 70; k++) {
@@ -312,8 +321,10 @@ function drawShip(ctx: CanvasRenderingContext2D, W: number, H: number, s: ShotSp
       fireball(out, s.seed + i * 17, [hit[0], hit[1], 2], Math.max(6, L * 0.04), age - 0.05, 8);
     } else {
       const p = at([hullX, 0, m.deck(hullX) + 4], ti);
-      fireball(out, s.seed + i * 17, p, wk === 'mst' ? 16 : 11, age, 24);
-      debris(out, s.seed + i * 5, p, 28, age, 24);
+      fireball(out, s.seed + i * 17, p, wk === 'mjolnir' ? 24 : wk === 'mst' ? 16 : 11, age, wk === 'mjolnir' ? 30 : 24);
+      debris(out, s.seed + i * 5, p, wk === 'mjolnir' ? 45 : 28, age, wk === 'mjolnir' ? 40 : 24);
+      // The penetrator goes off deep inside the hull: a column of water and wreckage out the far side.
+      if (wk === 'mjolnir') waterColumn(w, s.seed + i * 29, [hit[0], hit[1] - nearY * 0.2, 0], Math.max(40, Math.min(90, L * 0.3)), age - 0.08, sk, Math.max(0.6, L / 220));
     }
   });
   if (fa === 'magazine') {
