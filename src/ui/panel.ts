@@ -116,7 +116,8 @@ export function updatePanel(g: Game) {
     $(id).classList.toggle('on', dr?.mode === m);
   }
   dis('fireTlam', !ready(o.vls) || !depthOk || !g.sites.length);
-  dis('fireNuke', !ready(o.vls) || !depthOk || !g.sites.length);
+  const mjSite = g.sites.find((x) => x.id === Number(($('mjSite') as HTMLSelectElement).value));
+  dis('fireMjLand', !ready(o.vls) || !depthOk || !mjSite || dist(o, mjSite) < WEAPONS.mjolnir.minRun! || dist(o, mjSite) > WEAPONS.mjolnir.maxRun);
   dis('layMine', !ready(o.tubes) || !g.flags.minesAboard || o.spd > 12);
   dis('radar', !o.radar && !atPeriscopeDepth(g));
   dis('scopeBtn', !inPeriscope(g, sel));

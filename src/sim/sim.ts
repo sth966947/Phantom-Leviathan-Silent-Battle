@@ -15,7 +15,7 @@ export type Depth = number;
 export type ScenarioKey = MissionKey;
 export type EventKind = 'info' | 'contact' | 'danger' | 'good' | 'warn';
 export type Sound = 'ping' | 'ping-echo' | 'contact' | 'launch' | 'missile' | 'alarm' | 'boom';
-export type WeaponKey = 'mk48' | 'ugst' | 'harpoon' | 'mst' | 'asroc' | 'mk54' | 'jatm' | 'sm6' | 'apr3' | 'wwtorp' | 'tlam' | 'tlamn' | 'mk96' | 'mjolnir';
+export type WeaponKey = 'mk48' | 'ugst' | 'harpoon' | 'mst' | 'asroc' | 'mk54' | 'jatm' | 'sm6' | 'apr3' | 'wwtorp' | 'tlam' | 'mk96' | 'mjolnir';
 /** What the player can launch. Mk 54 comes from ASROC; UGST and APR-3 are enemy weapons. */
 export type FireKey = 'mk48' | 'harpoon' | 'mst' | 'asroc' | 'jatm' | 'sm6' | 'mk96' | 'mjolnir';
 /** How a weapon finds its target: homing torpedo, anti-ship missile, ASROC carrier, or surface-to-air. */
@@ -88,6 +88,8 @@ export interface Weapon extends Vec {
   heardAt?: number; heardEst?: Vec | null; heardTrail?: (Vec & { t: number })[]; heardVel?: { hdg: number; spd: number } | null;
   /** Mjolnir: past the top of its arc. */
   apex?: boolean;
+  /** Flying to a site ashore (a TLAM, or a Mjolnir sent at a land target). */
+  land?: boolean;
 }
 
 export interface Contact {
@@ -108,7 +110,7 @@ export type SiteKind = 'shipyard' | 'docks' | 'factory' | 'airfield' | 'radar' |
 /** A fixed target ashore for land-attack Tomahawks, with hits landed on it. */
 export interface Site extends Vec { id: number; name: string; hits: number; kind?: SiteKind }
 /** One land-attack Tomahawk's arrival, for the strike camera. */
-export interface Strike { t: number; siteId: number; siteName: string; kind: SiteKind; hit: boolean; weapon: string; nuke?: boolean }
+export interface Strike { t: number; siteId: number; siteName: string; kind: SiteKind; hit: boolean; weapon: string; type: 'tlam' | 'mjolnir' }
 /** One hit by Tang's weapons (or a mine Tang laid) on a ship, submarine or aircraft, for the battle camera. */
 export interface Hit {
   t: number; vid: number; name: string; cls: string; kind: ClassCard['kind'];
@@ -192,22 +194,21 @@ export const WEAPONS: Record<WeaponKey, {
   // WWII straight-running torpedo (G7e, Type 95): no seeker, it hits whatever is in its path.
   // Land attack: flies to a fixed site by terrain matching (TERCOM), so it needs no GPS.
   tlam: { name: 'Tomahawk land attack (Block V)', short: 'TLAM', spd: 480, maxRun: 1000, seeker: 0, damage: 1, missile: true, role: 'land', vls: true },
-  tlamn: { name: 'Tomahawk nuclear land attack (W80 warhead, experimental)', short: 'TLAM-N', spd: 480, maxRun: 1000, seeker: 0, damage: 99, missile: true, role: 'land', vls: true },
   // Experimental, first fitted to Tang. Mk 96: a supercavitating torpedo (the US answer to the
   // Shkval). It swims out at 50 knots; once its seeker has a target it lights the rocket and
   // runs in at 250, too fast to dodge or decoy, and very loud. Only 15 nm of fuel.
   mk96: { name: 'Mk 96 supercavitating torpedo (experimental)', short: 'Mk 96', spd: 50, maxRun: 15, seeker: 2.5, damage: 6, missile: false, role: 'torpedo' },
   // Mjolnir: sub-launched Precision Strike Missile, Increment 2. Up in a ballistic arc, then
   // down onto the ship at Mach 6 with a 1,500 lb penetrating warhead. Too fast for point defence.
-  mjolnir: { name: 'Mjolnir (sub-launched PrSM Increment 2, experimental)', short: 'Mjolnir', spd: 3000, maxRun: 270, seeker: 10, damage: 9, missile: true, role: 'antiship', vls: true, minRun: 10 },
+  mjolnir: { name: 'Mjolnir (sub-launched PrSM Increment 2, experimental)', short: 'Mjolnir', spd: 3000, maxRun: 1000, seeker: 10, damage: 9, missile: true, role: 'antiship', vls: true, minRun: 10 },
   wwtorp: { name: 'Straight-running torpedo', short: 'Torpedo', spd: 40, maxRun: 5, seeker: 0.12, damage: 3, missile: false, role: 'torpedo' },
 };
 export const JATM_PER_CANISTER = 7;
 /** Mk 96 sprint speed once the seeker has a target, knots. */
 export const MK96_SPRINT = 250;
-/** Experimental nuclear Tomahawk: counts as this many hits on its site, and wrecks everything
- *  afloat or flying within NUKE_RADIUS nm of it. */
-export const NUKE_HITS = 10, NUKE_RADIUS = 4;
+/** A Mjolnir on a site ashore lands three Tomahawks' worth of damage, and rarely misses: it is
+ *  inertially guided down a ballistic arc rather than map-matching its way in. */
+export const MJOLNIR_LAND_HITS = 3, MJOLNIR_LAND_P = 0.95;
 export const DRONES_ABOARD = 6;
 /** Drone battery, seconds of passive listening; active and decoy run it down three times as fast. */
 const DRONE_BATTERY = 5400, DRONE_RUN = 4, DRONE_SPD = 8, DRONE_DECOY_SL = 122;
@@ -485,28 +486,30 @@ export const orders = {
     log(g, 'good', `Tube ${tube + 1}: mine laid. ${g.flags.minesAboard} left aboard.`);
   },
   /** Land-attack Tomahawk at one of the mission's fixed sites ashore. */
-  strike(g: Game, siteId: number, nuke = false) {
-    const type = nuke ? 'tlamn' : 'tlam', o = g.own, w = WEAPONS[type];
+  strike(g: Game, siteId: number, type: 'tlam' | 'mjolnir' = 'tlam') {
+    const o = g.own, w = WEAPONS[type], mj = type === 'mjolnir';
     if (g.over) return;
     const site = g.sites.find((x) => x.id === siteId);
-    if (!site) return log(g, 'warn', 'TLAM: no target selected.');
-    if (underIce(g)) return log(g, 'warn', 'TLAM: ice overhead. Missiles need open water: find a polynya.');
-    if (o.depthT > MISSILE_MAX_DEPTH) return log(g, 'warn', 'TLAM: come up to 150 feet or shallower to launch.');
+    const name = mj ? 'Mjolnir' : 'TLAM';
+    if (!site) return log(g, 'warn', `${name}: no target selected.`);
+    if (underIce(g)) return log(g, 'warn', `${name}: ice overhead. Missiles need open water: find a polynya.`);
+    if (o.depthT > MISSILE_MAX_DEPTH) return log(g, 'warn', `${name}: come up to 150 feet or shallower to launch.`);
     const range = dist(o, site);
+    if (mj && (range < w.minRun! || range > w.maxRun)) return log(g, 'warn', `Mjolnir: ${site.name} is ${fmtRng(range)} away. The ballistic arc needs ${w.minRun} to ${w.maxRun} nm.`);
     if (range > w.maxRun) return log(g, 'warn', `TLAM: ${site.name} is ${fmtRng(range)} away, beyond Tomahawk range.`);
     const tube = o.vls.findIndex((x) => x <= 0);
     if (tube < 0) return log(g, 'warn', 'All vertical launch tubes reloading.');
     o.vls[tube] = VLS_RELOAD;
-    g.stats.fired[type] = (g.stats.fired[type] ?? 0) + 1;
-    const label = `${w.short} ${g.stats.fired[type]}`;
+    g.stats.fired[type]++;
+    const label = mj ? `Mjolnir ${g.stats.fired.mjolnir}` : `TLAM ${g.stats.fired.tlam}`;
     const hdg = brg(o, site);
     g.weapons.push({
       id: g.seq++, type, side: 'us', label, x: o.x, y: o.y, hdg, ordHdg: hdg, spd: w.spd,
       run: 0, maxRun: w.maxRun, enableAt: Infinity, enabled: false, deep: false, wire: false,
-      aim: { x: site.x, y: site.y }, contactId: site.id, target: null, rolled: new Set(), trail: [],
+      aim: { x: site.x, y: site.y }, contactId: site.id, target: null, rolled: new Set(), trail: [], land: true,
     });
-    if (nuke && dist(o, site) < NUKE_RADIUS * 2) log(g, 'danger', `${label}: we are only ${fmtRng(dist(o, site))} from ${site.name}. Get clear before it arrives.`, 'alarm');
-    log(g, 'good', `VLS tube ${tube + 1} fired. ${label} for ${site.name}, ${fmtRng(range)}, about ${Math.round(range / w.spd * 60)} minutes' flight.${nuke ? ' Nuclear release authorised: W80 warhead armed.' : ''} ${g.era === '1941' ? 'Terrain matching only: no GPS in 1942.' : g.flags.jammed ? 'GPS jammed: terrain matching only.' : 'GPS and terrain matching.'}`, 'missile');
+    if (mj) log(g, 'good', `VLS tube ${tube + 1} fired. ${label} for ${site.name}, ${fmtRng(range)}. Boosting up the arc; impact in about ${Math.round(range / w.spd * 3600)} seconds.`, 'missile');
+    else log(g, 'good', `VLS tube ${tube + 1} fired. ${label} for ${site.name}, ${fmtRng(range)}, about ${Math.round(range / w.spd * 60)} minutes' flight. ${g.era === '1941' ? 'Terrain matching only: no GPS in 1942.' : g.flags.jammed ? 'GPS jammed: terrain matching only.' : 'GPS and terrain matching.'}`, 'missile');
     transient(g, o, 'us');
     launchSeen(g);
   },
@@ -700,16 +703,17 @@ function updateWeapon(g: Game, w: Weapon, dt: number) {
   // ASROC flies straight to the drop point and puts a Mk 54 in the water there.
   // TLAM: cruise to the site. Terrain matching over 2029 maps works on 1942 ground; the
   // terminal camera's scenes are 87 years out of date, so a few miss.
-  if (spec.role === 'land') {
+  if (spec.role === 'land' || w.land) {
     w.ordHdg = brg(w, w.aim);
+    const mj = w.type === 'mjolnir';
+    if (mj && !w.apex && w.run >= dist(w, w.aim)) { w.apex = true; log(g, 'good', `${w.label} at apex. Terminal dive at Mach 6.`); }
     if (dist(w, w.aim) <= step) {
       w.dead = true;
       const site = g.sites.find((x) => x.id === w.contactId);
-      if (w.type === 'tlamn') return detonate(g, w, site);
-      const hit = !!site && g.r() < 0.85;
-      if (site) g.strikes.push({ t: g.t, siteId: site.id, siteName: site.name, kind: siteKind(site), hit, weapon: w.label });
+      const hit = !!site && g.r() < (mj ? MJOLNIR_LAND_P : 0.85), n = mj ? MJOLNIR_LAND_HITS : 1;
+      if (site) g.strikes.push({ t: g.t, siteId: site.id, siteName: site.name, kind: siteKind(site), hit, weapon: w.label, type: mj ? 'mjolnir' : 'tlam' });
       if (site && hit) {
-        site.hits++; g.flags.landHits = (g.flags.landHits ?? 0) + 1;
+        site.hits += n; g.flags.landHits = (g.flags.landHits ?? 0) + n;
         log(g, 'good', `${w.label}: impact on ${site.name}.`, 'boom');
       } else log(g, 'warn', `${w.label}: no impact report from ${site?.name ?? 'the target'}. Probably a miss.`);
       return;
@@ -851,27 +855,6 @@ function seek(g: Game, w: Weapon) {
   else if (best === g.own) log(g, 'danger', 'Torpedo seeker has acquired us! Evade!', 'alarm');
 }
 
-/** The nuclear Tomahawk goes off over its site: the site is gone, and so is everything afloat or in
- *  the air within NUKE_RADIUS nm, friend or foe. A near miss on a target ashore still flattens it,
- *  so it never misses. */
-function detonate(g: Game, w: Weapon, site: Site | undefined) {
-  const at: Vec = site ?? w.aim;
-  g.flags.nukes = (g.flags.nukes ?? 0) + 1;
-  g.blasts.push({ x: at.x, y: at.y, t: g.t, missile: true });
-  if (site) {
-    g.strikes.push({ t: g.t, siteId: site.id, siteName: site.name, kind: siteKind(site), hit: true, weapon: w.label, nuke: true });
-    site.hits += NUKE_HITS; g.flags.landHits = (g.flags.landHits ?? 0) + NUKE_HITS;
-  }
-  log(g, 'good', `${w.label}: detonation over ${site?.name ?? 'the target'}. The flash is visible on the horizon. ${site?.name ?? 'The target'} is gone.`, 'boom');
-  if (dist(g.own, at) < NUKE_RADIUS) { g.own.alive = false; log(g, 'danger', 'We were inside the blast. The hull is crushed.', 'boom'); return end(g, false, 'USS Tang was caught in the blast of her own nuclear Tomahawk.'); }
-  for (const v of g.vessels) {
-    if (!v.alive || v === g.own || dist(v, at) > NUKE_RADIUS) continue;
-    if (g.over) break;
-    hit(g, { ...w, dead: false }, v);
-  }
-  checkGoal(g);
-}
-
 function hit(g: Game, w: Weapon, v: Vessel) {
   const spec = WEAPONS[w.type];
   w.dead = true;
@@ -884,8 +867,7 @@ function hit(g: Game, w: Weapon, v: Vessel) {
   const sunk = v.hp <= 0;
   if (w.side === 'us') {
     g.stats.hits++;
-    // Ships caught in a nuclear blast show in the Tomahawk's own strike clip, not one each.
-    if (w.type !== 'tlamn') g.hits.push({ t: g.t, vid: v.id, name: v.name, cls: v.cls.key, kind: v.cls.kind, weapon: w.type, label: w.label, sunk });
+    g.hits.push({ t: g.t, vid: v.id, name: v.name, cls: v.cls.key, kind: v.cls.kind, weapon: w.type, label: w.label, sunk });
   }
   if (sunk) { v.alive = false; g.sunk.push({ name: v.name, cls: v.cls.key, side: v.side, by: w.side }); }
   const c = g.contacts.find((x) => x.vid === v.id);

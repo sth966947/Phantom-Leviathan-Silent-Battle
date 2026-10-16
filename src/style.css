@@ -128,8 +128,6 @@ button.fire { background: #4a1e1a; border-color: #7a2e26; color: #ffd9d4; }
 button.fire:hover { background: #622520; }
 button.fire.exp { background: #3a2350; border-color: #6a3f8e; color: #ecdcff; }
 button.fire.exp:hover { background: #4a2d66; }
-button.fire.nuke { background: #4d3a10; border-color: #b8860b; color: #ffe9a8; }
-button.fire.nuke:hover { background: #644c14; }
 .wtabs { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
 .wtabs h2 { margin: 0 auto 0 0 !important; }
 .wtabs button { flex: 0 0 auto; padding: 4px 9px; font-size: 12px; }

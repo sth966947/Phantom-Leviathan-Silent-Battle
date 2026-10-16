@@ -174,11 +174,11 @@
         </div>
         <div class="wlabel">Vertical tubes · 150 ft or shallower</div>
         <div class="row">
-          <button class="fire exp" id="fireMjolnir" title="Experimental. Mjolnir, sub-launched Precision Strike Missile Increment 2: a ballistic arc to the solution 10 to 270 nm out, then down on the ship at Mach 6 with a 1,500 lb penetrating warhead. Too fast for point defence. Surface ships only.">Mjolnir <kbd>⇧T</kbd></button>
+          <button class="fire exp" id="fireMjolnir" title="Experimental. Mjolnir, sub-launched Precision Strike Missile Increment 2: a ballistic arc to the solution 10 to 1,000 nm out, then down on the ship at Mach 6 with a 1,500 lb penetrating warhead. Too fast for point defence. For targets ashore, use Mjolnir land.">Mjolnir ship <kbd>⇧T</kbd></button>
         </div>
-        <div class="row" id="nukeRow" hidden>
-          <select id="nukeSite" aria-label="Nuclear strike target"></select>
-          <button class="fire exp nuke" id="fireNuke" title="Experimental. Tomahawk with a W80 nuclear warhead, from a vertical tube at 150 ft or shallower. Flies to the chosen site ashore like a TLAM and destroys it outright, along with every ship and aircraft within 4 nm, friend or foe. Keep Tang well clear.">Nuclear TLAM <kbd>⇧Y</kbd></button>
+        <div class="row" id="mjLandRow" hidden>
+          <select id="mjSite" aria-label="Mjolnir land target"></select>
+          <button class="fire exp" id="fireMjLand" title="Experimental. Mjolnir at a fixed site ashore, 10 to 1,000 nm out: up the ballistic arc and straight down at Mach 6. Three Tomahawks' worth of damage, and it rarely misses.">Mjolnir land <kbd>⇧Y</kbd></button>
         </div>
       </div>
       <p class="note" id="wNote"></p>

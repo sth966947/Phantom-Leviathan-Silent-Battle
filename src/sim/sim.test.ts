@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { create, excess, inPeriscope, orders, tick, vesselSL, JATM_PER_CANISTER, NUKE_HITS, WEAPONS, type Game, type Vessel } from './sim';
+import { create, excess, inPeriscope, orders, tick, vesselSL, JATM_PER_CANISTER, MJOLNIR_LAND_HITS, WEAPONS, type Game, type Vessel } from './sim';
 import { angDiff, offset } from './math';
 import { CLASSES, LIBRARY } from './classes';
 import { matchClasses, signatureView } from './signature';
@@ -383,7 +383,7 @@ describe('experimental weapons', () => {
     expect(sprint).toBe(true);
     expect(g.vessels[1].alive).toBe(false);
   });
-  it('Mjolnir needs 10 to 270 nm and sinks a battleship from the sky', () => {
+  it('Mjolnir needs 10 to 1000 nm and sinks a battleship from the sky', () => {
     const g = create('bismarck', 5);
     orders.depth(g, 1);
     run(g, 60);
@@ -417,25 +417,20 @@ describe('experimental weapons', () => {
     run(g, 90);
     expect(hp - bis.hp).toBe(3 * WEAPONS.mst.damage);
   });
-  it('a nuclear Tomahawk wrecks its site and everything afloat near it', () => {
+  it('Mjolnir also strikes sites ashore, for three Tomahawks\' worth of hits', () => {
     const g = create('doolittle', 2);
     g.own.depthT = 1; g.own.ordDepth = 1;
+    g.vessels.forEach((v) => { if (v.cls.key === 'picket') { v.alive = false; v.gone = true; } });
     const site = g.sites[0];
-    const ships = g.vessels.filter((v) => v.side === 'enemy' && v.cls.kind === 'surface' && v.alive);
-    const [near, far] = ships;
-    orders.strike(g, site.id, true);
-    expect(g.stats.fired.tlamn).toBe(1);
-    const m = g.weapons.find((w) => w.type === 'tlamn')!;
-    for (let i = 0; i < 6000 && Math.hypot(m.x - site.x, m.y - site.y) > 3; i++) tick(g, 1);
-    // Two pickets, one inside the blast and one well outside it, as the missile arrives.
-    Object.assign(near, offset(site, 90, 2)); Object.assign(far, offset(site, 90, 9));
-    for (let i = 0; i < 600 && !m.dead; i++) tick(g, 1);
-    expect(site.hits).toBeGreaterThanOrEqual(NUKE_HITS);
-    expect(g.flags.landHits).toBeGreaterThanOrEqual(NUKE_HITS);
-    expect(g.strikes.at(-1)).toMatchObject({ siteId: site.id, hit: true, nuke: true, weapon: 'TLAM-N 1' });
-    expect(near.alive).toBe(false);
-    expect(far.alive).toBe(true);
-    expect(g.hits.some((h) => h.weapon === 'tlamn')).toBe(false); // shown in the strike clip instead
+    // It reaches Japan from where the raid starts, 600-odd nm out: about 13 minutes on the arc.
+    orders.strike(g, site.id, 'mjolnir');
+    expect(g.stats.fired.mjolnir).toBe(1);
+    run(g, 1000);
+    expect(g.weapons.some((w) => w.type === 'mjolnir' && !w.dead)).toBe(false);
+    expect(g.events.some((e) => e.text.includes('Mjolnir 1 at apex'))).toBe(true);
+    expect(g.strikes).toHaveLength(1);
+    expect(g.strikes[0]).toMatchObject({ siteId: site.id, weapon: 'Mjolnir 1', type: 'mjolnir' });
+    expect(site.hits).toBe(g.strikes[0].hit ? MJOLNIR_LAND_HITS : 0);
   });
   it('tracks a torpedo coming at us: position, course and speed firm up as sonar listens', () => {
     const g = duel(14, 0);
