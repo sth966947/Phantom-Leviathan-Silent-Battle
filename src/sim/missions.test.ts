@@ -29,7 +29,7 @@ describe('missions', () => {
     expect(g.t).toBeGreaterThan(60 * 60);
     // The strike camera's record of the arrival.
     expect(g.strikes).toHaveLength(1);
-    expect(g.strikes[0]).toMatchObject({ siteId: g.sites[0].id, siteName: 'Yokosuka naval yard', kind: 'shipyard', weapon: 'TLAM 1' });
+    expect(g.strikes[0]).toMatchObject({ siteId: g.sites[0].id, siteName: 'Yokosuka naval yard', kind: 'shipyard', weapon: 'TLAM 1', type: 'tlam' });
     expect(g.strikes[0].hit).toBe(g.sites[0].hits === 1);
   });
   it('a site with no kind gets one from its name', () => {

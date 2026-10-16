@@ -11,7 +11,7 @@ import { ps1Post } from './ps1';
 
 /** One arrival: a Tomahawk on a site ashore, or a hit on a vessel or aircraft. `t` is game seconds. */
 export type Impact =
-  | { type: 'land'; t: number; weapon: string; site: string; siteId: number; kind: SiteKind; hit: boolean }
+  | { type: 'land'; t: number; weapon: string; site: string; siteId: number; kind: SiteKind; hit: boolean; mjolnir?: boolean }
   | { type: 'hit'; t: number; weapon: WeaponKey | 'mine'; label: string; vid: number; name: string; cls: string; kind: 'surface' | 'sub' | 'air'; sunk: boolean };
 export interface Reel {
   impacts: Impact[]; modern: boolean; night: boolean;
@@ -53,7 +53,7 @@ export function planReel(reel: Reel): { shots: Omit<Shot, 'cache' | 'start'>[]; 
   [...groups.values()].forEach((ims, gi) => {
     const first = gi === 0, im0 = ims[0];
     const kind: ShotKind = im0.type === 'land' ? 'land' : im0.kind === 'surface' ? 'ship' : im0.kind;
-    const weapons = ims.map((m) => (m.type === 'land' ? 'tlam' : m.weapon));
+    const weapons = ims.map((m) => (m.type === 'land' ? (m.mjolnir ? 'mjolnir' : 'tlam') : m.weapon));
     const hits = ims.map((m) => (m.type === 'land' ? m.hit : true));
     const sunk = ims.some((m) => (m.type === 'land' ? m.hit : m.sunk));
     // Later targets in a reel get quicker cuts.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { create, excess, inPeriscope, orders, tick, vesselSL, JATM_PER_CANISTER, type Game, type Vessel } from './sim';
+import { create, excess, inPeriscope, orders, tick, vesselSL, JATM_PER_CANISTER, MJOLNIR_LAND_HITS, WEAPONS, type Game, type Vessel } from './sim';
 import { angDiff, offset } from './math';
 import { CLASSES, LIBRARY } from './classes';
 import { matchClasses, signatureView } from './signature';
@@ -156,10 +156,10 @@ describe('radar', () => {
     expect(c.classified).toBe('bismarck');
     expect(Math.hypot(c.est!.x - bis.x, c.est!.y - bis.y)).toBeLessThan(0.5);
   });
-  it('sees and identifies ships out to 25 nm, and nothing beyond', () => {
+  it('sees and identifies ships out to 50 nm, and nothing beyond', () => {
     const g = create('bismarck', 3);
     const bis = g.vessels[1];
-    Object.assign(bis, offset(g.own, 40, 21)); freeze(bis, 0);
+    Object.assign(bis, offset(g.own, 40, 45)); freeze(bis, 0);
     g.vessels.slice(2).forEach((v) => { v.alive = false; });
     radarUp(g);
     run(g, 20);
@@ -167,7 +167,7 @@ describe('radar', () => {
     expect(c.held).toBe(true);
     expect(c.classified).toBe('bismarck');
     const far = create('bismarck', 3);
-    Object.assign(far.vessels[1], offset(far.own, 40, 27)); freeze(far.vessels[1], 0);
+    Object.assign(far.vessels[1], offset(far.own, 40, 55)); freeze(far.vessels[1], 0);
     far.vessels.slice(2).forEach((v) => { v.alive = false; });
     radarUp(far);
     run(far, 20);
@@ -383,7 +383,7 @@ describe('experimental weapons', () => {
     expect(sprint).toBe(true);
     expect(g.vessels[1].alive).toBe(false);
   });
-  it('Mjolnir needs 10 to 270 nm and sinks a battleship from the sky', () => {
+  it('Mjolnir needs 10 to 1000 nm and sinks a battleship from the sky', () => {
     const g = create('bismarck', 5);
     orders.depth(g, 1);
     run(g, 60);
@@ -402,6 +402,52 @@ describe('experimental weapons', () => {
     run(g, 120);
     expect(g.events.some((e) => e.text.includes('at apex'))).toBe(true);
     expect(bis.alive).toBe(false);
+  });
+  it('one Mjolnir hits as hard as three Tomahawk MSTs', () => {
+    expect(WEAPONS.mjolnir.damage).toBe(3 * WEAPONS.mst.damage);
+    const g = create('bismarck', 5);
+    orders.depth(g, 1);
+    run(g, 60);
+    const bis = g.vessels[1], c = g.contacts.find((x) => x.vid === bis.id)!;
+    g.selected = c.id; c.q = 1; c.bias = 0;
+    Object.assign(bis, offset(g.own, 0, 40)); freeze(bis, 0);
+    c.est = { x: bis.x, y: bis.y, t: g.t };
+    const hp = bis.hp;
+    orders.fire(g, 'mjolnir');
+    run(g, 90);
+    expect(hp - bis.hp).toBe(3 * WEAPONS.mst.damage);
+  });
+  it('Mjolnir also strikes sites ashore, for three Tomahawks\' worth of hits', () => {
+    const g = create('doolittle', 2);
+    g.own.depthT = 1; g.own.ordDepth = 1;
+    g.vessels.forEach((v) => { if (v.cls.key === 'picket') { v.alive = false; v.gone = true; } });
+    const site = g.sites[0];
+    // It reaches Japan from where the raid starts, 600-odd nm out: about 13 minutes on the arc.
+    orders.strike(g, site.id, 'mjolnir');
+    expect(g.stats.fired.mjolnir).toBe(1);
+    run(g, 1000);
+    expect(g.weapons.some((w) => w.type === 'mjolnir' && !w.dead)).toBe(false);
+    expect(g.events.some((e) => e.text.includes('Mjolnir 1 at apex'))).toBe(true);
+    expect(g.strikes).toHaveLength(1);
+    expect(g.strikes[0]).toMatchObject({ siteId: site.id, weapon: 'Mjolnir 1', type: 'mjolnir' });
+    expect(site.hits).toBe(g.strikes[0].hit ? MJOLNIR_LAND_HITS : 0);
+  });
+  it('tracks a torpedo coming at us: position, course and speed firm up as sonar listens', () => {
+    const g = duel(14, 0);
+    const from = offset(g.own, 90, 5), hdg = 270;
+    g.weapons.push({
+      id: g.seq++, type: 'ugst', side: 'enemy', label: 'UGST', x: from.x, y: from.y, hdg, ordHdg: hdg, spd: 50,
+      run: 0, maxRun: 30, enableAt: Infinity, enabled: false, deep: true, wire: false,
+      aim: { x: g.own.x, y: g.own.y }, contactId: null, target: null, rolled: new Set(), trail: [],
+    });
+    const w = g.weapons.at(-1)!;
+    run(g, 5);
+    expect(w.heardBrg).not.toBeNull();
+    expect(g.events.some((e) => /Torpedo in the water, bearing 090, range about/.test(e.text))).toBe(true);
+    run(g, 150);
+    expect(Math.hypot(w.heardEst!.x - w.x, w.heardEst!.y - w.y)).toBeLessThan(0.3);
+    expect(Math.abs(w.heardVel!.spd - 50)).toBeLessThan(8);
+    expect(Math.abs(angDiff(w.heardVel!.hdg, 270))).toBeLessThan(10);
   });
   it('a passive drone hears what the boat cannot, and a decoy drone draws the hunter', () => {
     const g = duel(14, 0);

@@ -25,10 +25,10 @@ export interface ShotSpec {
 /** How long each weapon is on screen before it lands. */
 export function approachTime(kind: ShotKind, weapon: string) {
   if (weapon === 'mine') return 0.4;
+  if (weapon === 'mjolnir') return 1.6; // straight down out of the sky, at sea or ashore
   if (kind === 'land') return 2.1;
   if (kind === 'air') return 1.8;
   if (weapon === 'mk96') return 1.1; // the last stretch at 250 knots
-  if (weapon === 'mjolnir') return 1.6; // straight down out of the sky
   if (weapon === 'mk48' || weapon === 'mk54' || weapon === 'wwtorp') return kind === 'sub' ? 2.6 : 2.4;
   return 2.2;
 }
@@ -644,26 +644,50 @@ function drawLand(ctx: CanvasRenderingContext2D, W: number, H: number, s: ShotSp
   // Chimney smoke.
   for (const st of sc.stacks) smokeFrom(out, t, -5, s.dur, () => [st[0], st[1], st[2]], sk, 1.4, 0.2, 4, false);
   let flash = 0;
-  s.weapons.forEach((_, i) => {
-    const ti = s.at[i], ta = approachTime('land', 'tlam'), p = pts[i];
-    // The Tomahawk diving in at 15 degrees from down its track.
-    const dir = unit([fwd[0], fwd[1], -Math.tan((15 * Math.PI) / 180)]);
-    const pos = (tt: number): V3 => { const d = (ti - tt) * 245; return [p[0] - dir[0] * d + right[0] * Math.sin(tt * 2 + i) * 2, p[1] - dir[1] * d, p[2] - dir[2] * d]; };
-    if (t > ti - ta && t < ti) {
-      const q = pos(t);
-      w.groups.push(place(cached(c, 'tlam', () => weaponModel(6.2, 0.26, hex('#c8ccd0'), 0.7)), { pos: q, hdg: rig.hdg, pitch: -0.26 }));
-      out.push(blob([q[0] - dir[0] * 3.5, q[1] - dir[1] * 3.5, q[2] - dir[2] * 3.5], 1.6, fireCol(0.25), fireCol(0.05), 0.9));
-      for (let k = 1; k < 26; k++) { const te = t - k * 0.05; if (te < ti - ta) break; out.push(blob(pos(te), 1 + k * 0.25, mix(sk.spray, sk.fog, 0.3), null, 0.4 * (1 - k / 26), null, k)); }
+  s.weapons.forEach((wk, i) => {
+    const ti = s.at[i], ta = approachTime('land', wk), p = pts[i], mj = wk === 'mjolnir';
+    if (mj) {
+      // Mjolnir drops almost straight out of the sky at the end of its arc, glowing white-hot.
+      const from: V3 = [p[0] - fwd[0] * (150 + i * 30), p[1] - fwd[1] * (150 + i * 30), p[2] + 360];
+      const path = (u: number): V3 => lerp3(from, p, u);
+      const dir = unit([p[0] - from[0], p[1] - from[1], p[2] - from[2]]);
+      if (t > ti - ta && t < ti + 3.5) {
+        const u = Math.min(1, (t - (ti - ta)) / ta);
+        if (u < 1) {
+          w.groups.push(place(cached(c, 'mjl', () => weaponModel(14, 1.4, hex('#3c4044'), 1)), { pos: path(u), hdg: Math.atan2(dir[0], dir[1]) * 180 / Math.PI, pitch: Math.asin(dir[2]) }));
+          for (let k = 0; k < 18; k++) out.push(blob(path(Math.max(0, u - k * 0.012)), (8 - k * 0.3) * (1 + Math.sin(t * 50 + k) * 0.1), fireCol(Math.min(0.9, 0.02 + k * 0.05)), k < 3 ? fireCol(0) : null, 1 - k / 20, null, k));
+        }
+        // The trail hangs in the air behind it, spreading and thinning.
+        for (let k = 3; k < 70; k++) {
+          const uk = u - k * 0.014;
+          if (uk < 0) break;
+          const age = (u - uk) * ta + Math.max(0, t - ti), q = path(uk);
+          if (age > 3.5) continue;
+          out.push(blob([q[0], q[1], q[2] + age * 2], 2.5 + age * 5, mix(sk.smokeLit, sk.fog, 0.35), mix(sk.spray, sk.fog, 0.2), 0.75 * (1 - age / 3.5), null, k));
+        }
+      }
+    } else {
+      // The Tomahawk diving in at 15 degrees from down its track.
+      const dir = unit([fwd[0], fwd[1], -Math.tan((15 * Math.PI) / 180)]);
+      const pos = (tt: number): V3 => { const d = (ti - tt) * 245; return [p[0] - dir[0] * d + right[0] * Math.sin(tt * 2 + i) * 2, p[1] - dir[1] * d, p[2] - dir[2] * d]; };
+      if (t > ti - ta && t < ti) {
+        const q = pos(t);
+        w.groups.push(place(cached(c, 'tlam', () => weaponModel(6.2, 0.26, hex('#c8ccd0'), 0.7)), { pos: q, hdg: rig.hdg, pitch: -0.26 }));
+        out.push(blob([q[0] - dir[0] * 3.5, q[1] - dir[1] * 3.5, q[2] - dir[2] * 3.5], 1.6, fireCol(0.25), fireCol(0.05), 0.9));
+        for (let k = 1; k < 26; k++) { const te = t - k * 0.05; if (te < ti - ta) break; out.push(blob(pos(te), 1 + k * 0.25, mix(sk.spray, sk.fog, 0.3), null, 0.4 * (1 - k / 26), null, k)); }
+      }
     }
     const age = t - ti;
     if (age < 0) return;
     if (age < 0.15) flash = Math.max(flash, 1 - age / 0.15);
     const water = !s.hits[i] && sc.missWater;
-    if (water) { waterColumn(w, s.seed + i * 9, p, 70, age, sk, 1.4); return; }
-    fireball(out, s.seed + i * 11, [p[0], p[1], p[2] + 6], s.hits[i] ? 30 : 18, age, 22);
-    debris(out, s.seed + i * 4, p, 70, age, 34, 30);
-    smokeFrom(out, t, ti + 0.3, s.dur, () => [p[0], p[1], p[2] + 8], sk, s.hits[i] ? 3.2 : 1.8, 0.12, 5);
-    if (s.hits[i]) for (let k = 0; k < 4; k++) flames(out, t, [p[0] + (k - 1.5) * 14, p[1] + Math.sin(k * 2) * 10, 2], 5, k + i);
+    if (water) { waterColumn(w, s.seed + i * 9, p, mj ? 110 : 70, age, sk, 1.4); return; }
+    // The penetrator goes in before it goes off: a burst of earth, then the fireball out of the crater.
+    fireball(out, s.seed + i * 11, [p[0], p[1], p[2] + 6], mj ? 70 : s.hits[i] ? 30 : 18, mj ? age - 0.08 : age, mj ? 30 : 22);
+    if (mj) waterColumn(w, s.seed + i * 21, p, 110, age, { ...sk, spray: mix(sk.smoke, [120, 100, 80], 0.5), sprayLit: [170, 150, 120] }, 2.2); // a column of earth thrown up out of the crater
+    debris(out, s.seed + i * 4, p, mj ? 120 : 70, age, mj ? 60 : 34, mj ? 50 : 30);
+    smokeFrom(out, t, ti + 0.3, s.dur, () => [p[0], p[1], p[2] + 8], sk, mj ? 4.6 : s.hits[i] ? 3.2 : 1.8, 0.12, 5);
+    if (s.hits[i]) for (let k = 0; k < (mj ? 7 : 4); k++) flames(out, t, [p[0] + (k - (mj ? 3 : 1.5)) * 14, p[1] + Math.sin(k * 2) * 10, 2], mj ? 7 : 5, k + i);
   });
   // A fixed camera standing off to one side of the missiles' track, the whole site in view.
   const camD = 1250;

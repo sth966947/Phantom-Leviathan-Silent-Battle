@@ -174,7 +174,11 @@
         </div>
         <div class="wlabel">Vertical tubes · 150 ft or shallower</div>
         <div class="row">
-          <button class="fire exp" id="fireMjolnir" title="Experimental. Mjolnir, sub-launched Precision Strike Missile Increment 2: a ballistic arc to the solution 10 to 270 nm out, then down on the ship at Mach 6 with a 1,500 lb penetrating warhead. Too fast for point defence. Surface ships only.">Mjolnir <kbd>⇧T</kbd></button>
+          <button class="fire exp" id="fireMjolnir" title="Experimental. Mjolnir, sub-launched Precision Strike Missile Increment 2: a ballistic arc to the solution 10 to 1,000 nm out, then down on the ship at Mach 6 with a 1,500 lb penetrating warhead. Too fast for point defence. For targets ashore, use Mjolnir land.">Mjolnir ship <kbd>⇧T</kbd></button>
+        </div>
+        <div class="row" id="mjLandRow" hidden>
+          <select id="mjSite" aria-label="Mjolnir land target"></select>
+          <button class="fire exp" id="fireMjLand" title="Experimental. Mjolnir at a fixed site ashore, 10 to 1,000 nm out: up the ballistic arc and straight down at Mach 6. Three Tomahawks' worth of damage, and it rarely misses.">Mjolnir land <kbd>⇧Y</kbd></button>
         </div>
       </div>
       <p class="note" id="wNote"></p>

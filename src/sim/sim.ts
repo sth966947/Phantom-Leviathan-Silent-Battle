@@ -83,8 +83,13 @@ export interface Weapon extends Vec {
   target: Vessel | Decoy | null; targetKind?: 'vessel' | 'decoy';
   rolled: Set<number>; trail: Vec[];
   dead?: boolean; deadAt?: number; heardBrg?: number | null;
+  /** An enemy torpedo our sonar is tracking: when first heard, the estimated position now, the
+   *  fixes every 10 s, and its estimated course and speed. */
+  heardAt?: number; heardEst?: Vec | null; heardTrail?: (Vec & { t: number })[]; heardVel?: { hdg: number; spd: number } | null;
   /** Mjolnir: past the top of its arc. */
   apex?: boolean;
+  /** Flying to a site ashore (a TLAM, or a Mjolnir sent at a land target). */
+  land?: boolean;
 }
 
 export interface Contact {
@@ -105,7 +110,7 @@ export type SiteKind = 'shipyard' | 'docks' | 'factory' | 'airfield' | 'radar' |
 /** A fixed target ashore for land-attack Tomahawks, with hits landed on it. */
 export interface Site extends Vec { id: number; name: string; hits: number; kind?: SiteKind }
 /** One land-attack Tomahawk's arrival, for the strike camera. */
-export interface Strike { t: number; siteId: number; siteName: string; kind: SiteKind; hit: boolean; weapon: string }
+export interface Strike { t: number; siteId: number; siteName: string; kind: SiteKind; hit: boolean; weapon: string; type: 'tlam' | 'mjolnir' }
 /** One hit by Tang's weapons (or a mine Tang laid) on a ship, submarine or aircraft, for the battle camera. */
 export interface Hit {
   t: number; vid: number; name: string; cls: string; kind: ClassCard['kind'];
@@ -195,12 +200,15 @@ export const WEAPONS: Record<WeaponKey, {
   mk96: { name: 'Mk 96 supercavitating torpedo (experimental)', short: 'Mk 96', spd: 50, maxRun: 15, seeker: 2.5, damage: 6, missile: false, role: 'torpedo' },
   // Mjolnir: sub-launched Precision Strike Missile, Increment 2. Up in a ballistic arc, then
   // down onto the ship at Mach 6 with a 1,500 lb penetrating warhead. Too fast for point defence.
-  mjolnir: { name: 'Mjolnir (sub-launched PrSM Increment 2, experimental)', short: 'Mjolnir', spd: 3000, maxRun: 270, seeker: 10, damage: 6, missile: true, role: 'antiship', vls: true, minRun: 10 },
+  mjolnir: { name: 'Mjolnir (sub-launched PrSM Increment 2, experimental)', short: 'Mjolnir', spd: 3000, maxRun: 1000, seeker: 10, damage: 9, missile: true, role: 'antiship', vls: true, minRun: 10 },
   wwtorp: { name: 'Straight-running torpedo', short: 'Torpedo', spd: 40, maxRun: 5, seeker: 0.12, damage: 3, missile: false, role: 'torpedo' },
 };
 export const JATM_PER_CANISTER = 7;
 /** Mk 96 sprint speed once the seeker has a target, knots. */
 export const MK96_SPRINT = 250;
+/** A Mjolnir on a site ashore lands three Tomahawks' worth of damage, and rarely misses: it is
+ *  inertially guided down a ballistic arc rather than map-matching its way in. */
+export const MJOLNIR_LAND_HITS = 3, MJOLNIR_LAND_P = 0.95;
 export const DRONES_ABOARD = 6;
 /** Drone battery, seconds of passive listening; active and decoy run it down three times as fast. */
 const DRONE_BATTERY = 5400, DRONE_RUN = 4, DRONE_SPD = 8, DRONE_DECOY_SL = 122;
@@ -214,7 +222,7 @@ const AIR_VISUAL_RANGE = 10;    // nm, aircraft against the sky
 // ---- Radar ---------------------------------------------------------------------------
 // Mast radar, periscope depth only.
 /** Mast radar, nm. Ships: seen and identified out to 25. Aircraft: low fliers (helicopters, attack runs) inside 15, high fliers out to 100, identified inside 15. */
-export const RADAR = { classify: 25, classifyAir: 15, horizon: 25, airLow: 15, airHigh: 100, sweep: 4, esm: 100 };
+export const RADAR = { classify: 50, classifyAir: 15, horizon: 50, airLow: 15, airHigh: 100, sweep: 4, esm: 100 };
 /** Helicopters stay down on the water; fixed-wing aircraft come down only to attack. */
 const HELOS = new Set(['ka27', 'ka28']);
 export const flyingLow = (v: Vessel) => v.cls.kind === 'air' && (HELOS.has(v.cls.key) || v.ai?.mode === 'prosecute');
@@ -478,27 +486,30 @@ export const orders = {
     log(g, 'good', `Tube ${tube + 1}: mine laid. ${g.flags.minesAboard} left aboard.`);
   },
   /** Land-attack Tomahawk at one of the mission's fixed sites ashore. */
-  strike(g: Game, siteId: number) {
-    const o = g.own, w = WEAPONS.tlam;
+  strike(g: Game, siteId: number, type: 'tlam' | 'mjolnir' = 'tlam') {
+    const o = g.own, w = WEAPONS[type], mj = type === 'mjolnir';
     if (g.over) return;
     const site = g.sites.find((x) => x.id === siteId);
-    if (!site) return log(g, 'warn', 'TLAM: no target selected.');
-    if (underIce(g)) return log(g, 'warn', 'TLAM: ice overhead. Missiles need open water: find a polynya.');
-    if (o.depthT > MISSILE_MAX_DEPTH) return log(g, 'warn', 'TLAM: come up to 150 feet or shallower to launch.');
+    const name = mj ? 'Mjolnir' : 'TLAM';
+    if (!site) return log(g, 'warn', `${name}: no target selected.`);
+    if (underIce(g)) return log(g, 'warn', `${name}: ice overhead. Missiles need open water: find a polynya.`);
+    if (o.depthT > MISSILE_MAX_DEPTH) return log(g, 'warn', `${name}: come up to 150 feet or shallower to launch.`);
     const range = dist(o, site);
+    if (mj && (range < w.minRun! || range > w.maxRun)) return log(g, 'warn', `Mjolnir: ${site.name} is ${fmtRng(range)} away. The ballistic arc needs ${w.minRun} to ${w.maxRun} nm.`);
     if (range > w.maxRun) return log(g, 'warn', `TLAM: ${site.name} is ${fmtRng(range)} away, beyond Tomahawk range.`);
     const tube = o.vls.findIndex((x) => x <= 0);
     if (tube < 0) return log(g, 'warn', 'All vertical launch tubes reloading.');
     o.vls[tube] = VLS_RELOAD;
-    g.stats.fired.tlam++;
-    const label = `TLAM ${g.stats.fired.tlam}`;
+    g.stats.fired[type]++;
+    const label = mj ? `Mjolnir ${g.stats.fired.mjolnir}` : `TLAM ${g.stats.fired.tlam}`;
     const hdg = brg(o, site);
     g.weapons.push({
-      id: g.seq++, type: 'tlam', side: 'us', label, x: o.x, y: o.y, hdg, ordHdg: hdg, spd: w.spd,
+      id: g.seq++, type, side: 'us', label, x: o.x, y: o.y, hdg, ordHdg: hdg, spd: w.spd,
       run: 0, maxRun: w.maxRun, enableAt: Infinity, enabled: false, deep: false, wire: false,
-      aim: { x: site.x, y: site.y }, contactId: site.id, target: null, rolled: new Set(), trail: [],
+      aim: { x: site.x, y: site.y }, contactId: site.id, target: null, rolled: new Set(), trail: [], land: true,
     });
-    log(g, 'good', `VLS tube ${tube + 1} fired. ${label} for ${site.name}, ${fmtRng(range)}, about ${Math.round(range / w.spd * 60)} minutes' flight. ${g.era === '1941' ? 'Terrain matching only: no GPS in 1942.' : g.flags.jammed ? 'GPS jammed: terrain matching only.' : 'GPS and terrain matching.'}`, 'missile');
+    if (mj) log(g, 'good', `VLS tube ${tube + 1} fired. ${label} for ${site.name}, ${fmtRng(range)}. Boosting up the arc; impact in about ${Math.round(range / w.spd * 3600)} seconds.`, 'missile');
+    else log(g, 'good', `VLS tube ${tube + 1} fired. ${label} for ${site.name}, ${fmtRng(range)}, about ${Math.round(range / w.spd * 60)} minutes' flight. ${g.era === '1941' ? 'Terrain matching only: no GPS in 1942.' : g.flags.jammed ? 'GPS jammed: terrain matching only.' : 'GPS and terrain matching.'}`, 'missile');
     transient(g, o, 'us');
     launchSeen(g);
   },
@@ -692,15 +703,17 @@ function updateWeapon(g: Game, w: Weapon, dt: number) {
   // ASROC flies straight to the drop point and puts a Mk 54 in the water there.
   // TLAM: cruise to the site. Terrain matching over 2029 maps works on 1942 ground; the
   // terminal camera's scenes are 87 years out of date, so a few miss.
-  if (spec.role === 'land') {
+  if (spec.role === 'land' || w.land) {
     w.ordHdg = brg(w, w.aim);
+    const mj = w.type === 'mjolnir';
+    if (mj && !w.apex && w.run >= dist(w, w.aim)) { w.apex = true; log(g, 'good', `${w.label} at apex. Terminal dive at Mach 6.`); }
     if (dist(w, w.aim) <= step) {
       w.dead = true;
       const site = g.sites.find((x) => x.id === w.contactId);
-      const hit = !!site && g.r() < 0.85;
-      if (site) g.strikes.push({ t: g.t, siteId: site.id, siteName: site.name, kind: siteKind(site), hit, weapon: w.label });
+      const hit = !!site && g.r() < (mj ? MJOLNIR_LAND_P : 0.85), n = mj ? MJOLNIR_LAND_HITS : 1;
+      if (site) g.strikes.push({ t: g.t, siteId: site.id, siteName: site.name, kind: siteKind(site), hit, weapon: w.label, type: mj ? 'mjolnir' : 'tlam' });
       if (site && hit) {
-        site.hits++; g.flags.landHits = (g.flags.landHits ?? 0) + 1;
+        site.hits += n; g.flags.landHits = (g.flags.landHits ?? 0) + n;
         log(g, 'good', `${w.label}: impact on ${site.name}.`, 'boom');
       } else log(g, 'warn', `${w.label}: no impact report from ${site?.name ?? 'the target'}. Probably a miss.`);
       return;
@@ -1034,11 +1047,28 @@ function ownSensors(g: Game, dt: number) {
     if (w.side !== 'enemy' || w.dead) continue;
     const tse = excess(SL_TORPEDO, w, ears, o.cls.threshold!);
     w.heardBrg = tse > 0 ? brg(o, w) : null;
+    trackTorpedo(g, w);
     if (tse > 0 && !g.heard.has(w.id)) {
       g.heard.add(w.id);
-      log(g, 'danger', `Torpedo in the water, bearing ${fmtBrg(w.heardBrg!)}!`, 'alarm');
+      log(g, 'danger', `Torpedo in the water, bearing ${fmtBrg(w.heardBrg!)}, range about ${fmtRng(dist(o, w.heardEst!))}!`, 'alarm');
     }
   }
+}
+
+/** Sonar's track on a torpedo coming at us. A torpedo is loud and close, so the bearing is good from
+ *  the start; the range starts rough and firms up over a minute or two of listening. The error is
+ *  fixed per torpedo (no draw on the game's dice) and shrinks as the track builds. */
+function trackTorpedo(g: Game, w: Weapon) {
+  if (w.heardBrg == null) { w.heardEst = null; return; }
+  const o = g.own;
+  if (w.heardAt == null) { w.heardAt = g.t; w.heardTrail = []; }
+  const u = (k: number) => (((w.id * 9301 + k * 49297) % 233280) / 233280) - 0.5;
+  const decay = Math.exp(-(g.t - w.heardAt) / 90), r = dist(o, w);
+  w.heardEst = offset(o, norm(w.heardBrg + u(1) * 6 * decay), Math.max(0.05, r * (1 + u(2) * 0.5 * decay)));
+  const tr = w.heardTrail!;
+  if (!tr.length || g.t - tr[tr.length - 1].t >= 10) { tr.push({ ...w.heardEst, t: g.t }); if (tr.length > 12) tr.shift(); }
+  // Course and speed need a few fixes; then they start rough and firm up with the range.
+  w.heardVel = g.t - w.heardAt >= 20 ? { hdg: norm(w.hdg + u(3) * 30 * decay), spd: w.spd * (1 + u(4) * 0.4 * decay) } : null;
 }
 
 // ---- Radar, ESM and eyes on aircraft ----------------------------------------------------------
