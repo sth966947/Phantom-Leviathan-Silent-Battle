@@ -179,6 +179,17 @@ on('decoy', () => orders.decoy(g));
 on('zoomIn', () => { plot.zoom = Math.max(0, plot.zoom - 1); });
 on('zoomOut', () => { plot.zoom = Math.min(SPANS.length - 1, plot.zoom + 1); });
 
+// Weapons tabs: standard loadout, and the experimental kit Tang is trialling.
+function weaponTab(exp: boolean) {
+  for (const [tab, pane, on] of [['tabStd', 'paneStd', !exp], ['tabExp', 'paneExp', exp]] as const) {
+    $(tab).classList.toggle('on', on);
+    $(tab).setAttribute('aria-selected', String(on));
+    $(pane).hidden = !on;
+  }
+}
+on('tabStd', () => weaponTab(false));
+on('tabExp', () => weaponTab(true));
+
 $('contacts').addEventListener('click', (ev) => {
   const li = (ev.target as HTMLElement).closest<HTMLElement>('li[data-id]');
   if (li) orders.select(g, Number(li.dataset.id));
@@ -246,8 +257,14 @@ document.addEventListener('keydown', (ev) => {
     o: () => { const d = g.drones[g.drones.length - 1]; if (d) orders.droneMode(g, d.mode === 'passive' ? 'active' : d.mode === 'active' ? 'decoy' : 'passive'); },
   };
   const k = ev.key.toLowerCase();
+  if (k === '`') { ev.preventDefault(); weaponTab($('paneExp').hidden); return; }
   const act = (ev.shiftKey && shifted[k]) || keys[k];
-  if (act) { ev.preventDefault(); act(); }
+  if (!act) return;
+  ev.preventDefault();
+  // Firing from the keyboard brings up the tab that weapon lives on.
+  if ((ev.shiftKey && shifted[k]) || k === 'o') weaponTab(true);
+  else if ('fhtgjm'.includes(k)) weaponTab(false);
+  act();
 });
 
 // ---- Lifecycle -------------------------------------------------------------------

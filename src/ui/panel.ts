@@ -91,6 +91,8 @@ export function updatePanel(g: Game) {
   const next = (bank: number[]) => { const l = bank.filter((x) => x > 0); return l.length ? ` · next ${Math.ceil(Math.min(...l))}s` : ''; };
   setText('wTubes', `${ready(o.tubes)} of ${o.tubes.length} ready${next(o.tubes)}`);
   setText('wVls', `${ready(o.vls)} of ${o.vls.length} ready${next(o.vls)}`);
+  setText('wTubesX', $('wTubes').textContent!);
+  setText('wVlsX', $('wVls').textContent!);
   setText('wDecoys', String(o.decoys));
   const dr = g.drones[g.drones.length - 1];
   setText('wDrones', `${o.drones} aboard${g.drones.length ? ` · ${g.drones.length} out` : ''}`);

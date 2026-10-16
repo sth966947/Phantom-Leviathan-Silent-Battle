@@ -122,39 +122,60 @@
         <ul class="matches" id="matches"></ul>
       </div>
     </section>
-    <section class="card">
-      <h2>Weapons</h2>
-      <dl>
-        <dt>Torpedo tubes</dt><dd id="wTubes">—</dd>
-        <dt>Vertical launch tubes</dt><dd id="wVls">—</dd>
-        <dt>JATM canister</dt><dd id="wJatm">—</dd>
-      </dl>
-      <div class="wlabel">Torpedo tubes · ships and subs</div>
-      <div class="row">
-        <button class="fire" id="fireMk48" title="Mk 48 ADCAP Mod 7, wire-guided heavyweight torpedo. Ships and submarines.">Mk 48 <kbd>F</kbd></button>
-        <button class="fire" id="fireHarpoon" title="UGM-84 Harpoon Block II from a torpedo tube. Surface ships only, 150 ft or shallower.">Harpoon <kbd>H</kbd></button>
+    <section class="card weapons">
+      <div class="wtabs" role="tablist">
+        <h2>Weapons</h2>
+        <button role="tab" id="tabStd" class="on" aria-selected="true" aria-controls="paneStd" title="The ` key switches tabs.">Standard</button>
+        <button role="tab" id="tabExp" aria-selected="false" aria-controls="paneExp" title="Experimental weapons Tang is trialling. The ` key switches tabs.">Experimental <kbd>`</kbd></button>
       </div>
-      <div class="row">
-        <button class="fire exp" id="fireMk96" title="Experimental. Mk 96 supercavitating torpedo: swims out at 50 knots on the wire, then lights its rocket when the seeker acquires and runs in at 250 knots. Can't be outrun or decoyed, but very loud, and only 15 nm of fuel.">Mk 96 <kbd>⇧F</kbd></button>
+      <div id="paneStd" role="tabpanel">
+        <dl>
+          <dt>Torpedo tubes</dt><dd id="wTubes">—</dd>
+          <dt>Vertical launch tubes</dt><dd id="wVls">—</dd>
+          <dt>JATM canister</dt><dd id="wJatm">—</dd>
+        </dl>
+        <div class="wlabel">Torpedo tubes · ships and subs</div>
+        <div class="row">
+          <button class="fire" id="fireMk48" title="Mk 48 ADCAP Mod 7, wire-guided heavyweight torpedo. Ships and submarines.">Mk 48 <kbd>F</kbd></button>
+          <button class="fire" id="fireHarpoon" title="UGM-84 Harpoon Block II from a torpedo tube. Surface ships only, 150 ft or shallower.">Harpoon <kbd>H</kbd></button>
+        </div>
+        <div class="wlabel">Vertical tubes · 150 ft or shallower</div>
+        <div class="row">
+          <button class="fire" id="fireMst" title="Maritime Strike Tomahawk, the anti-ship Tomahawk. Long range, retargeted in flight. Surface ships only.">Tomahawk anti-ship <kbd>T</kbd></button>
+          <button class="fire" id="fireAsroc" title="Sub-launched ASROC: flies to the solution 1 to 15 nm out and drops a Mk 54 torpedo there. Submarines, or ships at a pinch.">ASROC <kbd>G</kbd></button>
+        </div>
+        <div class="row">
+          <button class="fire" id="fireJatm" title="AIM-260 JATM, seven rounds to a canister in one vertical tube. For slow sub-hunting aircraft. Fire and forget: flies down the selected air contact's bearing, or straight ahead.">JATM <kbd>J</kbd></button>
+          <button class="fire" id="fireSm6" title="SM-6, longer reach, for incoming missiles and fast jets; also kills aircraft. Fire and forget: flies down the selected air contact's bearing, or straight ahead.">SM-6 <kbd>M</kbd></button>
+        </div>
+        <div class="row" id="tlamRow" hidden>
+          <select id="tlamSite" aria-label="Land-attack target"></select>
+          <button class="fire" id="fireTlam" title="Tomahawk land attack, from a vertical tube at 150 ft or shallower. Flies to a fixed site ashore by terrain matching; no GPS needed.">TLAM <kbd>Y</kbd></button>
+        </div>
+        <div class="row" id="mineRow" hidden>
+          <button class="fire" id="layMine" title="Lay a mine from a torpedo tube where Tang is now, at 12 knots or less. Our mines sink enemy ships that pass over them.">Lay mine <kbd>I</kbd></button>
+        </div>
       </div>
-      <div class="wlabel">Vertical tubes · 150 ft or shallower</div>
-      <div class="row">
-        <button class="fire" id="fireMst" title="Maritime Strike Tomahawk, the anti-ship Tomahawk. Long range, retargeted in flight. Surface ships only.">Tomahawk anti-ship <kbd>T</kbd></button>
-        <button class="fire" id="fireAsroc" title="Sub-launched ASROC: flies to the solution 1 to 15 nm out and drops a Mk 54 torpedo there. Submarines, or ships at a pinch.">ASROC <kbd>G</kbd></button>
-      </div>
-      <div class="row">
-        <button class="fire exp" id="fireMjolnir" title="Experimental. Mjolnir, sub-launched Precision Strike Missile Increment 2: a ballistic arc to the solution 20 to 270 nm out, then down on the ship at Mach 6 with a 1,500 lb penetrating warhead. Too fast for point defence. Surface ships only.">Mjolnir <kbd>⇧T</kbd></button>
-      </div>
-      <div class="row">
-        <button class="fire" id="fireJatm" title="AIM-260 JATM, seven rounds to a canister in one vertical tube. For slow sub-hunting aircraft. Fire and forget: flies down the selected air contact's bearing, or straight ahead.">JATM <kbd>J</kbd></button>
-        <button class="fire" id="fireSm6" title="SM-6, longer reach, for incoming missiles and fast jets; also kills aircraft. Fire and forget: flies down the selected air contact's bearing, or straight ahead.">SM-6 <kbd>M</kbd></button>
-      </div>
-      <div class="row" id="tlamRow" hidden>
-        <select id="tlamSite" aria-label="Land-attack target"></select>
-        <button class="fire" id="fireTlam" title="Tomahawk land attack, from a vertical tube at 150 ft or shallower. Flies to a fixed site ashore by terrain matching; no GPS needed.">TLAM <kbd>Y</kbd></button>
-      </div>
-      <div class="row" id="mineRow" hidden>
-        <button class="fire" id="layMine" title="Lay a mine from a torpedo tube where Tang is now, at 12 knots or less. Our mines sink enemy ships that pass over them.">Lay mine <kbd>I</kbd></button>
+      <div id="paneExp" role="tabpanel" hidden>
+        <dl>
+          <dt>Torpedo tubes</dt><dd id="wTubesX">—</dd>
+          <dt>Vertical launch tubes</dt><dd id="wVlsX">—</dd>
+          <dt>Sonar drones</dt><dd id="wDrones">6 aboard</dd>
+        </dl>
+        <div class="wlabel">Torpedo tubes</div>
+        <div class="row">
+          <button class="fire exp" id="fireMk96" title="Experimental. Mk 96 supercavitating torpedo: swims out at 50 knots on the wire, then lights its rocket when the seeker acquires and runs in at 250 knots. Can't be outrun or decoyed, but very loud, and only 15 nm of fuel.">Mk 96 <kbd>⇧F</kbd></button>
+        </div>
+        <div class="row drones">
+          <button id="launchDrone" title="Experimental. Swim a disposable sonar drone out of a torpedo tube toward the selected contact (or dead ahead). It runs 4 nm and hovers. Passive: extra ears away from the boat, and a cross-fix when both hear a contact. Active: pings every minute, and hunters go for the drone. Decoy: plays our noise to draw torpedoes and hunters.">Launch drone <kbd>O</kbd></button>
+          <button id="dronePassive" class="mode">Passive</button>
+          <button id="droneActive" class="mode">Active</button>
+          <button id="droneDecoy" class="mode">Decoy</button>
+        </div>
+        <div class="wlabel">Vertical tubes · 150 ft or shallower</div>
+        <div class="row">
+          <button class="fire exp" id="fireMjolnir" title="Experimental. Mjolnir, sub-launched Precision Strike Missile Increment 2: a ballistic arc to the solution 10 to 270 nm out, then down on the ship at Mach 6 with a 1,500 lb penetrating warhead. Too fast for point defence. Surface ships only.">Mjolnir <kbd>⇧T</kbd></button>
+        </div>
       </div>
       <p class="note" id="wNote"></p>
     </section>
@@ -163,19 +184,12 @@
       <dl>
         <dt>Radar</dt><dd id="sRadar">off</dd>
         <dt>ADC Mk 5 countermeasures</dt><dd id="wDecoys">4</dd>
-        <dt>Sonar drones</dt><dd id="wDrones">6 aboard</dd>
       </dl>
       <div class="row" style="margin-top:8px">
         <button id="scopeBtn" title="Look at the selected contact through the periscope and compare it with the identification book. Periscope depth, ships within 8 nm, aircraft within 10 nm.">Periscope view <kbd>V</kbd></button>
         <button id="radar" title="Mast radar, periscope depth only. Sees and identifies ships out to 25 nm. Sees low fliers such as helicopters inside 15 nm and high aircraft out to 100 nm; identifies aircraft inside 15 nm. Enemies with radar warning receivers hear it.">Radar <kbd>R</kbd></button>
         <button id="ping">Active ping <kbd>P</kbd></button>
         <button id="decoy">Countermeasure <kbd>C</kbd></button>
-      </div>
-      <div class="row drones">
-        <button id="launchDrone" title="Experimental. Swim a disposable sonar drone out of a torpedo tube toward the selected contact (or dead ahead). It runs 4 nm and hovers. Passive: extra ears away from the boat, and a cross-fix when both hear a contact. Active: pings every minute, and hunters go for the drone. Decoy: plays our noise to draw torpedoes and hunters.">Launch drone <kbd>O</kbd></button>
-        <button id="dronePassive" class="mode">Passive</button>
-        <button id="droneActive" class="mode">Active</button>
-        <button id="droneDecoy" class="mode">Decoy</button>
       </div>
       <div class="row straddle">
         <button id="arrayUp" title="Go below the layer to 550 feet and work the towed array up above it, to hear surface ships and shallow submarines while staying hidden under the layer.">Sub below · array above <kbd>U</kbd></button>

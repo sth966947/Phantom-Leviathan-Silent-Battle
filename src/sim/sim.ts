@@ -195,7 +195,7 @@ export const WEAPONS: Record<WeaponKey, {
   mk96: { name: 'Mk 96 supercavitating torpedo (experimental)', short: 'Mk 96', spd: 50, maxRun: 15, seeker: 2.5, damage: 6, missile: false, role: 'torpedo' },
   // Mjolnir: sub-launched Precision Strike Missile, Increment 2. Up in a ballistic arc, then
   // down onto the ship at Mach 6 with a 1,500 lb penetrating warhead. Too fast for point defence.
-  mjolnir: { name: 'Mjolnir (sub-launched PrSM Increment 2, experimental)', short: 'Mjolnir', spd: 3000, maxRun: 270, seeker: 10, damage: 6, missile: true, role: 'antiship', vls: true, minRun: 20 },
+  mjolnir: { name: 'Mjolnir (sub-launched PrSM Increment 2, experimental)', short: 'Mjolnir', spd: 3000, maxRun: 270, seeker: 10, damage: 6, missile: true, role: 'antiship', vls: true, minRun: 10 },
   wwtorp: { name: 'Straight-running torpedo', short: 'Torpedo', spd: 40, maxRun: 5, seeker: 0.12, damage: 3, missile: false, role: 'torpedo' },
 };
 export const JATM_PER_CANISTER = 7;

@@ -383,7 +383,7 @@ describe('experimental weapons', () => {
     expect(sprint).toBe(true);
     expect(g.vessels[1].alive).toBe(false);
   });
-  it('Mjolnir needs 20 to 270 nm and sinks a battleship from the sky', () => {
+  it('Mjolnir needs 10 to 270 nm and sinks a battleship from the sky', () => {
     const g = create('bismarck', 5);
     orders.depth(g, 1);
     run(g, 60);
@@ -391,7 +391,7 @@ describe('experimental weapons', () => {
     const c = g.contacts.find((x) => x.vid === bis.id)!;
     g.selected = c.id;
     c.q = 1; c.bias = 0;
-    Object.assign(bis, offset(g.own, 0, 10)); freeze(bis, 0);
+    Object.assign(bis, offset(g.own, 0, 6)); freeze(bis, 0);
     c.est = { x: bis.x, y: bis.y, t: g.t };
     orders.fire(g, 'mjolnir');
     expect(g.stats.fired.mjolnir).toBe(0); // too close for the arc
