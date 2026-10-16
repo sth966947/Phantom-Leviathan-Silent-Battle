@@ -15,9 +15,9 @@ export type Depth = number;
 export type ScenarioKey = MissionKey;
 export type EventKind = 'info' | 'contact' | 'danger' | 'good' | 'warn';
 export type Sound = 'ping' | 'ping-echo' | 'contact' | 'launch' | 'missile' | 'alarm' | 'boom';
-export type WeaponKey = 'mk48' | 'ugst' | 'harpoon' | 'mst' | 'asroc' | 'mk54' | 'jatm' | 'sm6' | 'apr3' | 'wwtorp' | 'tlam';
+export type WeaponKey = 'mk48' | 'ugst' | 'harpoon' | 'mst' | 'asroc' | 'mk54' | 'jatm' | 'sm6' | 'apr3' | 'wwtorp' | 'tlam' | 'mk96' | 'mjolnir';
 /** What the player can launch. Mk 54 comes from ASROC; UGST and APR-3 are enemy weapons. */
-export type FireKey = 'mk48' | 'harpoon' | 'mst' | 'asroc' | 'jatm' | 'sm6';
+export type FireKey = 'mk48' | 'harpoon' | 'mst' | 'asroc' | 'jatm' | 'sm6' | 'mk96' | 'mjolnir';
 /** How a weapon finds its target: homing torpedo, anti-ship missile, ASROC carrier, or surface-to-air. */
 export type Role = 'torpedo' | 'antiship' | 'asw' | 'aa' | 'land';
 
@@ -58,7 +58,17 @@ export interface OwnBoat extends Vessel {
   arraySide: ArraySide;
   /** Rounds left in the JATM canister in the current vertical tube (7 per canister). */
   jatm: number; radar: boolean;
+  /** Sonar drones left aboard. */
+  drones: number;
 }
+
+/**
+ * A disposable sonar drone, swum out from a torpedo tube. It runs out along its launch bearing,
+ * then hovers. Passive: an extra pair of ears away from the boat. Active: it pings every minute,
+ * so whoever hears the ping hunts the drone, not Tang. Decoy: it plays Tang's noise.
+ */
+export type DroneMode = 'passive' | 'active' | 'decoy';
+export interface Drone extends Vec { id: number; n: number; hdg: number; run: number; mode: DroneMode; battery: number; deep: boolean; pingT: number }
 
 /** An enemy sonobuoy: a small omnidirectional hydrophone, shallow or deep. */
 export interface Buoy extends Vec { id: number; life: number; deep: boolean; heard: boolean; hits: number; est: Vec | null }
@@ -73,6 +83,8 @@ export interface Weapon extends Vec {
   target: Vessel | Decoy | null; targetKind?: 'vessel' | 'decoy';
   rolled: Set<number>; trail: Vec[];
   dead?: boolean; deadAt?: number; heardBrg?: number | null;
+  /** Mjolnir: past the top of its arc. */
+  apex?: boolean;
 }
 
 export interface Contact {
@@ -144,12 +156,12 @@ export interface Game {
   /** A replay of a finished mission: the plot shows every ship where it really is. */
   replay?: boolean;
   own: OwnBoat; vessels: Vessel[]; contacts: Contact[]; selected: number | null;
-  weapons: Weapon[]; decoys: Decoy[]; buoys: Buoy[]; splashT: number; heard: Set<number>; sweeps: { t: number }[];
+  weapons: Weapon[]; decoys: Decoy[]; drones: Drone[]; buoys: Buoy[]; splashT: number; heard: Set<number>; sweeps: { t: number }[];
   events: GameEvent[]; waterfall: WaterfallRow | null; wfTimer: number;
-  pings: { t: number }[]; blasts: (Vec & { t: number; missile: boolean })[];
+  pings: (Partial<Vec> & { t: number })[]; blasts: (Vec & { t: number; missile: boolean })[];
   /** Depth charges sinking toward their set depth, and when they go off. */
   charges: (Vec & { t: number })[];
-  stats: { fired: Record<WeaponKey, number>; enemyFired: number; pings: number; hits: number; blueOnBlue: number };
+  stats: { fired: Record<WeaponKey, number>; enemyFired: number; pings: number; hits: number; blueOnBlue: number; drones?: number };
 }
 
 // ---- Weapons ------------------------------------------------------------------------
@@ -177,9 +189,21 @@ export const WEAPONS: Record<WeaponKey, {
   // WWII straight-running torpedo (G7e, Type 95): no seeker, it hits whatever is in its path.
   // Land attack: flies to a fixed site by terrain matching (TERCOM), so it needs no GPS.
   tlam: { name: 'Tomahawk land attack (Block V)', short: 'TLAM', spd: 480, maxRun: 1000, seeker: 0, damage: 1, missile: true, role: 'land', vls: true },
+  // Experimental, first fitted to Tang. Mk 96: a supercavitating torpedo (the US answer to the
+  // Shkval). It swims out at 50 knots; once its seeker has a target it lights the rocket and
+  // runs in at 250, too fast to dodge or decoy, and very loud. Only 15 nm of fuel.
+  mk96: { name: 'Mk 96 supercavitating torpedo (experimental)', short: 'Mk 96', spd: 50, maxRun: 15, seeker: 2.5, damage: 6, missile: false, role: 'torpedo' },
+  // Mjolnir: sub-launched Precision Strike Missile, Increment 2. Up in a ballistic arc, then
+  // down onto the ship at Mach 6 with a 1,500 lb penetrating warhead. Too fast for point defence.
+  mjolnir: { name: 'Mjolnir (sub-launched PrSM Increment 2, experimental)', short: 'Mjolnir', spd: 3000, maxRun: 270, seeker: 10, damage: 6, missile: true, role: 'antiship', vls: true, minRun: 20 },
   wwtorp: { name: 'Straight-running torpedo', short: 'Torpedo', spd: 40, maxRun: 5, seeker: 0.12, damage: 3, missile: false, role: 'torpedo' },
 };
 export const JATM_PER_CANISTER = 7;
+/** Mk 96 sprint speed once the seeker has a target, knots. */
+export const MK96_SPRINT = 250;
+export const DRONES_ABOARD = 6;
+/** Drone battery, seconds of passive listening; active and decoy run it down three times as fast. */
+const DRONE_BATTERY = 5400, DRONE_RUN = 4, DRONE_SPD = 8, DRONE_DECOY_SL = 122;
 const AA_CONE = 45;
 const TUBE_RELOAD = 120;
 const VLS_RELOAD = 600;
@@ -189,8 +213,8 @@ const AIR_VISUAL_RANGE = 10;    // nm, aircraft against the sky
 
 // ---- Radar ---------------------------------------------------------------------------
 // Mast radar, periscope depth only.
-/** Mast radar, nm. Ships: identified inside 15, seen out to 25. Aircraft: low fliers (helicopters, attack runs) inside 15, high fliers out to 100, identified inside 15. */
-export const RADAR = { classify: 15, horizon: 25, airLow: 15, airHigh: 100, sweep: 4, esm: 100 };
+/** Mast radar, nm. Ships: seen and identified out to 25. Aircraft: low fliers (helicopters, attack runs) inside 15, high fliers out to 100, identified inside 15. */
+export const RADAR = { classify: 25, classifyAir: 15, horizon: 25, airLow: 15, airHigh: 100, sweep: 4, esm: 100 };
 /** Helicopters stay down on the water; fixed-wing aircraft come down only to attack. */
 const HELOS = new Set(['ka27', 'ka28']);
 export const flyingLow = (v: Vessel) => v.cls.kind === 'air' && (HELOS.has(v.cls.key) || v.ai?.mode === 'prosecute');
@@ -267,7 +291,7 @@ export function create(scenario: ScenarioKey = 'bismarck', seed?: number, carry:
     goal: { targets: [], need: 1, protect: [], maxLosses: Infinity, surviveWin: false, win: '', timeout: '', lossText: '' },
     sunk: [], flags: {}, script: null, sites: [], strikes: [], hits: [], mines: [], env: calmSea(),
     t: 0, r, seq: 1, over: null, vessels: [], contacts: [], selected: null,
-    weapons: [], decoys: [], buoys: [], charges: [], splashT: -1e9, heard: new Set(), sweeps: [], events: [], waterfall: null, wfTimer: 0, pings: [], blasts: [],
+    weapons: [], decoys: [], drones: [], buoys: [], charges: [], splashT: -1e9, heard: new Set(), sweeps: [], events: [], waterfall: null, wfTimer: 0, pings: [], blasts: [],
     stats: {
       fired: Object.fromEntries(Object.keys(WEAPONS).map((k) => [k, 0])) as Record<WeaponKey, number>,
       enemyFired: 0, pings: 0, hits: 0, blueOnBlue: 0,
@@ -275,7 +299,7 @@ export function create(scenario: ScenarioKey = 'bismarck', seed?: number, carry:
   } as unknown as Game;
 
   const ownV = makeVessel(g, 'virginia', 'USS Tang (SSN-805)', 'us', { x: 0, y: 0 }, 0, 5, 1);
-  g.own = Object.assign(ownV, { tubes: [0, 0, 0, 0], vls: Array(12).fill(0), decoys: 4, arrayStableAt: 0, arraySide: 'with' as ArraySide, jatm: 0, radar: false });
+  g.own = Object.assign(ownV, { tubes: [0, 0, 0, 0], vls: Array(12).fill(0), decoys: 4, arrayStableAt: 0, arraySide: 'with' as ArraySide, jatm: 0, radar: false, drones: DRONES_ABOARD });
   g.vessels.push(g.own);
   m.build(g, r, carry);
   return g;
@@ -413,6 +437,7 @@ export const orders = {
     const aim = aa ? offset(o, c ? c.bearing! : o.hdg, w.seeker) : c?.est ? { x: c.est.x, y: c.est.y } : offset(o, o.hdg, 8);
     const range = dist(o, aim);
     if (w.role === 'asw' && (range < w.minRun! || range > w.maxRun)) return log(g, 'warn', `ASROC: solution is ${fmtRng(range)} out. ASROC reaches 1 to 15 nm.`);
+    if (type === 'mjolnir' && (range < w.minRun! || range > w.maxRun)) return log(g, 'warn', `Mjolnir: solution is ${fmtRng(range)} out. The ballistic arc needs ${w.minRun} to ${w.maxRun} nm.`);
     // A JATM canister holds seven rounds; it takes a vertical tube until it is empty.
     const fromCanister = type === 'jatm' && o.jatm > 0;
     const bank = w.vls ? o.vls : o.tubes;
@@ -434,7 +459,7 @@ export const orders = {
     });
     const at = c ? ` at ${contactLabel(c)}` : '';
     const from = type === 'jatm' ? `JATM canister, ${o.jatm} of ${JATM_PER_CANISTER} left${fromCanister ? '' : `, VLS tube ${tube + 1}`}` : w.vls ? `VLS tube ${tube + 1}` : `Tube ${tube + 1}`;
-    const tail = w.role === 'torpedo' ? '. Wire guidance active.' : w.role === 'asw' ? `, drop point ${fmtRng(range)}.` : aa ? '. Fire and forget, seeker searching.' : `, range ${fmtRng(range)}.`;
+    const tail = type === 'mk96' ? '. Wire guidance active; rocket lights when the seeker acquires.' : type === 'mjolnir' ? `, ${fmtRng(range)}. Boosting up the arc; impact in about ${Math.round(range / w.spd * 3600)} seconds.` : w.role === 'torpedo' ? '. Wire guidance active.' : w.role === 'asw' ? `, drop point ${fmtRng(range)}.` : aa ? '. Fire and forget, seeker searching.' : `, range ${fmtRng(range)}.`;
     log(g, 'good', `${from} fired. ${label}${at}, bearing ${fmtBrg(hdg)}${tail}`, w.missile ? 'missile' : 'launch');
     transient(g, o, 'us');
     if (w.missile) launchSeen(g);
@@ -489,30 +514,30 @@ export const orders = {
     g.stats.pings++;
     g.pings.push({ t: g.t });
     pingMines(g);
-    let returns = 0;
-    for (const v of g.vessels) {
-      if (v === o || !v.alive || v.cls.kind === 'air') continue;
-      const r = dist(o, v), b = brg(o, v);
-      const layer = deepOf(o) !== deepOf(v) ? 10 : 0;
-      const size = v.cls.kind === 'surface' ? 8 : 0; // big steel hulls echo well
-      const echo = 47 + size - 40 * Math.log10(Math.max(r, 0.1)) - layer - (inBaffles(o, b) ? 99 : 0);
-      if (echo > 0) {
-        returns++;
-        const c = contactFor(g, v);
-        if (!c.held) c.legHdg = o.hdg;
-        c.held = true; c.ever = true; c.lastSeen = g.t; c.q = 1; c.bias = 0; c.bearing = b;
-        c.est = { x: v.x, y: v.y, t: g.t }; c.estErr = 0;
-        log(g, 'contact', `Ping return: ${contactLabel(c)} bearing ${fmtBrg(b)}, range ${fmtRng(r)}.`);
-      }
-      // Anyone with sonar within 60 nm hears the ping. Close in that is a fix; far off only a rough bearing and range.
-      if (v.ai && v.cls.threshold !== null && r < 60) {
-        const near = r < 15, e = near ? 0 : r * 0.06;
-        v.ai.knows = { x: o.x + gauss(g.r) * e, y: o.y + gauss(g.r) * e, t: g.t, deep: o.depthT > LAYER_AT, exact: near };
-        v.ai.holdT = Math.max(v.ai.holdT, near ? 120 : 40);
-        if (v.ai.mode === 'patrol') v.ai.mode = 'attack';
-      }
-    }
+    const returns = pingFrom(g, o, o.depthT > LAYER_AT, 'Ping return');
     log(g, returns ? 'contact' : 'info', returns ? `Active ping: ${returns} return${returns > 1 ? 's' : ''}.` : 'Active ping: no return.', returns ? 'ping-echo' : 'ping');
+  },
+  /** Swim a sonar drone out of a torpedo tube, toward the selected contact or dead ahead. */
+  launchDrone(g: Game) {
+    const o = g.own;
+    if (g.over) return;
+    if (o.drones <= 0) return log(g, 'warn', 'No sonar drones left aboard.');
+    const tube = o.tubes.findIndex((x) => x <= 0);
+    if (tube < 0) return log(g, 'warn', 'All torpedo tubes reloading.');
+    o.tubes[tube] = TUBE_RELOAD;
+    o.drones--;
+    const c = targetContact(g);
+    const hdg = norm(Math.round(c?.bearing ?? o.hdg));
+    const n = g.stats.drones = (g.stats.drones ?? 0) + 1;
+    g.drones.push({ id: g.seq++, n, x: o.x, y: o.y, hdg, run: 0, mode: 'passive', battery: DRONE_BATTERY, deep: o.depthT > LAYER_AT, pingT: 0 });
+    log(g, 'good', `Tube ${tube + 1}: sonar drone ${n} away, bearing ${fmtBrg(hdg)}. It will run ${DRONE_RUN} nm and hover, listening. ${o.drones} left aboard.`, 'launch');
+  },
+  /** Switch the newest drone between passive listening, active pinging and decoy. */
+  droneMode(g: Game, mode: DroneMode) {
+    const d = g.drones[g.drones.length - 1];
+    if (g.over || !d || d.mode === mode) return;
+    d.mode = mode;
+    log(g, mode === 'passive' ? 'info' : 'good', `Drone ${d.n}: ${mode === 'passive' ? 'passive, listening.' : mode === 'active' ? 'active sonar on, pinging every minute. Anyone who hears it will hunt the drone.' : 'decoy on, playing our noise. Torpedoes and hunters should go for it.'}`);
   },
   decoy(g: Game) {
     const o = g.own;
@@ -523,6 +548,63 @@ export const orders = {
     log(g, 'good', `ADC Mk 5 countermeasure launched. ${o.decoys} left.`);
   },
 };
+
+/**
+ * An active ping from `src` (Tang, or one of its drones): echoes give exact fixes on what they
+ * bounce off, and anyone with sonar within 60 nm hears where the ping came from.
+ */
+function pingFrom(g: Game, src: Vec & { hdg: number }, deep: boolean, what: string) {
+  const o = g.own;
+  let returns = 0;
+  for (const v of g.vessels) {
+    if (v === o || !v.alive || v.cls.kind === 'air') continue;
+    const r = dist(src, v), b = brg(src, v);
+    const layer = deep !== deepOf(v) ? 10 : 0;
+    const size = v.cls.kind === 'surface' ? 8 : 0; // big steel hulls echo well
+    const echo = 47 + size - 40 * Math.log10(Math.max(r, 0.1)) - layer - (src === o && inBaffles(o, b) ? 99 : 0);
+    if (echo > 0) {
+      returns++;
+      const c = contactFor(g, v);
+      if (!c.held) c.legHdg = o.hdg;
+      c.held = true; c.ever = true; c.lastSeen = g.t; c.q = 1; c.bias = 0; c.bearing = brg(o, v);
+      c.est = { x: v.x, y: v.y, t: g.t }; c.estErr = 0;
+      log(g, 'contact', `${what}: ${contactLabel(c)} bearing ${fmtBrg(c.bearing)}, range ${fmtRng(dist(o, v))}.`);
+    }
+    // Close in that is a fix; far off only a rough bearing and range.
+    if (v.ai && v.cls.threshold !== null && r < 60) {
+      const near = r < 15, e = near ? 0 : r * 0.06;
+      v.ai.knows = { x: src.x + gauss(g.r) * e, y: src.y + gauss(g.r) * e, t: g.t, deep, exact: near };
+      v.ai.holdT = Math.max(v.ai.holdT, near ? 120 : 40);
+      if (v.ai.mode === 'patrol') v.ai.mode = 'attack';
+    }
+  }
+  return returns;
+}
+
+/** Drones swim out, hover, listen, ping or play decoy until their batteries run flat. */
+function updateDrones(g: Game, dt: number) {
+  for (const d of g.drones) {
+    if (d.run < DRONE_RUN) {
+      const step = DRONE_SPD * KT * dt;
+      d.x += Math.sin(d.hdg * D2R) * step; d.y += Math.cos(d.hdg * D2R) * step; d.run += step;
+      if (d.run >= DRONE_RUN) log(g, 'info', `Drone ${d.n} on station, ${fmtRng(dist(g.own, d))} from us, bearing ${fmtBrg(brg(g.own, d))}.`);
+    }
+    d.battery -= dt * (d.mode === 'passive' ? 1 : 3);
+    if (d.mode === 'active' && g.t - d.pingT >= 60) {
+      d.pingT = g.t;
+      g.pings.push({ t: g.t, x: d.x, y: d.y });
+      const n = pingFrom(g, d, d.deep, `Drone ${d.n} ping`);
+      if (!n) log(g, 'info', `Drone ${d.n} ping: no return.`);
+    }
+    // A decoy drone is a countermeasure that keeps going: torpedo seekers can be drawn to it.
+    if (d.mode === 'decoy') {
+      const dec = g.decoys.find((x) => x.id === d.id);
+      if (dec) { dec.x = d.x; dec.y = d.y; dec.life = 2; } else g.decoys.push({ id: d.id, side: 'us', x: d.x, y: d.y, life: 2, deep: d.deep });
+    }
+  }
+  for (const d of g.drones) if (d.battery <= 0) log(g, 'warn', `Drone ${d.n}: battery flat. It has scuttled itself.`);
+  g.drones = g.drones.filter((d) => d.battery > 0);
+}
 
 /** Contacts are named for the sensor that found them: Sierra (sonar), Victor (eyes), Romeo (radar), Echo (ESM). */
 type Sensor = 'Sierra' | 'Victor' | 'Romeo' | 'Echo';
@@ -561,12 +643,12 @@ function contactFor(g: Game, v: Vessel, sensor: Sensor = 'Sierra'): Contact {
 }
 
 /** A launch makes a loud transient that anyone with sonar may hear. */
-function transient(g: Game, src: Vessel, side: Side) {
+function transient(g: Game, src: Vec & { depthT?: number; deep?: boolean }, side: Side) {
   if (side === 'us') {
     for (const v of g.vessels) {
       if (v === g.own || !v.alive || !v.ai || v.cls.threshold === null) continue;
       if (excess(SL_LAUNCH, src, v, v.cls.threshold) > 0) {
-        v.ai.knows = { x: src.x + gauss(g.r) * 0.8, y: src.y + gauss(g.r) * 0.8, t: g.t, deep: src.depthT > LAYER_AT };
+        v.ai.knows = { x: src.x + gauss(g.r) * 0.8, y: src.y + gauss(g.r) * 0.8, t: g.t, deep: deepOf(src) };
         if (v.ai.mode === 'patrol') v.ai.mode = 'attack';
       }
     }
@@ -649,6 +731,12 @@ function updateWeapon(g: Game, w: Weapon, dt: number) {
     }
   }
 
+  // Mjolnir tops out its ballistic arc halfway there and comes down at Mach 6.
+  if (w.type === 'mjolnir' && !w.apex && w.run >= dist(w, w.aim)) {
+    w.apex = true;
+    log(g, 'good', `${w.label} at apex. Terminal dive at Mach 6, seeker searching.`);
+  }
+
   // Maritime Strike Tomahawk takes datalink updates of the target position in flight.
   if (w.type === 'mst' && !w.enabled) {
     const c = contactById(g, w.contactId);
@@ -668,7 +756,7 @@ function updateWeapon(g: Game, w: Weapon, dt: number) {
       } else {
         w.ordHdg = brg(w, tgt);
         if (!spec.missile) w.deep = deepOf(tgt);
-        if (r < (spec.missile ? Math.max(0.25, step) : 0.06)) {
+        if (r < (spec.missile ? Math.max(0.25, step) : Math.max(0.06, step))) {
           if (spec.role === 'aa' && g.r() > spec.pk!) {
             w.dead = true;
             return log(g, 'warn', `${w.label} missed ${(tgt as Vessel).cls.name}.`);
@@ -680,6 +768,12 @@ function updateWeapon(g: Game, w: Weapon, dt: number) {
       }
     }
     if (!w.target || w.targetKind === 'vessel') seek(g, w);
+    // Mk 96: the seeker has something, so the rocket lights. Nothing can outrun it, and everyone hears it.
+    if (w.type === 'mk96' && w.target && w.targetKind === 'vessel' && w.spd < MK96_SPRINT) {
+      w.spd = MK96_SPRINT; w.wire = false;
+      log(g, 'good', `${w.label}: target acquired. Rocket lit, ${MK96_SPRINT} knots and supercavitating. Wire cut.`, 'launch');
+      transient(g, w, 'us');
+    }
     // Unwired torpedoes with nothing on the seeker circle and switch layers to search.
     if (!w.target && !w.wire && (w.type === 'mk54' || w.type === 'apr3')) {
       w.ordHdg = norm(w.hdg + 4);
@@ -718,7 +812,8 @@ function seek(g: Game, w: Weapon) {
   const spec = WEAPONS[w.type];
   const cone = spec.role === 'aa' ? AA_CONE : 30;
   const inCone = (obj: Vec, range: number) => dist(w, obj) < range && Math.abs(angDiff(brg(w, obj), w.hdg)) < cone;
-  if (!spec.missile) {
+  // A sprinting Mk 96 is far too fast to be fooled by a countermeasure.
+  if (!spec.missile && !(w.type === 'mk96' && w.spd >= MK96_SPRINT)) {
     for (const d of g.decoys) {
       if (d.side === w.side || w.rolled.has(d.id) || !inCone(d, spec.seeker)) continue;
       w.rolled.add(d.id);
@@ -867,11 +962,15 @@ function ownSensors(g: Game, dt: number) {
   const o = g.own;
   const ears = ownEars(g);
   const atPD = o.depthT < 0.3;
+  // Passive drones out in the water: extra ears, linked back to the boat.
+  const droneEars: Listener[] = g.drones.filter((d) => d.mode === 'passive').map((d) => ({ x: d.x, y: d.y, hdg: d.hdg, spd: 0, depthT: d.deep ? 2 : 1, array: true }));
   for (const v of g.vessels) {
     if (v === o || (v.cls.kind === 'air' && !dipping(v))) continue;
     const exists = g.contacts.find((x) => x.vid === v.id);
     if (!v.alive) { if (exists) exists.held = false; continue; }
-    const se = excess(vesselSL(v), v, ears, o.cls.threshold!) + gauss(g.r) * 2;
+    const own = excess(vesselSL(v), v, ears, o.cls.threshold!) + gauss(g.r) * 2;
+    const byDrone = droneEars.length ? Math.max(...droneEars.map((l) => excess(vesselSL(v), v, l, o.cls.threshold!))) + gauss(g.r) * 2 : -99;
+    const se = Math.max(own, byDrone);
     const r = dist(o, v);
     const seen = atPD && v.cls.kind === 'surface' && r < VISUAL_RANGE * visibility(g.env);
     if (se <= 0 && !seen && !exists) continue;
@@ -879,13 +978,15 @@ function ownSensors(g: Game, dt: number) {
     c.se = se;
     c.seAvg += (se - c.seAvg) * 0.05; // the display integrates over about a minute
     if (se > 0 || seen) {
+      // Boat and drone both hearing it is a cross-fix: the solution firms up much faster.
+      if (own > 0 && byDrone > 0) c.q = Math.min(0.97, c.q + dt / 200);
       const sd = seen ? 0.2 : clamp(3 - se * 0.25, 0.4, 3);
       const meas = norm(brg(o, v) + gauss(g.r) * sd);
       if (!c.held) {
         c.held = true;
         c.legHdg = o.hdg;
         if (c.q < 0.5) c.bias = (g.r() * 2 - 1) * 0.6;
-        log(g, 'contact', `Conn, sonar: ${c.ever ? 'regained' : 'new contact'} ${contactLabel(c)}, bearing ${fmtBrg(meas)}.`, c.ever ? undefined : 'contact');
+        log(g, 'contact', `Conn, sonar: ${c.ever ? 'regained' : 'new contact'} ${contactLabel(c)}, bearing ${fmtBrg(meas)}${own <= 0 && byDrone > 0 && !seen ? ', heard by the drone' : ''}.`, c.ever ? undefined : 'contact');
         c.ever = true;
       }
       c.lastSeen = g.t;
@@ -982,10 +1083,11 @@ function radarAndAir(g: Game) {
       const reach = air ? (flyingLow(v) ? RADAR.airLow : RADAR.airHigh) : RADAR.horizon;
       if (r <= reach) {
         c = c ?? contactFor(g, v, 'Romeo');
-        fixContact(g, c, v, r <= RADAR.classify ? 0.05 : 0.3);
+        const idAt = air ? RADAR.classifyAir : RADAR.classify;
+        fixContact(g, c, v, r <= idAt ? 0.05 : 0.3);
         c.radarHits++;
-        // Inside 15 nm the return is clear enough to identify; beyond, it is only a blip.
-        if (r <= RADAR.classify && c.classified !== v.cls.key) classifyBy(g, c, v, 'Radar');
+        // Close enough, the return is clear enough to identify; beyond, it is only a blip.
+        if (r <= idAt && c.classified !== v.cls.key) classifyBy(g, c, v, 'Radar');
       }
     }
     if (!air) continue;
@@ -1345,10 +1447,17 @@ function subAI(g: Game, v: Vessel, dt: number) {
   // Allied boats go where their mission script sends them; their fights are settled by `skirmish` in kit.ts.
   if (v.side !== 'enemy') return;
   if (ai.mode === 'raider') return raiderAI(g, v, dt);
-  const se = excess(vesselSL(o), o, v, v.cls.threshold!) + gauss(g.r) * 2;
+  // A decoy drone plays a loud recording of Tang, far louder than Tang creeping: whichever sounds louder is the one hunted.
+  let heard: Vec & { deep: boolean } = { x: o.x, y: o.y, deep: o.depthT > LAYER_AT };
+  let se = excess(vesselSL(o), o, v, v.cls.threshold!) + gauss(g.r) * 2;
+  for (const d of g.drones) {
+    if (d.mode !== 'decoy') continue;
+    const sd = excess(Math.max(vesselSL(o) + 3, DRONE_DECOY_SL), d, v, v.cls.threshold!) + gauss(g.r) * 2;
+    if (sd > se) { se = sd; heard = { x: d.x, y: d.y, deep: d.deep }; }
+  }
   if (se > 0) {
-    const err = dist(o, v) * 0.12;
-    ai.knows = { x: o.x + gauss(g.r) * err, y: o.y + gauss(g.r) * err, t: g.t, deep: o.depthT > LAYER_AT };
+    const err = dist(heard, v) * 0.12;
+    ai.knows = { x: heard.x + gauss(g.r) * err, y: heard.y + gauss(g.r) * err, t: g.t, deep: heard.deep };
     ai.holdT += dt;
     if (ai.mode === 'patrol' && ai.holdT > 40) ai.mode = 'attack';
   } else {
@@ -1482,6 +1591,7 @@ export function tick(g: Game, dt = 1) {
   g.weapons = g.weapons.filter((w) => { if (w.dead && w.deadAt === undefined) w.deadAt = g.t; return !w.dead || g.t - w.deadAt! < 1; });
   updateHazards(g);
   if (g.over) return;
+  if (g.drones.length) updateDrones(g, dt);
   ownSensors(g, dt);
   radarAndAir(g);
   updateBuoys(g, dt);

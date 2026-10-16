@@ -162,6 +162,12 @@ on('fireMst', () => orders.fire(g, 'mst'));
 on('fireAsroc', () => orders.fire(g, 'asroc'));
 on('fireJatm', () => orders.fire(g, 'jatm'));
 on('fireSm6', () => orders.fire(g, 'sm6'));
+on('fireMk96', () => orders.fire(g, 'mk96'));
+on('fireMjolnir', () => orders.fire(g, 'mjolnir'));
+on('launchDrone', () => orders.launchDrone(g));
+on('dronePassive', () => orders.droneMode(g, 'passive'));
+on('droneActive', () => orders.droneMode(g, 'active'));
+on('droneDecoy', () => orders.droneMode(g, 'decoy'));
 on('radar', () => orders.radar(g));
 on('fireTlam', () => orders.strike(g, Number(($('tlamSite') as HTMLSelectElement).value)));
 on('layMine', () => orders.layMine(g));
@@ -228,13 +234,19 @@ document.addEventListener('keydown', (ev) => {
     f: () => orders.fire(g, 'mk48'), h: () => orders.fire(g, 'harpoon'), t: () => orders.fire(g, 'mst'),
     g: () => orders.fire(g, 'asroc'), y: () => orders.strike(g, Number(($('tlamSite') as HTMLSelectElement).value)), j: () => orders.fire(g, 'jatm'), m: () => orders.fire(g, 'sm6'),
     r: () => orders.radar(g), v: togglePeriscope, b: () => { depthView.close(); solution.toggle(); }, x: () => { solution.close(); depthView.toggle(); }, escape: () => { if (replay && liveGame && !periscope.open && !depthView.open && !solution.open) exitReplay(); else if (periscope.open) periscope.close(); else if (depthView.open) depthView.close(); else solution.close(); },
-    p: () => orders.ping(g), c: () => orders.decoy(g), z: () => orders.match(g, 'speed'), i: () => orders.layMine(g),
+    p: () => orders.ping(g), c: () => orders.decoy(g), z: () => orders.match(g, 'speed'), i: () => orders.layMine(g), o: () => orders.launchDrone(g),
     tab: () => orders.cycleContact(g), k: acceptTop,
     ' ': togglePause,
     '1': () => { timeScale = 1; }, '2': () => { timeScale = 10; }, '3': () => { timeScale = 30; }, '4': () => { timeScale = 90; },
     '=': () => { plot.zoom = Math.max(0, plot.zoom - 1); }, '-': () => { plot.zoom = Math.min(SPANS.length - 1, plot.zoom + 1); },
   };
-  const act = keys[ev.key.toLowerCase()];
+  // Shift picks the experimental weapons, and cycles the newest drone's mode.
+  const shifted: Record<string, () => void> = {
+    f: () => orders.fire(g, 'mk96'), t: () => orders.fire(g, 'mjolnir'),
+    o: () => { const d = g.drones[g.drones.length - 1]; if (d) orders.droneMode(g, d.mode === 'passive' ? 'active' : d.mode === 'active' ? 'decoy' : 'passive'); },
+  };
+  const k = ev.key.toLowerCase();
+  const act = (ev.shiftKey && shifted[k]) || keys[k];
   if (act) { ev.preventDefault(); act(); }
 });
 

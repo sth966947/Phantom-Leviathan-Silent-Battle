@@ -156,7 +156,7 @@ describe('radar', () => {
     expect(c.classified).toBe('bismarck');
     expect(Math.hypot(c.est!.x - bis.x, c.est!.y - bis.y)).toBeLessThan(0.5);
   });
-  it('sees ships out to 25 nm without identifying them, and nothing beyond', () => {
+  it('sees and identifies ships out to 25 nm, and nothing beyond', () => {
     const g = create('bismarck', 3);
     const bis = g.vessels[1];
     Object.assign(bis, offset(g.own, 40, 21)); freeze(bis, 0);
@@ -165,7 +165,7 @@ describe('radar', () => {
     run(g, 20);
     const c = contactOf(g, bis)!;
     expect(c.held).toBe(true);
-    expect(c.classified).toBeNull();
+    expect(c.classified).toBe('bismarck');
     const far = create('bismarck', 3);
     Object.assign(far.vessels[1], offset(far.own, 40, 27)); freeze(far.vessels[1], 0);
     far.vessels.slice(2).forEach((v) => { v.alive = false; });
@@ -361,5 +361,87 @@ describe('hits for the battle camera', () => {
     const hits = shoot();
     expect(hits.at(-1)).toMatchObject({ weapon: 'jatm', kind: 'air', cls: 'il38', sunk: true });
     expect(shoot()).toEqual(hits);
+  });
+});
+
+describe('experimental weapons', () => {
+  it('Mk 96 lights its rocket on acquisition, ignores a countermeasure and sinks the sub', () => {
+    const g = duel(4, 0);
+    orders.ping(g);
+    orders.fire(g, 'mk96');
+    const w = g.weapons.find((x) => x.type === 'mk96')!;
+    expect(w.spd).toBe(50);
+    let sprint = false;
+    for (let i = 0; i < 600 && !g.over; i++) {
+      tick(g, 1);
+      if (w.spd === 250 && !sprint) {
+        sprint = true;
+        const k = g.vessels[1];
+        g.decoys.push({ id: 9999, side: 'enemy', x: k.x, y: k.y + 0.3, life: 240, deep: false });
+      }
+    }
+    expect(sprint).toBe(true);
+    expect(g.vessels[1].alive).toBe(false);
+  });
+  it('Mjolnir needs 20 to 270 nm and sinks a battleship from the sky', () => {
+    const g = create('bismarck', 5);
+    orders.depth(g, 1);
+    run(g, 60);
+    const bis = g.vessels[1];
+    const c = g.contacts.find((x) => x.vid === bis.id)!;
+    g.selected = c.id;
+    c.q = 1; c.bias = 0;
+    Object.assign(bis, offset(g.own, 0, 10)); freeze(bis, 0);
+    c.est = { x: bis.x, y: bis.y, t: g.t };
+    orders.fire(g, 'mjolnir');
+    expect(g.stats.fired.mjolnir).toBe(0); // too close for the arc
+    Object.assign(bis, offset(g.own, 0, 60));
+    c.est = { x: bis.x, y: bis.y, t: g.t };
+    orders.fire(g, 'mjolnir'); orders.fire(g, 'mjolnir');
+    expect(g.stats.fired.mjolnir).toBe(2);
+    run(g, 120);
+    expect(g.events.some((e) => e.text.includes('at apex'))).toBe(true);
+    expect(bis.alive).toBe(false);
+  });
+  it('a passive drone hears what the boat cannot, and a decoy drone draws the hunter', () => {
+    const g = duel(14, 0);
+    const k = g.vessels[1];
+    freeze(k, 6);
+    orders.select(g, null);
+    run(g, 60);
+    expect(g.contacts.find((c) => c.vid === k.id)?.held ?? false).toBe(false);
+    orders.launchDrone(g);
+    expect(g.own.drones).toBe(5);
+    run(g, 1900);
+    expect(g.drones[0].run).toBeGreaterThan(3.99);
+    // Kazan still out of the boat's hearing, but the drone 4 nm closer picks her up.
+    expect(g.contacts.find((c) => c.vid === k.id)?.held).toBe(true);
+    // Decoy: Kazan, hunting by ear, takes the drone for the boat.
+    const h = create('duel', 7);
+    const kz = h.vessels[1];
+    Object.assign(kz, offset(h.own, 0, 7), { depthT: 1, ordDepth: 1 });
+    orders.select(h, null);
+    orders.launchDrone(h);
+    run(h, 1900);
+    orders.speed(h, 0);
+    orders.droneMode(h, 'decoy');
+    run(h, 120);
+    expect(h.decoys.length).toBe(1);
+    const knows = kz.ai!.knows!;
+    expect(Math.hypot(knows.x - h.drones[0].x, knows.y - h.drones[0].y)).toBeLessThan(Math.hypot(knows.x - h.own.x, knows.y - h.own.y));
+  });
+  it('an active drone pings: the hunter learns where the drone is, not the boat', () => {
+    const g = duel(9, 0);
+    const k = g.vessels[1];
+    orders.launchDrone(g);
+    run(g, 1800);
+    orders.droneMode(g, 'active');
+    run(g, 61);
+    const d = g.drones[0];
+    expect(k.ai).toBeNull(); // duel() freezes Kazan; check what the ping gave us instead
+    const c = g.contacts.find((x) => x.vid === k.id)!;
+    expect(c.estErr).toBe(0);
+    expect(Math.hypot(c.est!.x - k.x, c.est!.y - k.y)).toBeLessThan(0.3);
+    expect(d.battery).toBeLessThan(5400 - 1800);
   });
 });
