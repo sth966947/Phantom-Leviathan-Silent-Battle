@@ -6,6 +6,8 @@ import { mineField, mineLine, underIce } from '../hazards';
 import {
   add, arrive, at, byId, clock, flag, go, held, ids, isSunk, keepCourse, mins, missileSalvo, pointDefence, screen, setGoal, watch,
   type Mission, type MissionKey, type Objective, type ObjectiveFn,
+  adP,
+  high,
 } from '../kit';
 
 // ---- Local helpers -----------------------------------------------------------------------------
@@ -195,8 +197,9 @@ export const missions: Record<MissionKey, Mission> = {
         const inside = dist(gg.own, box) <= 3;
         if (inside !== !!gg.flags.inBox) { gg.flags.inBox = inside ? 1 : 0; log(gg, 'info', inside ? 'Navigator: we are inside the launch box. Tomahawks will fly the planned route from here.' : 'Navigator: we have left the launch box.'); }
         for (const w of newLaunches(gg, 'land')) {
-          // Mjolnir comes down from above at Mach 6: the S-400s can't touch it, wherever it was launched from.
-          if (dist(gg.own, box) <= 3 || w.type === 'mjolnir') continue;
+          // Mjolnir doesn't fly the route: the S-400s see it wherever it was launched from, but seldom stop it.
+          if (dist(gg.own, box) <= 3 && w.type !== 'mjolnir') continue;
+          if (w.type === 'mjolnir') { if (gg.r() < adP(w, 1)) { w.dead = true; log(gg, 'warn', `The S-400s over Pechenga caught ${w.label} in its terminal dive.`); } continue; }
           w.dead = true;
           log(gg, 'warn', `${w.label} flew into the S-400 umbrella over Pechenga and was shot down. Launch from inside the box.`);
         }
@@ -681,9 +684,9 @@ export const missions: Record<MissionKey, Mission> = {
         pointDefence(gg, ships, 0.3);
         // The Pantsir and S-400 batteries round Tartus cover the last 12 nm.
         for (const w of gg.weapons) {
-          if (w.dead || w.side !== 'us' || (w.type !== 'harpoon' && w.type !== 'mst') || dist(w, tartus) > 12 || gg.flags[`pt${w.id}`]) continue;
+          if (w.dead || w.side !== 'us' || (w.type !== 'harpoon' && w.type !== 'mst' && w.type !== 'mjolnir') || high(w) || dist(w, tartus) > 12 || gg.flags[`pt${w.id}`]) continue;
           gg.flags[`pt${w.id}`] = 1;
-          if (gg.r() < 0.6) { w.dead = true; log(gg, 'warn', `The air defences at Tartus shot down ${w.label}.`); }
+          if (gg.r() < adP(w, 0.6)) { w.dead = true; log(gg, 'warn', `The air defences at Tartus shot down ${w.label}.`); }
         }
         for (const s of ships) {
           if (s.alive && s.ai!.mode === 'transit') s.ai!.baseCourse = brg(s, tartus);
@@ -740,7 +743,7 @@ export const extras: Record<MissionKey, ObjectiveFn> = {
       watch('Keep the missile hits on Keflavik under four', flag(g, 'baseHits') >= 4, `${flag(g, 'baseHits')} hits so far. Backfires are expected about 35 and 95 minutes in.`),
     ];
   },
-  A21: (g, b) => [sitesObj(g, 1, 'Hit all four radar sites with Tomahawk or Mjolnir'), watch('Launch only from inside the box', false, 'A 3 nm circle about 10 nm east of where you started. Missiles from outside it are shot down.'), ...b],
+  A21: (g, b) => [sitesObj(g, 1, 'Hit all four radar sites with Tomahawk or Mjolnir'), watch('Launch only from inside the box', false, 'A 3 nm circle about 10 nm east of where you started. Tomahawks from outside it are shot down. Mjolnir flies its own path and usually gets through.'), ...b],
   A11: (g, b) => {
     const tr = Math.min(flag(g, 'trail'), 1200);
     const borei = vessel(g, 'borei');

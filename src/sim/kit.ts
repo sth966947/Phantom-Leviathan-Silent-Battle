@@ -136,14 +136,26 @@ export function missileSalvo(g: Game, from: string, missile: string, n: number, 
     for (let k = 0; k < dmg; k++) bombed(g, t, `${/^[aeiou]/i.test(missile) ? 'an' : 'a'} ${missile}`);
   }
 }
+/**
+ * Mjolnir is ballistic: on a long shot it is up in the thin upper atmosphere, out of reach,
+ * until it comes almost straight down on the target at Mach 6. Air defence sees it, but can
+ * only shoot while it climbs out (its first MJOLNIR_DIVE_NM) or dives (its last MJOLNIR_DIVE_NM),
+ * and seldom gets it:
+ * a defence that stops a Tomahawk or Harpoon with chance `p` stops a Mjolnir with chance
+ * `p` × MJOLNIR_AD.
+ */
+export const MJOLNIR_AD = 0.2, MJOLNIR_DIVE_NM = 15;
+/** A Mjolnir high on its arc, past the climb and not yet in the dive, where no air defence can reach it. */
+export const high = (w: Vec & { type: string; aim: Vec; run: number }) => w.type === 'mjolnir' && w.run > MJOLNIR_DIVE_NM && dist(w, w.aim) > MJOLNIR_DIVE_NM;
+export const adP = (w: { type: string }, p: number) => (w.type === 'mjolnir' ? p * MJOLNIR_AD : p);
 /** Modern warships' close-in air defence: each of our anti-ship missiles that gets within 3 nm of one is shot down with chance `p`. */
 export function pointDefence(g: Game, ships: Vessel[], p: number) {
   for (const w of g.weapons) {
-    if (w.dead || w.side !== 'us' || (w.type !== 'harpoon' && w.type !== 'mst') || g.flags[`pd${w.id}`]) continue;
+    if (w.dead || w.side !== 'us' || (w.type !== 'harpoon' && w.type !== 'mst' && w.type !== 'mjolnir') || high(w) || g.flags[`pd${w.id}`]) continue;
     const by = ships.find((v) => v.alive && dist(v, w) < 3);
     if (!by) continue;
     g.flags[`pd${w.id}`] = 1;
-    if (g.r() < p) { w.dead = true; log(g, 'warn', `${by.name} shot down ${w.label}.`); }
+    if (g.r() < adP(w, p)) { w.dead = true; log(g, 'warn', `${by.name} shot down ${w.label}.`); }
   }
 }
 /** Steer a patrolling submarine along a course while it doesn't know we're there. */

@@ -8,6 +8,8 @@ import {
   add, arrive, at, bombed, clock, flag, go, held, ids, isSunk, keepCourse, mins, missileSalvo, moored,
   pointDefence, screen, setGoal, skirmish, steer, watch,
   type Mission, type MissionKey, type ObjectiveFn,
+  adP,
+  high,
 } from '../kit';
 
 // ---- Local helpers -----------------------------------------------------------------------------
@@ -385,9 +387,9 @@ export const missions: Record<MissionKey, Mission> = {
         keepCourse(kochi, brg(kochi, offset(beat, norm(gg.t / 12), 7)), 10);
         pointDefence(gg, [kochi], 0.6);
         for (const w of gg.weapons) {
-          if (w.dead || w.type !== 'tlam' || gg.flags[`sam${w.id}`] || !kochi.alive || dist(w, kochi) > 20) continue;
+          if (w.dead || (w.type !== 'tlam' && w.type !== 'mjolnir') || high(w) || gg.flags[`sam${w.id}`] || !kochi.alive || dist(w, kochi) > 20) continue;
           gg.flags[`sam${w.id}`] = 1;
-          if (gg.r() < 0.7) { w.dead = true; log(gg, 'warn', `${kochi.name}'s Barak-8 shot down ${w.label}.`); }
+          if (gg.r() < adP(w, 0.7)) { w.dead = true; log(gg, 'warn', `${kochi.name}'s Barak-8 shot down ${w.label}.`); }
         }
         if (gg.sites.every((s) => s.hits >= 2)) end(gg, true, 'All three targets on Lakshadweep are wrecked. India\'s forward base is out of the war.');
       };
@@ -484,12 +486,12 @@ export const missions: Record<MissionKey, Mission> = {
         keepCourse(dd, brg(dd, offset(anch, norm(gg.t / 8), 3.5)), 8);
         // Chennai's Barak-8 covers the anchorage: most missiles at Jalashwa die while she is afloat and close.
         for (const w of gg.weapons) {
-          if (w.dead || w.side !== 'us' || (w.type !== 'harpoon' && w.type !== 'mst') || gg.flags[`pd${w.id}`]) continue;
+          if (w.dead || w.side !== 'us' || (w.type !== 'harpoon' && w.type !== 'mst' && w.type !== 'mjolnir') || high(w) || gg.flags[`pd${w.id}`]) continue;
           const at = [dd, jal].find((v) => v.alive && dist(v, w) < 3);
           if (!at) continue;
           gg.flags[`pd${w.id}`] = 1;
           const p = at === dd ? 0.6 : dd.alive && dist(dd, jal) < 8 ? 0.75 : 0.2;
-          if (gg.r() < p) { w.dead = true; log(gg, 'warn', `${dd.alive ? dd.name : jal.name} shot down ${w.label}.`); }
+          if (gg.r() < adP(w, p)) { w.dead = true; log(gg, 'warn', `${dd.alive ? dd.name : jal.name} shot down ${w.label}.`); }
         }
         if (jal.alive && !gg.flags.ran) gg.flags.unload++;
         if (gg.flags.ran && jal.ai!.mode === 'transit') { jal.ai!.baseCourse = 90; jal.ai!.cruise = 14; }

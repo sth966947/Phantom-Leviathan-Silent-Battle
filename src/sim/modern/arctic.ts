@@ -7,6 +7,8 @@ import { underIce } from '../hazards';
 import {
   add, alive, at, baseObjectives, clock, flag, go, held, ids, isSunk, keepCourse, listNames, mins, screen, setGoal, skirmish, steer, watch,
   type Carry, type Mission, type MissionKey, type Objective, type ObjectiveFn,
+  adP,
+  high,
 } from '../kit';
 
 // ---- Names: the first of each list that earlier missions haven't sunk ---------------------------
@@ -542,9 +544,9 @@ export const missions: Record<MissionKey, Mission> = {
         // A helicopter can't dip its sonar through the pack.
         if (helo.alive && helo.ai!.mode === 'dip' && underIce(gg, helo)) helo.ai!.dipT = 0;
         for (const w of gg.weapons) {
-          if (w.dead || w.type !== 'tlam' || !gor.alive || gg.flags[`sam${w.id}`] || dist(w, gor) > 14) continue;
+          if (w.dead || (w.type !== 'tlam' && w.type !== 'mjolnir') || high(w) || !gor.alive || gg.flags[`sam${w.id}`] || dist(w, gor) > 14) continue;
           gg.flags[`sam${w.id}`] = 1;
-          if (gg.r() < 0.55) { w.dead = true; gg.flags.samKills = flag(gg, 'samKills') + 1; log(gg, 'warn', `Admiral Golovko's Redut missiles shot down ${w.label}.`); }
+          if (gg.r() < adP(w, 0.55)) { w.dead = true; gg.flags.samKills = flag(gg, 'samKills') + 1; log(gg, 'warn', `Admiral Golovko's Redut missiles shot down ${w.label}.`); }
         }
         if (flag(gg, 'landHits') >= 4) end(gg, true, 'Four hits on Nagurskoye. The Bastion\'s northern air cover is out of action.');
       };

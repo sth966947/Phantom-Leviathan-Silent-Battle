@@ -6,6 +6,8 @@ import { depthT, end, log, shellfire, type Game, type Vessel } from '../sim';
 import {
   add, alive, arrive, at, bombed, byId, clock, flag, go, ids, isSunk, keepCourse, mins, missileSalvo, moored, pointDefence,
   screen, setGoal, skirmish, steer, watch, type Carry, type Mission, type MissionKey, type Objective, type ObjectiveFn,
+  adP,
+  high,
 } from '../kit';
 import { mineField, mineLine } from '../hazards';
 
@@ -223,12 +225,13 @@ missions.I7 = {
       pointDefence(gg, [sahand], 0.5);
       const radar = hits(gg, 'Kharg air-defence radar') >= 2;
       for (const w of gg.weapons) {
-        if (w.type !== 'tlam' || w.dead) continue;
-        if (!gg.flags[`tl${w.id}`]) gg.flags[`tl${w.id}`] = dist(w, kharg) > 20 ? 2 : 1;
+        if ((w.type !== 'tlam' && w.type !== 'mjolnir') || high(w) || w.dead) continue;
+        // Mjolnir is ballistic and needs no terrain fix; only the Tomahawks wander off.
+        if (!gg.flags[`tl${w.id}`]) gg.flags[`tl${w.id}`] = w.type === 'tlam' && dist(w, kharg) > 20 ? 2 : 1;
         if (gg.flags[`tl${w.id}`] === 2 && w.run > 5) { w.dead = true; log(gg, 'warn', `${w.label} has no terrain fix over open water and is wandering off course. Launch from within 20 nm of Kharg.`); continue; }
         if (gg.flags[`ad${w.id}`] || dist(w, kharg) > 10) continue;
         gg.flags[`ad${w.id}`] = 1;
-        if (!radar && gg.r() < 0.5) { w.dead = true; log(gg, 'warn', `Kharg's Mersad battery shot down ${w.label}.`); }
+        if (!radar && gg.r() < adP(w, 0.5)) { w.dead = true; log(gg, 'warn', `Kharg's Mersad battery shot down ${w.label}.`); }
       }
       // Every launch gives us away: coastal radar sees the missile climb out and the hunters get a rough datum.
       if (gg.stats.fired.tlam + gg.stats.fired.mjolnir > flag(gg, 'seen')) {

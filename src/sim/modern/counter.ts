@@ -7,6 +7,8 @@ import { CLASSES } from '../classes';
 import {
   add, alive, at, clock, flag, go, ids, isSunk, keepCourse, mins, missileSalvo, pointDefence, pressRaids, raid, screen,
   setGoal, skirmish, steer, watch, type Carry, type Mission, type MissionKey, type ObjectiveFn, type Raid,
+  adP,
+  high,
 } from '../kit';
 import { mineField, mineLine } from '../hazards';
 
@@ -34,12 +36,12 @@ export function enemyTorpedo(g: Game, v: Vessel, aim: Vec, deep = v.depthT > 1.5
 /** Air defence against TLAMs: each one that flies within `range` nm of a live ship (or point) is shot down with chance `p`, once per defender. */
 export function tlamDefence(g: Game, defenders: (Vec & { name: string; alive?: boolean })[], range: number, p: number) {
   for (const w of g.weapons) {
-    if (w.dead || w.type !== 'tlam') continue;
+    if (w.dead || (w.type !== 'tlam' && w.type !== 'mjolnir') || high(w)) continue;
     for (const d of defenders) {
       const k = `sam${w.id}_${d.name}`;
       if (d.alive === false || g.flags[k] || dist(d, w) > range) continue;
       g.flags[k] = 1;
-      if (g.r() < p) { w.dead = true; log(g, 'warn', `${w.label} was shot down by ${d.name}.`); break; }
+      if (g.r() < adP(w, p)) { w.dead = true; log(g, 'warn', `${w.label} was shot down by ${d.name}.`); break; }
     }
   }
 }
@@ -346,12 +348,12 @@ export const missions: Record<MissionKey, Mission> = {
       g.script = (gg) => {
         // Tomahawks launched from far out: the coastal SAMs get most of them on the way in.
         for (const w of gg.weapons) {
-          if (w.type !== 'tlam' || w.dead) continue;
+          if ((w.type !== 'tlam' && w.type !== 'mjolnir') || high(w) || w.dead) continue;
           const k = `tl${w.id}`;
           if (gg.flags[k] === undefined) gg.flags[k] = dist(gg.own, w.aim) > 25 ? 1 : 0;
           if (gg.flags[k] === 1 && dist(w, w.aim) < 10) {
             gg.flags[k] = 2;
-            if (gg.r() < 0.75) { w.dead = true; log(gg, 'warn', `${w.label} was shot down by the coastal air defences after a long run in over the coast.`); }
+            if (gg.r() < adP(w, 0.75)) { w.dead = true; log(gg, 'warn', `${w.label} was shot down by the coastal air defences after a long run in over the coast.`); }
           }
         }
         tlamDefence(gg, [{ ...dock, name: 'the base\'s Tor batteries' }], 6, 0.25);

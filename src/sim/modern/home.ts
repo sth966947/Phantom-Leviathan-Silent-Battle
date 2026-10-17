@@ -8,6 +8,8 @@ import { mineLine, type Mine } from '../hazards';
 import {
   add, arrive, at, baseObjectives, byId, clock, flag, go, ids, isSunk, keepCourse, mins, missileSalvo, moored, pointDefence,
   screen, setGoal, skirmish, steer, watch, type Mission, type MissionKey, type ObjectiveFn,
+  adP,
+  high,
 } from '../kit';
 
 // ---- Helpers -----------------------------------------------------------------------------------
@@ -473,9 +475,9 @@ export const missions: Record<MissionKey, Mission> = {
         }
         // Until the radar is down, the battery shoots at every Tomahawk coming in.
         for (const w of gg.weapons) {
-          if (w.type !== 'tlam' || w.dead || dist(w, isle) > 10 || gg.flags[`sam${w.id}`]) continue;
+          if ((w.type !== 'tlam' && w.type !== 'mjolnir') || high(w) || w.dead || dist(w, isle) > 10 || gg.flags[`sam${w.id}`]) continue;
           gg.flags[`sam${w.id}`] = 1;
-          if (!gg.flags.radarDown && gg.r() < 0.75) { w.dead = true; log(gg, 'warn', `${w.label} was shot down by the island's missile battery.`); }
+          if (!gg.flags.radarDown && gg.r() < adP(w, 0.75)) { w.dead = true; log(gg, 'warn', `${w.label} was shot down by the island's missile battery.`); }
         }
         if (gg.t === 45 * 60) {
           if (runway.hits) log(gg, 'good', 'Intelligence: the second Orion is stuck on the cratered runway.');
