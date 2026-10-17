@@ -65,7 +65,8 @@ export function screenSub(v: Vessel, group: Vessel[], station: Vec, spd: number)
 }
 /** Shore radar sees each missile launch: the hunters are told where we are. */
 export function launchReported(g: Game, hunters: Vessel[], by: string, err = 1) {
-  const n = g.stats.fired.tlam + g.stats.fired.mst + g.stats.fired.harpoon + g.stats.fired.mjolnir;
+  // NSM's low radar cross-section slips past the shore radar.
+  const n = g.stats.fired.tlam + g.stats.fired.mst + g.stats.fired.mjolnir;
   if (n <= flag(g, 'seenLaunches')) return;
   g.flags.seenLaunches = n;
   const up = hunters.filter((v) => v.alive && v.ai);

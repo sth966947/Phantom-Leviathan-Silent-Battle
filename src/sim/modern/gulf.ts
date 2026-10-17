@@ -138,7 +138,7 @@ export const missions: Record<MissionKey, Mission> = {
       const swarm = (gg: Game, n: number) => {
         const from = offset(base, 20 + gg.r() * 40, 30);
         for (let i = 0; i < n; i++) boats.push(add(gg, 'droneboat', `Drone boat ${boats.length + 1}`, 'enemy', offset(from, 90, i * 0.6), brg(from, base), 40, go(brg(from, base), 40, 1e9)));
-        log(gg, 'warn', `Radio intercepts: Iranian drone boats launched from the Yemen coast, heading for the tender. ${n} of them. Harpoon or torpedoes can stop them; her guns may get one.`);
+        log(gg, 'warn', `Radio intercepts: Iranian drone boats launched from the Yemen coast, heading for the tender. ${n} of them. NSM or torpedoes can stop them; her guns may get one.`);
       };
       g.script = (gg) => {
         at(gg, 50 * 60, 'swarm1', () => swarm(gg, 3));
@@ -301,7 +301,7 @@ export const missions: Record<MissionKey, Mission> = {
   I3: {
     key: 'I3', title: 'Andaman Sea', era: '2029', place: 'Andaman Sea', date: 'August 2029, 0800',
     library: ['vikrant', 'kolkata', 'talwar', 'p8i', 'jalashwa'],
-    brief: 'India\'s carrier INS Vikrant is crossing the Andaman Sea on course 135 to close the Malacca Strait, with the destroyers Kolkata and Chennai as her screen and a P-8I out ahead. Turn her back. Six points of damage on Vikrant, a torpedo and a missile or two Tomahawks, and she will turn for home; sinking both destroyers will do it too. She must not get 55 nm down her track: by then her air wing covers the strait. The destroyers keep station on her and hunt with good sonar and torpedoes, and the group\'s Barak-8s will shoot down most of your Harpoons and Tomahawks. The group is about 25 nm northwest of you.',
+    brief: 'India\'s carrier INS Vikrant is crossing the Andaman Sea on course 135 to close the Malacca Strait, with the destroyers Kolkata and Chennai as her screen and a P-8I out ahead. Turn her back. Six points of damage on Vikrant, a torpedo and a missile or two Tomahawks, and she will turn for home; sinking both destroyers will do it too. She must not get 55 nm down her track: by then her air wing covers the strait. The destroyers keep station on her and hunt with good sonar and torpedoes, and the group\'s Barak-8s will shoot down most of your NSMs and Tomahawks. The group is about 25 nm northwest of you.',
     build(g, r) {
       g.startClock = clock(8);
       g.timeLimit = 4 * 3600;
@@ -470,7 +470,7 @@ export const missions: Record<MissionKey, Mission> = {
   I17: {
     key: 'I17', title: 'Maldives', era: '2029', place: 'Off Malé', date: 'September 2029, 1100',
     library: ['jalashwa', 'kolkata', 'talwar', 'type071'],
-    brief: 'India is seizing the Maldives. The landing ship INS Jalashwa is at anchor off Malé, 16 nm east of you, sending a battalion ashore by landing craft; it will all be ashore in 100 minutes. Sink her before then. She is big: one torpedo will only slow her. The destroyer INS Chennai is guarding the anchorage, and while she is afloat her Barak-8s will shoot down most Harpoons and Tomahawks sent at Jalashwa. India has mined the deep channel west of the anchorage, about 10 nm east of you: slow down so the HF sonar can find the mines, or ping, and the destroyer will hear the ping.',
+    brief: 'India is seizing the Maldives. The landing ship INS Jalashwa is at anchor off Malé, 16 nm east of you, sending a battalion ashore by landing craft; it will all be ashore in 100 minutes. Sink her before then. She is big: one torpedo will only slow her. The destroyer INS Chennai is guarding the anchorage, and while she is afloat her Barak-8s will shoot down most NSMs and Tomahawks sent at Jalashwa. India has mined the deep channel west of the anchorage, about 10 nm east of you: slow down so the HF sonar can find the mines, or ping, and the destroyer will hear the ping.',
     build(g, r) {
       g.startClock = clock(11);
       g.timeLimit = 3 * 3600;
@@ -486,7 +486,7 @@ export const missions: Record<MissionKey, Mission> = {
         keepCourse(dd, brg(dd, offset(anch, norm(gg.t / 8), 3.5)), 8);
         // Chennai's Barak-8 covers the anchorage: most missiles at Jalashwa die while she is afloat and close.
         for (const w of gg.weapons) {
-          if (w.dead || w.side !== 'us' || (w.type !== 'harpoon' && w.type !== 'mst' && w.type !== 'mjolnir') || high(w) || gg.flags[`pd${w.id}`]) continue;
+          if (w.dead || w.side !== 'us' || (w.type !== 'nsm' && w.type !== 'mst' && w.type !== 'mjolnir') || high(w) || gg.flags[`pd${w.id}`]) continue;
           const at = [dd, jal].find((v) => v.alive && dist(v, w) < 3);
           if (!at) continue;
           gg.flags[`pd${w.id}`] = 1;
@@ -531,7 +531,7 @@ export const extras: Record<MissionKey, ObjectiveFn> = {
     const dd = g.vessels.filter((v) => v.cls.key === 'kolkata');
     const dmg = vik ? vik.cls.hp - Math.max(0, vik.hp) : 0;
     return [
-      { text: 'Turn Vikrant back: hit her for 6 points of damage', state: dmg >= 6 ? 'done' : 'open', detail: `${dmg} of 6 so far. A Mk 48 does 5, a Tomahawk 3, a Harpoon 2.` },
+      { text: 'Turn Vikrant back: hit her for 6 points of damage', state: dmg >= 6 ? 'done' : 'open', detail: `${dmg} of 6 so far. A Mk 48 does 5, a Tomahawk 3, an NSM 2.` },
       { text: 'Or sink both destroyers', state: dd.every(isSunk) ? 'done' : 'open', detail: `${dd.filter(isSunk).length} of 2 sunk.` },
       watch('Stop her before she is 55 nm down her track', !!g.over?.reason.includes('Malacca')),
       ...b.filter((o) => !o.text.startsWith('Sink')),

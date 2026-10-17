@@ -28,7 +28,7 @@ const FONT = '"IBM Plex Mono", ui-monospace, Menlo, monospace';
 const pad = (n: number) => String(Math.floor(n)).padStart(2, '0');
 const hms = (s: number) => `${pad((s / 3600) % 24)}:${pad((s / 60) % 60)}:${pad(s % 60)}`;
 const WNAME: Record<string, [string, string]> = {
-  mk48: ['MK 48 ADCAP', 'HEAVYWEIGHT TORPEDO'], mk54: ['MK 54', 'ASROC LIGHTWEIGHT TORPEDO'], harpoon: ['UGM-84 HARPOON', 'ANTI-SHIP MISSILE'],
+  mk48: ['MK 48 ADCAP', 'HEAVYWEIGHT TORPEDO'], mk54: ['MK 54', 'ASROC LIGHTWEIGHT TORPEDO'], nsm: ['NAVAL STRIKE MISSILE', 'STEALTH ANTI-SHIP MISSILE'],
   mst: ['TOMAHAWK MST', 'MARITIME STRIKE MISSILE'], jatm: ['JATM', 'SURFACE-TO-AIR MISSILE'], sm6: ['SM-6', 'SURFACE-TO-AIR MISSILE'],
   mine: ['MINE', 'LAID BY TANG'], tlam: ['TOMAHAWK', 'LAND ATTACK MISSILE'],
   mk96: ['MK 96', 'SUPERCAVITATING TORPEDO · EXPERIMENTAL'], mjolnir: ['MJOLNIR', 'HYPERSONIC STRIKE MISSILE · EXPERIMENTAL'],

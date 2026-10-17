@@ -1,6 +1,6 @@
 // Attack plan: pick targets, a weapon and how many (1 to 4) for each. Each weapon is its own
 // salvo: the fire-control computer times every Tomahawk to hit on the same second, every
-// Harpoon on the same second, and so on (see planWave in the sim). Salvoes of different
+// NSM on the same second, and so on (see planWave in the sim). Salvoes of different
 // weapons keep their own times.
 import { CLASSES } from '../sim/classes';
 import { WEAPONS, contactLabel, isFriendlyClass, orders, planWave, type Game, type WaveItem, type WaveKey, type WavePlan, type WaveShot } from '../sim/sim';
@@ -11,10 +11,10 @@ const esc = (s: string) => s.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.max(0, Math.round(s % 60))).padStart(2, '0')}`;
 
 const NAMES: Record<WaveKey, string> = {
-  mk48: 'Mk 48 torpedo', mk96: 'Mk 96 torpedo (exp.)', harpoon: 'Harpoon', mst: 'Tomahawk anti-ship',
+  mk48: 'Mk 48 torpedo', mk96: 'Mk 96 torpedo (exp.)', nsm: 'NSM', mst: 'Tomahawk anti-ship',
   asroc: 'ASROC', mjolnir: 'Mjolnir (exp.)', tlam: 'Tomahawk land attack',
 };
-const AT_SEA: WaveKey[] = ['mk48', 'mk96', 'harpoon', 'mst', 'asroc', 'mjolnir'];
+const AT_SEA: WaveKey[] = ['mk48', 'mk96', 'nsm', 'mst', 'asroc', 'mjolnir'];
 const ASHORE: WaveKey[] = ['tlam', 'mjolnir'];
 
 interface Row { key: string; target: number; site: boolean; name: string; x: number; y: number; sub: boolean }
@@ -80,7 +80,7 @@ export class AttackPlan {
   draw(g: Game) {
     if (!this.open) return;
     const rows = this.rows(g), o = g.own;
-    for (const r of rows) if (!this.picks.has(r.key)) this.picks.set(r.key, { type: r.site ? 'tlam' : r.sub ? 'mk48' : g.flags.jammed ? 'harpoon' : 'mst', n: 0 });
+    for (const r of rows) if (!this.picks.has(r.key)) this.picks.set(r.key, { type: r.site ? 'tlam' : r.sub ? 'mk48' : g.flags.jammed ? 'nsm' : 'mst', n: 0 });
     const keys = rows.map((r) => r.key).join();
     const body = $('attackRows');
     if (keys !== this.rowKeys) {

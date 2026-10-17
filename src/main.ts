@@ -160,7 +160,7 @@ $('depthSet').addEventListener('submit', (ev) => {
   box.blur();
 });
 on('fireMk48', () => orders.fire(g, 'mk48'));
-on('fireHarpoon', () => orders.fire(g, 'harpoon'));
+on('fireNsm', () => orders.fire(g, 'nsm'));
 on('fireMst', () => orders.fire(g, 'mst'));
 on('fireAsroc', () => orders.fire(g, 'asroc'));
 on('fireJatm', () => orders.fire(g, 'jatm'));
@@ -247,7 +247,7 @@ document.addEventListener('keydown', (ev) => {
     '[': () => orders.depthBy(g, -50), ']': () => orders.depthBy(g, 50),
     u: () => orders.straddle(g, 'above'), n: () => orders.straddle(g, 'below'),
     l: () => orders.layer(g),
-    f: () => orders.fire(g, 'mk48'), h: () => orders.fire(g, 'harpoon'), t: () => orders.fire(g, 'mst'),
+    f: () => orders.fire(g, 'mk48'), h: () => orders.fire(g, 'nsm'), t: () => orders.fire(g, 'mst'),
     g: () => orders.fire(g, 'asroc'), y: () => orders.strike(g, Number(($('tlamSite') as HTMLSelectElement).value)), j: () => orders.fire(g, 'jatm'), m: () => orders.fire(g, 'sm6'),
     r: () => orders.radar(g), v: togglePeriscope, b: () => { depthView.close(); attack.close(); solution.toggle(); }, x: () => { solution.close(); attack.close(); depthView.toggle(); }, escape: () => { if (replay && liveGame && !periscope.open && !depthView.open && !solution.open && !attack.open) exitReplay(); else if (periscope.open) periscope.close(); else if (attack.open) attack.close(); else if (depthView.open) depthView.close(); else solution.close(); },
     p: () => orders.ping(g), c: () => orders.decoy(g), z: () => orders.match(g, 'speed'), i: () => orders.layMine(g), o: () => orders.launchDrone(g),

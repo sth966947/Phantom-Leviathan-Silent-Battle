@@ -944,7 +944,7 @@ const BUILT: Record<MissionKey, Mission> = {
   darkwater: {
     key: 'darkwater', title: 'Dark Water', era: '2029', place: 'Iceland Basin', date: 'April 2029, 1500',
     library: ['udaloy', 'ka27', 'il38', 'virginia'],
-    brief: 'GPS and the satellite links are jammed. Nobody will cue you today, and the anti-ship Tomahawk can\'t get its in-flight updates, so it\'s torpedoes and Harpoon. A Udaloy group is hunting in the Iceland Basin with a Ka-27 and an Il-38 working for it. Sink the flagship, Vice-Admiral Kulakov, and the hunt falls apart. The Udaloys have strong hull sonar and will come after you as soon as they hear you.',
+    brief: 'GPS and the satellite links are jammed. Nobody will cue you today, and the anti-ship Tomahawk can\'t get its in-flight updates, so it\'s torpedoes and NSM. A Udaloy group is hunting in the Iceland Basin with a Ka-27 and an Il-38 working for it. Sink the flagship, Vice-Admiral Kulakov, and the hunt falls apart. The Udaloys have strong hull sonar and will come after you as soon as they hear you.',
     build(g, r) {
       g.startClock = clock(15);
       g.timeLimit = 3 * 3600;

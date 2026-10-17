@@ -15,9 +15,9 @@ export type Depth = number;
 export type ScenarioKey = MissionKey;
 export type EventKind = 'info' | 'contact' | 'danger' | 'good' | 'warn';
 export type Sound = 'ping' | 'ping-echo' | 'contact' | 'launch' | 'missile' | 'alarm' | 'boom';
-export type WeaponKey = 'mk48' | 'ugst' | 'harpoon' | 'mst' | 'asroc' | 'mk54' | 'jatm' | 'sm6' | 'apr3' | 'wwtorp' | 'tlam' | 'mk96' | 'mjolnir';
+export type WeaponKey = 'mk48' | 'ugst' | 'nsm' | 'mst' | 'asroc' | 'mk54' | 'jatm' | 'sm6' | 'apr3' | 'wwtorp' | 'tlam' | 'mk96' | 'mjolnir';
 /** What the player can launch. Mk 54 comes from ASROC; UGST and APR-3 are enemy weapons. */
-export type FireKey = 'mk48' | 'harpoon' | 'mst' | 'asroc' | 'jatm' | 'sm6' | 'mk96' | 'mjolnir';
+export type FireKey = 'mk48' | 'nsm' | 'mst' | 'asroc' | 'jatm' | 'sm6' | 'mk96' | 'mjolnir';
 /** How a weapon finds its target: homing torpedo, anti-ship missile, ASROC carrier, or surface-to-air. */
 export type Role = 'torpedo' | 'antiship' | 'asw' | 'aa' | 'land';
 
@@ -50,6 +50,8 @@ export interface Vessel extends Vec {
   track: Vec[]; ai: AI | null;
   /** Left the area alive (a strike that got through, a ship that escaped): not sunk. */
   gone?: boolean;
+  /** An NSM wrecked her screws and rudder: dead in the water. */
+  crippled?: boolean;
 }
 
 export interface OwnBoat extends Vessel {
@@ -184,7 +186,11 @@ export const WEAPONS: Record<WeaponKey, {
 }> = {
   mk48: { name: 'Mk 48 ADCAP Mod 7', short: 'Mk 48', spd: 55, maxRun: 22, seeker: 2.5, damage: 5, missile: false, role: 'torpedo' },
   ugst: { name: 'UGST Fizik-1', short: 'UGST', spd: 50, maxRun: 13, seeker: 2.2, damage: 5, missile: false, role: 'torpedo' },
-  harpoon: { name: 'UGM-84 Harpoon Block II', short: 'Harpoon', spd: 470, maxRun: 67, seeker: 10, damage: 2, missile: true, role: 'antiship' },
+  // Naval Strike Missile, sub-launched from a torpedo tube: stealthy and sea-skimming, with a passive
+  // imaging-infrared seeker that picks a weak point (screws and rudder, bridge or magazine). Its
+  // small warhead does Harpoon-sized damage, but where it lands can stop a ship (see hit()), and
+  // point defence seldom sees it in time (kit.ts NSM_AD).
+  nsm: { name: 'Naval Strike Missile (sub-launched)', short: 'NSM', spd: 500, maxRun: 100, seeker: 10, damage: 2, missile: true, role: 'antiship' },
   mst: { name: 'Tomahawk anti-ship (Maritime Strike)', short: 'Tomahawk', spd: 480, maxRun: 900, seeker: 12, damage: 3, missile: true, role: 'antiship', vls: true },
   // Sub-launched RUM-139C: a rocket that flies to the solution and drops a Mk 54.
   asroc: { name: 'ASROC (sub-launched RUM-139C)', short: 'ASROC', spd: 600, maxRun: 15, seeker: 0, damage: 0, missile: true, role: 'asw', vls: true, minRun: 1 },
@@ -213,6 +219,8 @@ export const MK96_SPRINT = 250;
 /** A Mjolnir on a site ashore lands three Tomahawks' worth of damage, and rarely misses: it is
  *  inertially guided down a ballistic arc rather than map-matching its way in. */
 export const MJOLNIR_LAND_HITS = 3, MJOLNIR_LAND_P = 0.95;
+/** Extra damage when an NSM finds the magazine: the ship's own ammunition goes up. */
+const NSM_MAGAZINE = 3;
 export const DRONES_ABOARD = 6;
 /** Drone battery, seconds of passive listening; active and decoy run it down three times as fast. */
 const DRONE_BATTERY = 5400, DRONE_RUN = 4, DRONE_SPD = 8, DRONE_DECOY_SL = 122;
@@ -338,7 +346,7 @@ function moveVessel(v: Vessel, dt: number) {
   const rate = (v.cls.kind === 'surface' ? 0.4 : 0.6) + v.spd * 0.08;
   const turn = clamp(angDiff(v.ordHdg, v.hdg), -rate * dt, rate * dt);
   v.hdg = norm(v.hdg + turn);
-  const cap = v.cls.maxSpd * (0.35 + 0.65 * Math.max(0, v.hp) / v.cls.hp); // damage slows a ship
+  const cap = v.crippled ? 1 : v.cls.maxSpd * (0.35 + 0.65 * Math.max(0, v.hp) / v.cls.hp); // damage slows a ship
   v.spd = approach(v.spd, Math.min(v.ordSpd, cap), (v.ordSpd > v.spd ? 0.12 : 0.25) * dt);
   if (v.cls.kind === 'sub') v.depthT = approach(v.depthT, v.ordDepth, dt / 40);
   v.x += Math.sin(v.hdg * D2R) * v.spd * KT * dt;
@@ -366,7 +374,7 @@ function fireWeapon(g: Game, type: FireKey, opt: Launch = {}): Weapon | void {
   if (w.missile && underIce(g)) return log(g, 'warn', `${w.short}: ice overhead. Missiles need open water: find a polynya.`);
   if (w.missile && o.depthT > MISSILE_MAX_DEPTH) return log(g, 'warn', `${w.short}: come up to 150 feet or shallower to launch.`);
   // Maritime Strike Tomahawk needs satellite updates in flight to find a moving ship.
-  if (type === 'mst' && g.flags.jammed) return log(g, 'warn', 'Tomahawk: satellite links are jammed. It can\'t get in-flight updates on a moving target. Harpoon and torpedoes still work.');
+  if (type === 'mst' && g.flags.jammed) return log(g, 'warn', 'Tomahawk: satellite links are jammed. It can\'t get in-flight updates on a moving target. NSM and torpedoes still work.');
   const aa = w.role === 'aa';
   const c = opt.contactId !== undefined ? contactById(g, opt.contactId) : targetContact(g, aa);
   if (!aa && w.missile && !c) return log(g, 'warn', `${w.short}: no contact to target. Select a contact with a solution first.`);
@@ -438,11 +446,11 @@ function strikeSite(g: Game, siteId: number, type: 'tlam' | 'mjolnir', opt: Laun
 // ---- Attack waves ----------------------------------------------------------------------
 // A wave is one kind of weapon, up to four at each target, all fired at once. The fire-control
 // computer picks a time on target (TOT) for the farthest target, and every weapon stretches its
-// flight to arrive on it: Harpoon and both Tomahawks fly a loiter orbit near the boat as far as
+// flight to arrive on it: NSM and both Tomahawks fly a loiter orbit near the boat as far as
 // their fuel allows, then throttle back on the way in; Mjolnir and ASROC fly a higher, longer
 // arc; torpedoes run slow. A target too close for its weapon to stretch that far can't join.
-export type WaveKey = 'mk48' | 'mk96' | 'harpoon' | 'mst' | 'asroc' | 'mjolnir' | 'tlam';
-export const WAVE_KEYS: WaveKey[] = ['mk48', 'mk96', 'harpoon', 'mst', 'asroc', 'mjolnir', 'tlam'];
+export type WaveKey = 'mk48' | 'mk96' | 'nsm' | 'mst' | 'asroc' | 'mjolnir' | 'tlam';
+export const WAVE_KEYS: WaveKey[] = ['mk48', 'mk96', 'nsm', 'mst', 'asroc', 'mjolnir', 'tlam'];
 /** One line of the attack plan: `n` (1 to 4) weapons at a contact, or at a site ashore. */
 export interface WaveItem { target: number; site?: boolean; n: number }
 /** How a wave weapon makes its time: straight there, a loiter orbit, a lofted arc, or a slow run. */
@@ -458,7 +466,7 @@ const TORP_SLOW = 20;
 const LOFT = 0.15;
 /** Seconds between the best arrival at the farthest target and the wave's time on target. */
 const WAVE_MARGIN = 10;
-const LOITERS = new Set<WaveKey>(['harpoon', 'mst', 'tlam']);
+const LOITERS = new Set<WaveKey>(['nsm', 'mst', 'tlam']);
 const LOFTS = new Set<WaveKey>(['mjolnir', 'asroc']);
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
 
@@ -1042,6 +1050,11 @@ function hit(g: Game, w: Weapon, v: Vessel) {
   const spec = WEAPONS[w.type];
   w.dead = true;
   v.hp -= v.cls.kind === 'surface' ? spec.surfaceDamage ?? spec.damage : spec.damage;
+  // An NSM's seeker matches the ship against its library and goes for a weak point.
+  const spot = w.type === 'nsm' && v.cls.kind === 'surface' && v.side !== 'us' ? (g.r() < 0.4 ? 'screws' : g.r() < 0.5 ? 'bridge' : 'magazine') : null;
+  if (spot === 'magazine') v.hp -= NSM_MAGAZINE;
+  if (spot === 'screws') { v.crippled = true; v.ordSpd = 0; }
+  if (spot === 'bridge' && v.ai) v.ai.cool = Infinity; // nobody left to order her weapons fired
   g.blasts.push({ x: v.x, y: v.y, t: g.t, missile: spec.missile });
   if (v.side === 'us') {
     if (v.hp <= 0) { v.alive = false; log(g, 'danger', 'Torpedo hit. Flooding aft. We are lost.', 'boom'); return end(g, false, 'USS Tang was sunk.'); }
@@ -1065,7 +1078,9 @@ function hit(g: Game, w: Weapon, v: Vessel) {
     log(g, 'danger', `${w.label} hit ${v.name}! She's a friendly ship.${sunk ? ` ${v.name} is sinking.` : ''}`, 'boom');
     if (sunk) return end(g, false, `${v.name} was sunk by our own weapon.`);
   } else {
-    log(g, 'good', sunk ? `${w.label} hit ${who}. Breaking-up noises: ${v.name} is sinking.` : `${w.label} hit ${who}. Secondary explosions; she is slowing.`, 'boom');
+    const at = spot === 'screws' ? ' aft, in her screws and rudder' : spot === 'bridge' ? ' on the bridge' : spot === 'magazine' ? ' in her magazine' : '';
+    const then = spot === 'screws' ? 'She is dead in the water.' : spot === 'bridge' ? 'Her command is gone: her weapons have stopped.' : 'Secondary explosions; she is slowing.';
+    log(g, 'good', sunk ? `${w.label} hit ${who}${at}. Breaking-up noises: ${v.name} is sinking.` : `${w.label} hit ${who}${at}. ${then}`, 'boom');
   }
   // The whole group knows it is under attack and runs from the threat; escorts come hunting.
   if (v.side === 'enemy') alertGroup(g, norm(brg(w, v)), v.side, v);
@@ -1140,7 +1155,7 @@ function alertGroup(g: Game, fleeHdg: number, side: Side, near?: Vessel) {
       if (near && dist(v, near) > 15) continue;
       if (v.ai.mode !== 'hunt') v.ai.home = v.ai.mode;
       const e = 0.6 + dist(o, near ?? v) * 0.1;
-      v.ai.mode = 'hunt'; v.ai.alertT = 1500; v.ai.cool = 0;
+      v.ai.mode = 'hunt'; v.ai.alertT = 1500; if (v.ai.cool !== Infinity) v.ai.cool = 0; // a ship whose bridge an NSM took out stays silent
       v.ai.datum = { x: o.x + gauss(g.r) * e, y: o.y + gauss(g.r) * e, t: g.t, deep: false };
       v.ai.wp = { x: v.ai.datum.x, y: v.ai.datum.y };
       continue;

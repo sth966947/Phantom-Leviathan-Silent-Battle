@@ -689,7 +689,7 @@ export const REFERENCE: Record<string, Reference> = {
   virginia: {
     photo: { file: 'virginia.jpg', credit: 'PCU Virginia (SSN 774), 2004. U.S. Navy photo by General Dynamics Electric Boat · Public domain · Wikimedia Commons' },
     displacement: '10,200 t submerged',
-    armament: ['4 × 533 mm torpedo tubes (Mk 48, Harpoon)', '12 vertical tubes plus Virginia Payload Module'],
+    armament: ['4 × 533 mm torpedo tubes (Mk 48, NSM)', '12 vertical tubes plus Virginia Payload Module'],
     armor: 'None. Single hull',
     notes: 'Friendly. Pump-jet propulsor.',
   },

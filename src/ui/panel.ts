@@ -102,7 +102,7 @@ export function updatePanel(g: Game) {
   const asrocRange = ship?.est ? (() => { const r = dist(o, ship.est!); return r >= WEAPONS.asroc.minRun! && r <= WEAPONS.asroc.maxRun; })() : false;
   const dis = (id: string, off: boolean) => { ($(id) as HTMLButtonElement).disabled = over || off; };
   dis('fireMk48', !ready(o.tubes));
-  dis('fireHarpoon', !ready(o.tubes) || !depthOk || !ship);
+  dis('fireNsm', !ready(o.tubes) || !depthOk || !ship);
   dis('fireMst', !ready(o.vls) || !depthOk || !ship);
   dis('fireAsroc', !ready(o.vls) || !depthOk || !asrocRange);
   dis('fireJatm', (!o.jatm && !ready(o.vls)) || !depthOk);

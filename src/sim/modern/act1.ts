@@ -69,7 +69,7 @@ export const missions: Record<MissionKey, Mission> = {
   A8: {
     key: 'A8', title: 'Fjord War', era: '2029', place: 'Vestfjorden, Norway', date: 'April 2029, 0230', night: true,
     library: ['ropucha', 'ivangren', 'kilo', 'steregushchiy', 'ka27', 'nansen', 'virginia'],
-    brief: 'A Russian landing force has come round Lofoten in the dark and is running up Vestfjorden for the beaches south of Bodø. Three Ropucha landing ships and the Ivan Gren-class Pyotr Morgunov are in a loose column about 15 nm northwest of you, making 12 knots for a beach about 14 nm to your east. A Kilo sweeps ahead of them and the corvette Stoikiy rides with the column, with a Ka-27 up. Sink two of the four landing ships. If three of them reach the beach, the landing has succeeded and the mission fails. The corvette has good sonar and will leave the column to come after you if she hears you. Russian jamming covers the fjord: the anti-ship Tomahawk can\'t get its in-flight updates, so it\'s Harpoon and torpedoes, and the ships\' guns shoot down a share of what comes at them.',
+    brief: 'A Russian landing force has come round Lofoten in the dark and is running up Vestfjorden for the beaches south of Bodø. Three Ropucha landing ships and the Ivan Gren-class Pyotr Morgunov are in a loose column about 15 nm northwest of you, making 12 knots for a beach about 14 nm to your east. A Kilo sweeps ahead of them and the corvette Stoikiy rides with the column, with a Ka-27 up. Sink two of the four landing ships. If three of them reach the beach, the landing has succeeded and the mission fails. The corvette has good sonar and will leave the column to come after you if she hears you. Russian jamming covers the fjord: the anti-ship Tomahawk can\'t get its in-flight updates, so it\'s NSM and torpedoes, and the ships\' guns shoot down a share of what comes at them.',
     build(g, r) {
       g.startClock = clock(2, 30);
       g.timeLimit = 3 * 3600;
@@ -660,7 +660,7 @@ export const missions: Record<MissionKey, Mission> = {
   A25: {
     key: 'A25', title: 'Tartus', era: '2029', place: 'Off Syria', date: 'May 2029, 1600',
     library: ['ropucha', 'ivangren', 'kilo', 'tanker', 'lng', 'ka27', 'virginia'],
-    brief: 'Tartus is Russia\'s only naval base in the Mediterranean, and it lives on supply ships run in from the Black Sea and the Baltic. Three are coming in now: the landing ships Korolev and Aleksandr Shabalin and the Ivan Gren-class Pyotr Morgunov, about 18 nm west of you, making 14 knots for Tartus, which is about 16 nm east of you. The Kilo Stary Oskol is out ahead of them and a Ka-27 is up from Tartus. The jammers at Hmeimim cover the coast, so the anti-ship Tomahawk can\'t get its in-flight updates: Harpoon and torpedoes. The Pantsir and S-400 batteries round Tartus shoot down most missiles inside 12 nm of the port. Sink two of the three. If two of them reach Tartus, the mission fails. These are busy waters: the Liberian tanker MT Aegean Star and the gas carrier LNG Cyprus Spirit are crossing the area, and sinking either fails the mission. Identify before you shoot.',
+    brief: 'Tartus is Russia\'s only naval base in the Mediterranean, and it lives on supply ships run in from the Black Sea and the Baltic. Three are coming in now: the landing ships Korolev and Aleksandr Shabalin and the Ivan Gren-class Pyotr Morgunov, about 18 nm west of you, making 14 knots for Tartus, which is about 16 nm east of you. The Kilo Stary Oskol is out ahead of them and a Ka-27 is up from Tartus. The jammers at Hmeimim cover the coast, so the anti-ship Tomahawk can\'t get its in-flight updates: NSM and torpedoes. The Pantsir and S-400 batteries round Tartus shoot down most missiles inside 12 nm of the port. Sink two of the three. If two of them reach Tartus, the mission fails. These are busy waters: the Liberian tanker MT Aegean Star and the gas carrier LNG Cyprus Spirit are crossing the area, and sinking either fails the mission. Identify before you shoot.',
     build(g, r) {
       g.startClock = clock(16);
       g.timeLimit = 3 * 3600;
@@ -684,7 +684,7 @@ export const missions: Record<MissionKey, Mission> = {
         pointDefence(gg, ships, 0.3);
         // The Pantsir and S-400 batteries round Tartus cover the last 12 nm.
         for (const w of gg.weapons) {
-          if (w.dead || w.side !== 'us' || (w.type !== 'harpoon' && w.type !== 'mst' && w.type !== 'mjolnir') || high(w) || dist(w, tartus) > 12 || gg.flags[`pt${w.id}`]) continue;
+          if (w.dead || w.side !== 'us' || (w.type !== 'nsm' && w.type !== 'mst' && w.type !== 'mjolnir') || high(w) || dist(w, tartus) > 12 || gg.flags[`pt${w.id}`]) continue;
           gg.flags[`pt${w.id}`] = 1;
           if (gg.r() < adP(w, 0.6)) { w.dead = true; log(gg, 'warn', `The air defences at Tartus shot down ${w.label}.`); }
         }

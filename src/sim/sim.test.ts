@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { create, excess, inPeriscope, orders, planWave, tick, vesselSL, JATM_PER_CANISTER, MJOLNIR_LAND_HITS, WEAPONS, type Game, type Vessel } from './sim';
+import { create, excess, inPeriscope, makeAI, orders, planWave, tick, vesselSL, JATM_PER_CANISTER, MJOLNIR_LAND_HITS, WEAPONS, type Game, type Vessel } from './sim';
 import { angDiff, offset } from './math';
 import { CLASSES, LIBRARY } from './classes';
 import { matchClasses, signatureView } from './signature';
@@ -97,14 +97,14 @@ describe('Sink the Bismarck', () => {
     run(g, 300);
     orders.depth(g, 2);
     run(g, 120);
-    orders.fire(g, 'harpoon');
-    expect(g.stats.fired.harpoon).toBe(0);
+    orders.fire(g, 'nsm');
+    expect(g.stats.fired.nsm).toBe(0);
     orders.depth(g, 1);
     run(g, 60);
-    orders.fire(g, 'harpoon');
-    expect(g.stats.fired.harpoon).toBe(1);
+    orders.fire(g, 'nsm');
+    expect(g.stats.fired.nsm).toBe(1);
   });
-  it('Harpoons and Tomahawks on a good solution sink Bismarck', () => {
+  it('NSMs and Tomahawks on a good solution sink Bismarck', () => {
     const g = create('bismarck', 5);
     run(g, 60);
     const bis = g.vessels[1];
@@ -513,7 +513,7 @@ describe('attack waves', () => {
   const run = (g: Game) => { for (let i = 0; i < 3000 && g.weapons.some((w) => w.side === 'us'); i++) tick(g, 1); };
   const spread = (ts: number[]) => Math.max(...ts) - Math.min(...ts);
 
-  for (const [type, near, far, n] of [['mst', 11, 30, 2], ['harpoon', 11, 30, 2], ['mjolnir', 12, 40, 1], ['mk48', 5, 11, 2]] as const) {
+  for (const [type, near, far, n] of [['mst', 11, 30, 2], ['nsm', 11, 30, 2], ['mjolnir', 12, 40, 1], ['mk48', 5, 11, 2]] as const) {
     it(`a salvo of ${type} at targets ${near} and ${far} nm out all hit within seconds`, () => {
       const { g, cs } = sittingShips(near, far);
       orders.wave(g, type, cs.map((c) => ({ target: c.id, n })));
@@ -529,14 +529,31 @@ describe('attack waves', () => {
   }
   it('salvoes of different weapons each hit together, on their own times', () => {
     const { g, cs } = sittingShips(11, 30);
-    for (const type of ['mst', 'harpoon'] as const) orders.wave(g, type, cs.map((c) => ({ target: c.id, n: 1 })));
+    for (const type of ['mst', 'nsm'] as const) orders.wave(g, type, cs.map((c) => ({ target: c.id, n: 1 })));
     expect(g.waves).toHaveLength(2);
     run(g);
-    for (const kind of ['Tomahawk', 'Harpoon']) {
+    for (const kind of ['Tomahawk', 'NSM']) {
       const ts = g.hits.filter((h) => h.label.startsWith(kind)).map((h) => h.t);
       expect(ts).toHaveLength(2);
       expect(spread(ts)).toBeLessThanOrEqual(5);
     }
+  });
+  it('an NSM goes for a weak point: screws, bridge or magazine', () => {
+    const seen = new Set<string>();
+    for (let seed = 0; seed < 12; seed++) {
+      const { g, ships, cs } = sittingShips(11, 30);
+      g.r = (() => { let x = seed * 7919 + 1; return () => ((x = (x * 16807) % 2147483647) / 2147483647); })();
+      const v = ships[0], hp = v.hp;
+      v.ai = makeAI({ mode: 'transit', baseCourse: 0, cruise: 0 });
+      orders.wave(g, 'nsm', [{ target: cs[0].id, n: 1 }]);
+      run(g);
+      const line = g.events.find((e) => e.text.startsWith('NSM 1 hit'))?.text ?? g.events.slice(-5).map((e) => e.text).join(' | ');
+      if (line.includes('screws')) { seen.add('screws'); expect(v.crippled).toBe(true); expect(hp - v.hp).toBe(2); }
+      else if (line.includes('bridge')) { seen.add('bridge'); expect(v.ai!.cool).toBe(Infinity); }
+      else if (line.includes('magazine')) { seen.add('magazine'); expect(hp - v.hp).toBe(5); }
+      else throw new Error(line);
+    }
+    expect([...seen].sort()).toEqual(['bridge', 'magazine', 'screws']);
   });
   it('land-attack Tomahawks on sites 610 and 740 nm out hit together', () => {
     const g = create('doolittle', 2);

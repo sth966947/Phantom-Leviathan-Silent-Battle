@@ -98,10 +98,10 @@ function bottom(g: Game, limit: (p: Vec) => number | null) {
     v.depthT = Math.min(v.depthT, lim);
   }
 }
-/** Our anti-ship missiles lose ships in the ice clutter: each that gets within 3 nm of its target may go blind. */
+/** Radar seekers lose ships in the ice clutter: each Tomahawk that gets within 3 nm of its target may go blind. The NSM's infrared seeker isn't fooled. */
 function iceClutter(g: Game, p: number) {
   for (const w of g.weapons) {
-    if (w.dead || w.side !== 'us' || (w.type !== 'harpoon' && w.type !== 'mst') || !w.target || g.flags[`ic${w.id}`]) continue;
+    if (w.dead || w.side !== 'us' || w.type !== 'mst' || !w.target || g.flags[`ic${w.id}`]) continue;
     g.flags[`ic${w.id}`] = 1;
     if (g.r() < p) { w.dead = true; log(g, 'warn', `${w.label} lost its target in the ice clutter.`); }
   }

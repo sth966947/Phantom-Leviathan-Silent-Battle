@@ -258,7 +258,7 @@ export const missions: Record<MissionKey, Mission> = {
   P16: {
     key: 'P16', title: 'Penghu', era: '2029', place: 'Penghu Islands, Taiwan Strait', date: 'August 2029, 1600',
     library: ['type022', 'type054a', 'type056', 'type052d'],
-    brief: 'The Penghu Islands sit in the middle of the strait, and whoever holds them holds the strait. Taiwan\'s garrison at Makung, 9 nm east of you, is holding on, and the PLA is sending waves of Type 022 missile boats from the mainland to the west to fire on it from 22 nm out. Two Type 054A frigates, Huangshan and Yiyang, are hunting for you between the islands and the mainland. Keep the islands in the fight for 2 hours 45 minutes: if three boats reach their firing point, the garrison\'s defences are gone. The catamarans are fast and loud, and Harpoon or Tomahawk will kill one with one hit, though their guns shoot down some missiles.',
+    brief: 'The Penghu Islands sit in the middle of the strait, and whoever holds them holds the strait. Taiwan\'s garrison at Makung, 9 nm east of you, is holding on, and the PLA is sending waves of Type 022 missile boats from the mainland to the west to fire on it from 22 nm out. Two Type 054A frigates, Huangshan and Yiyang, are hunting for you between the islands and the mainland. Keep the islands in the fight for 2 hours 45 minutes: if three boats reach their firing point, the garrison\'s defences are gone. The catamarans are fast and loud, and NSM or Tomahawk will kill one with one hit, though their guns shoot down some missiles.',
     build(g, r) {
       g.startClock = clock(16);
       g.timeLimit = 2.75 * 3600;

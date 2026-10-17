@@ -62,7 +62,7 @@ function droneBoats(g: Game, boats: Vessel[], targets: Vessel[], dmg = 2) {
 /** Small boats jink hard at 30 to 40 knots: each of our anti-ship missiles that gets within 1 nm of one misses with chance `p`. */
 function jink(g: Game, boats: Vessel[], p = 0.35) {
   for (const w of g.weapons) {
-    if (w.dead || w.side !== 'us' || (w.type !== 'harpoon' && w.type !== 'mst') || g.flags[`jk${w.id}`]) continue;
+    if (w.dead || w.side !== 'us' || (w.type !== 'nsm' && w.type !== 'mst') || g.flags[`jk${w.id}`]) continue;
     const b = boats.find((v) => v.alive && dist(v, w) < 1);
     if (!b) continue;
     g.flags[`jk${w.id}`] = 1;
@@ -72,7 +72,7 @@ function jink(g: Game, boats: Vessel[], p = 0.35) {
 /** Launch a wave of drone boats from `from`. */
 function droneWave(g: Game, list: Vessel[], from: Vec, n: number, tag: string) {
   for (let i = 0; i < n; i++) list.push(add(g, 'droneboat', `Drone boat ${tag}${i + 1}`, 'enemy', offset(from, g.r() * 360, 0.5 + g.r()), 0, 40, go(0, 40, 1e9)));
-  log(g, 'danger', `Radar and sonar: ${n} high-speed contacts, bearing ${fmtBrg(brg(g.own, from))}, coming in at 40 knots. Explosive drone boats! Harpoon, Tomahawk or Mk 48 can stop them.`, 'alarm');
+  log(g, 'danger', `Radar and sonar: ${n} high-speed contacts, bearing ${fmtBrg(brg(g.own, from))}, coming in at 40 knots. Explosive drone boats! NSM, Tomahawk or Mk 48 can stop them.`, 'alarm');
 }
 /** Fast attack craft: each dashes at the nearest ship, fires its missiles inside `range` nm, then runs for home. */
 function facRun(g: Game, facs: Vessel[], ships: Vessel[], range: number, p: () => number, missile = 'C-704', n = 2) {
@@ -254,7 +254,7 @@ extras.I7 = (g, b) => [
 missions.I18 = {
   key: 'I18', title: 'Bahrain', era: '2029', place: 'Off Manama, Bahrain', date: 'June 2029, 0300', night: true,
   library: ['ghadir', 'droneboat', 'arleigh', 'tender', 'boxship', 'fac', 'kilo'],
-  brief: 'Iran is going for the Fifth Fleet\'s home port. Three Ghadir midget subs are creeping in from the northeast toward the Mina Salman channel, 8 nm west-southwest of you (bearing 250), and explosive drone boats will follow from the Iranian coast. USS Emory S. Land, USS Thad Cochran and a supply ship are alongside; USS Sam Nunn patrols just south of the channel mouth and her guns can stop a drone boat or two; mind your torpedoes near her. Hold for two and a half hours. Don\'t let two midgets into the channel, and lose no more than one ship in port. Drone boats are fast and loud: Harpoon or Tomahawk them well out.',
+  brief: 'Iran is going for the Fifth Fleet\'s home port. Three Ghadir midget subs are creeping in from the northeast toward the Mina Salman channel, 8 nm west-southwest of you (bearing 250), and explosive drone boats will follow from the Iranian coast. USS Emory S. Land, USS Thad Cochran and a supply ship are alongside; USS Sam Nunn patrols just south of the channel mouth and her guns can stop a drone boat or two; mind your torpedoes near her. Hold for two and a half hours. Don\'t let two midgets into the channel, and lose no more than one ship in port. Drone boats are fast and loud: NSM or Tomahawk them well out.',
   build(g, r) {
     g.startClock = clock(3);
     g.timeLimit = 2.5 * 3600;

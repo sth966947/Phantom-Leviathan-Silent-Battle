@@ -141,17 +141,18 @@ export function missileSalvo(g: Game, from: string, missile: string, n: number, 
  * until it comes almost straight down on the target at Mach 6. Air defence sees it, but can
  * only shoot while it climbs out (its first MJOLNIR_DIVE_NM) or dives (its last MJOLNIR_DIVE_NM),
  * and seldom gets it:
- * a defence that stops a Tomahawk or Harpoon with chance `p` stops a Mjolnir with chance
- * `p` × MJOLNIR_AD.
+ * a defence that stops a Tomahawk with chance `p` stops a Mjolnir with chance `p` × MJOLNIR_AD.
+ * An NSM is stealthy, skims lower and jinks hard at the end: point defence and SAMs stop it
+ * with chance `p` × NSM_AD.
  */
-export const MJOLNIR_AD = 0.2, MJOLNIR_DIVE_NM = 15;
+export const MJOLNIR_AD = 0.2, MJOLNIR_DIVE_NM = 15, NSM_AD = 0.4;
 /** A Mjolnir high on its arc, past the climb and not yet in the dive, where no air defence can reach it. */
 export const high = (w: Vec & { type: string; aim: Vec; run: number }) => w.type === 'mjolnir' && w.run > MJOLNIR_DIVE_NM && dist(w, w.aim) > MJOLNIR_DIVE_NM;
-export const adP = (w: { type: string }, p: number) => (w.type === 'mjolnir' ? p * MJOLNIR_AD : p);
+export const adP = (w: { type: string }, p: number) => (w.type === 'mjolnir' ? p * MJOLNIR_AD : w.type === 'nsm' ? p * NSM_AD : p);
 /** Modern warships' close-in air defence: each of our anti-ship missiles that gets within 3 nm of one is shot down with chance `p`. */
 export function pointDefence(g: Game, ships: Vessel[], p: number) {
   for (const w of g.weapons) {
-    if (w.dead || w.side !== 'us' || (w.type !== 'harpoon' && w.type !== 'mst' && w.type !== 'mjolnir') || high(w) || g.flags[`pd${w.id}`]) continue;
+    if (w.dead || w.side !== 'us' || (w.type !== 'nsm' && w.type !== 'mst' && w.type !== 'mjolnir') || high(w) || g.flags[`pd${w.id}`]) continue;
     const by = ships.find((v) => v.alive && dist(v, w) < 3);
     if (!by) continue;
     g.flags[`pd${w.id}`] = 1;
