@@ -1,7 +1,9 @@
-// Attack plan: pick targets, a weapon and how many (1 to 4) for each, and the fire-control
-// computer times the wave so everything arrives on the same second (see planWave in the sim).
+// Attack plan: pick targets, a weapon and how many (1 to 4) for each. Each weapon is its own
+// salvo: the fire-control computer times every Tomahawk to hit on the same second, every
+// Harpoon on the same second, and so on (see planWave in the sim). Salvoes of different
+// weapons keep their own times.
 import { CLASSES } from '../sim/classes';
-import { WEAPONS, contactLabel, isFriendlyClass, orders, planWave, type Game, type WaveItem, type WaveKey, type WaveShot } from '../sim/sim';
+import { WEAPONS, contactLabel, isFriendlyClass, orders, planWave, type Game, type WaveItem, type WaveKey, type WavePlan, type WaveShot } from '../sim/sim';
 import { brg, dist, fmtBrg, fmtRng } from '../sim/math';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -18,13 +20,13 @@ const ASHORE: WaveKey[] = ['tlam', 'mjolnir'];
 interface Row { key: string; target: number; site: boolean; name: string; x: number; y: number; sub: boolean }
 interface Pick { type: WaveKey; n: number }
 
-/** What a wave weapon will do to make its time, in a few words. */
-function howText(s: WaveShot, now: number) {
-  const fl = `${mmss(s.flight)} flight`;
-  if (s.how === 'hold') return `waits ${mmss(s.launchAt - now)} in the tube, then ${fl}`;
-  if (s.how === 'loiter') return `loiters, then ${fl}`;
-  if (s.how === 'slow') return 'runs slow to make the time';
-  return fl;
+/** What a salvo weapon will do to make its time, in a few words. */
+function howText(s: WaveShot) {
+  const t = mmss(s.flight);
+  if (s.how === 'loiter') return `loiters near us, hits in ${t}`;
+  if (s.how === 'loft') return `higher, longer arc, hits in ${t}`;
+  if (s.how === 'slow') return `runs slow, hits in ${t}`;
+  return `straight in, hits in ${t}`;
 }
 
 export class AttackPlan {
@@ -58,16 +60,20 @@ export class AttackPlan {
     return out;
   }
 
-  private items(rows: Row[]): WaveItem[] {
-    return rows.map((r) => ({ r, p: this.picks.get(r.key)! })).filter(({ p }) => p.n > 0)
-      .map(({ r, p }) => ({ target: r.target, site: r.site || undefined, type: p.type, n: p.n }));
+  /** The picks grouped into one salvo per weapon, in the order the weapons first appear. */
+  private salvoes(rows: Row[]) {
+    const out = new Map<WaveKey, WaveItem[]>();
+    for (const r of rows) {
+      const p = this.picks.get(r.key)!;
+      if (p.n > 0) out.set(p.type, [...(out.get(p.type) ?? []), { target: r.target, site: r.site || undefined, n: p.n }]);
+    }
+    return out;
   }
 
   private fire() {
-    const g = this.g(), rows = this.rows(g), items = this.items(rows);
-    if (!items.length) return;
-    orders.wave(g, items);
-    if (g.waves.length) for (const r of rows) this.picks.get(r.key)!.n = 0;
+    const g = this.g(), rows = this.rows(g), before = g.waves.length;
+    for (const [type, items] of this.salvoes(rows)) orders.wave(g, type, items);
+    if (g.waves.length > before) for (const r of rows) this.picks.get(r.key)!.n = 0;
     this.rowKeys = '';
   }
 
@@ -88,23 +94,26 @@ export class AttackPlan {
           + `<td><select data-f="n" aria-label="How many at ${esc(r.name)}">${ns}</select></td><td class="how"></td></tr>`;
       }).join('') : '<tr><td colspan="6" class="empty">No targets with a solution yet. Build a solution on a contact first.</td></tr>';
     }
-    const plan = planWave(g, this.items(rows));
+    const plans = [...this.salvoes(rows)].map(([type, items]) => ({ type, n: items.reduce((a, x) => a + x.n, 0), plan: planWave(g, type, items) as WavePlan }));
     for (const tr of body.querySelectorAll<HTMLTableRowElement>('tr[data-key]')) {
       const r = rows.find((x) => x.key === tr.dataset.key)!, p = this.picks.get(r.key)!;
       tr.querySelector('.brg')!.textContent = `${fmtBrg(brg(o, r))}°`;
       tr.querySelector('.rng')!.textContent = fmtRng(dist(o, r));
-      const shot = plan.ok && p.n ? plan.shots.find((s) => s.target === r.target && s.site === r.site) : null;
-      tr.querySelector('.how')!.textContent = shot ? howText(shot, g.t) : '';
+      const plan = p.n ? plans.find((x) => x.type === p.type)?.plan : undefined;
+      const shot = plan?.ok ? plan.shots.find((s) => s.target === r.target && s.site === r.site) : null;
+      tr.querySelector('.how')!.textContent = shot ? howText(shot) : '';
       tr.classList.toggle('on', p.n > 0);
     }
+    // The salvoes share the tubes: check they fit together.
     const vls = o.vls.filter((x) => x <= 0).length, tt = o.tubes.filter((x) => x <= 0).length;
-    const need = plan.ok ? plan.shots.filter((s) => WEAPONS[s.type].vls).length : 0;
-    $('attackTubes').textContent = `Loaded: ${tt} of ${o.tubes.length} torpedo tubes, ${vls} of ${o.vls.length} vertical tubes${plan.ok ? ` · this wave uses ${plan.shots.length - need} and ${need}` : ''}`;
-    const msg = $('attackPlan');
-    msg.textContent = plan.ok ? `${plan.shots.length} weapon${plan.shots.length > 1 ? 's' : ''}, time on target in ${mmss(plan.tot - g.t)}` : plan.why;
-    msg.classList.toggle('bad', !plan.ok && this.items(rows).length > 0);
-    ($('attackFire') as HTMLButtonElement).disabled = !!g.over || !plan.ok;
-    const live = g.waves.map((w) => `wave in ${mmss(w.tot - g.t)}`).join(', ');
-    $('attackRead').textContent = live ? `${live} · ${g.queue.length} in the tubes` : 'pick targets, a weapon and how many';
+    const needV = plans.filter((x) => WEAPONS[x.type].vls).reduce((a, x) => a + x.n, 0), needT = plans.filter((x) => !WEAPONS[x.type].vls).reduce((a, x) => a + x.n, 0);
+    const tubeWhy = needV > vls ? `The salvoes need ${needV} vertical tubes; ${vls} are loaded.` : needT > tt ? `The salvoes need ${needT} torpedo tubes; ${tt} are loaded.` : '';
+    $('attackTubes').textContent = `Loaded: ${tt} of ${o.tubes.length} torpedo tubes, ${vls} of ${o.vls.length} vertical tubes${plans.length ? ` · this attack uses ${needT} and ${needV}` : ''}`;
+    $('attackPlan').innerHTML = !plans.length ? 'Pick how many to send at one target or more.'
+      : plans.map((x) => `<div class="${x.plan.ok ? '' : 'bad'}">${esc(NAMES[x.type])} × ${x.n}: ${x.plan.ok ? `all hit together in ${mmss(x.plan.tot - g.t)}` : esc(x.plan.why)}</div>`).join('')
+        + (tubeWhy ? `<div class="bad">${esc(tubeWhy)}</div>` : '');
+    ($('attackFire') as HTMLButtonElement).disabled = !!g.over || !plans.length || !!tubeWhy || plans.some((x) => !x.plan.ok);
+    const live = g.waves.map((w) => mmss(w.tot - g.t)).join(', ');
+    $('attackRead').textContent = live ? `salvoes in the air, hitting in ${live}` : 'each weapon is a salvo that hits together';
   }
 }

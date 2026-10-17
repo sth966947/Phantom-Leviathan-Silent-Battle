@@ -493,49 +493,74 @@ describe('experimental weapons', () => {
 });
 
 describe('attack waves', () => {
-  /** Bismarck stopped dead, 11 nm east of Tang, with a perfect solution. */
-  function sittingBismarck() {
+  /** Bismarck stopped dead `near` nm east of Tang and Prinz Eugen `far` nm to the northeast, with perfect solutions. */
+  function sittingShips(near: number, far: number) {
     const g = create('bismarck', 3);
     g.own.depthT = 1; g.own.ordDepth = 1;
     for (let i = 0; i < 600; i++) tick(g, 1);
-    const v = g.vessels.find((x) => x.name.includes('Bismarck'))!;
-    v.ai = null; v.spd = v.ordSpd = 0;
-    g.own.x = v.x - 11; g.own.y = v.y;
-    const c = g.contacts.find((x) => x.vid === v.id)!;
-    c.est = { x: v.x, y: v.y, t: g.t }; c.motion = { crs: 0, spd: 0 };
-    return { g, v, c };
+    const ships = ['Bismarck', 'Prinz Eugen'].map((n) => g.vessels.find((x) => x.name.includes(n))!);
+    ships[0].x = g.own.x + near; ships[0].y = g.own.y;
+    ships[1].x = g.own.x + far * 0.6; ships[1].y = g.own.y + far * 0.8;
+    const cs = ships.map((v) => {
+      v.ai = null; v.spd = v.ordSpd = 0;
+      let c = g.contacts.find((x) => x.vid === v.id);
+      if (!c) { c = { ...g.contacts[0], id: g.seq++, vid: v.id, name: v.name }; g.contacts.push(c); }
+      c.held = true; c.est = { x: v.x, y: v.y, t: g.t }; c.motion = { crs: 0, spd: 0 };
+      return c;
+    });
+    return { g, ships, cs };
   }
-  it('torpedoes, Harpoon, Tomahawks and Mjolnir all arrive within seconds of each other', () => {
-    const { g, v, c } = sittingBismarck();
-    orders.wave(g, [{ target: c.id, type: 'mk48', n: 1 }, { target: c.id, type: 'harpoon', n: 1 }, { target: c.id, type: 'mst', n: 2 }, { target: c.id, type: 'mjolnir', n: 1 }]);
-    // Mjolnir can't loiter and the Harpoon hasn't the fuel: both wait in their tubes.
-    expect(g.queue.map((q) => q.type).sort()).toEqual(['harpoon', 'mjolnir']);
-    expect(g.own.vls.filter((x) => x === Infinity)).toHaveLength(1);
-    const tot = g.waves[0].tot;
-    for (let i = 0; i < 1500 && (g.weapons.some((w) => w.side === 'us') || g.queue.length); i++) { c.est = { x: v.x, y: v.y, t: g.t }; tick(g, 1); }
-    const ts = g.hits.map((h) => h.t);
-    expect(ts).toHaveLength(5);
-    expect(Math.max(...ts) - Math.min(...ts)).toBeLessThanOrEqual(5);
-    expect(Math.abs(Math.max(...ts) - tot)).toBeLessThanOrEqual(5);
+  const run = (g: Game) => { for (let i = 0; i < 3000 && g.weapons.some((w) => w.side === 'us'); i++) tick(g, 1); };
+  const spread = (ts: number[]) => Math.max(...ts) - Math.min(...ts);
+
+  for (const [type, near, far, n] of [['mst', 11, 30, 2], ['harpoon', 11, 30, 2], ['mjolnir', 12, 40, 1], ['mk48', 5, 11, 2]] as const) {
+    it(`a salvo of ${type} at targets ${near} and ${far} nm out all hit within seconds`, () => {
+      const { g, cs } = sittingShips(near, far);
+      orders.wave(g, type, cs.map((c) => ({ target: c.id, n })));
+      // Everything leaves at once: nothing waits in a tube.
+      expect(g.weapons.filter((w) => w.side === 'us')).toHaveLength(2 * n);
+      const tot = g.waves[0].tot;
+      run(g);
+      const ts = g.hits.map((h) => h.t);
+      expect(ts.length).toBeGreaterThanOrEqual(2);
+      expect(spread(ts)).toBeLessThanOrEqual(5);
+      expect(Math.abs(Math.max(...ts) - tot)).toBeLessThanOrEqual(5);
+    });
+  }
+  it('salvoes of different weapons each hit together, on their own times', () => {
+    const { g, cs } = sittingShips(11, 30);
+    for (const type of ['mst', 'harpoon'] as const) orders.wave(g, type, cs.map((c) => ({ target: c.id, n: 1 })));
+    expect(g.waves).toHaveLength(2);
+    run(g);
+    for (const kind of ['Tomahawk', 'Harpoon']) {
+      const ts = g.hits.filter((h) => h.label.startsWith(kind)).map((h) => h.t);
+      expect(ts).toHaveLength(2);
+      expect(spread(ts)).toBeLessThanOrEqual(5);
+    }
   });
-  it('land-attack Tomahawks and Mjolnirs hit their sites together', () => {
+  it('land-attack Tomahawks on sites 610 and 740 nm out hit together', () => {
     const g = create('doolittle', 2);
     g.own.depthT = 1; g.own.ordDepth = 1;
     g.vessels.forEach((v) => { if (v.cls.key === 'picket') { v.alive = false; v.gone = true; } });
-    orders.wave(g, [{ target: g.sites[0].id, site: true, type: 'tlam', n: 3 }, { target: g.sites[1].id, site: true, type: 'mjolnir', n: 2 }]);
-    for (let i = 0; i < 8000 && (g.weapons.length || g.queue.length); i++) tick(g, 1);
-    const ts = g.strikes.map((s) => s.t);
-    expect(ts).toHaveLength(5);
-    expect(Math.max(...ts) - Math.min(...ts)).toBeLessThanOrEqual(5);
+    orders.wave(g, 'tlam', [{ target: g.sites[0].id, site: true, n: 3 }, { target: g.sites[3].id, site: true, n: 2 }]);
+    expect(g.weapons).toHaveLength(5);
+    for (let i = 0; i < 8000 && g.weapons.length; i++) tick(g, 1);
+    expect(g.strikes).toHaveLength(5);
+    expect(spread(g.strikes.map((x) => x.t))).toBeLessThanOrEqual(5);
   });
-  it('the plan checks tubes, ranges and weapons before anything fires', () => {
-    const { g, c } = sittingBismarck();
-    expect(planWave(g, [{ target: c.id, type: 'mk48', n: 4 }, { target: c.id, type: 'mk96', n: 1 }])).toMatchObject({ ok: false, why: expect.stringContaining('torpedo tubes') });
-    expect(planWave(g, [{ target: c.id, type: 'tlam', n: 1 }])).toMatchObject({ ok: false });
-    expect(planWave(g, [{ target: c.id, type: 'asroc', n: 1 }])).toMatchObject({ ok: true });
-    g.own.x -= 20;
-    expect(planWave(g, [{ target: c.id, type: 'mk48', n: 1 }])).toMatchObject({ ok: false, why: expect.stringContaining('Mk 48 reaches') });
-    orders.wave(g, [{ target: c.id, type: 'mk48', n: 1 }]);
+  it('the plan checks tubes, ranges and how far each weapon can stretch its flight', () => {
+    const { g, cs } = sittingShips(11, 300);
+    const [near, far] = cs.map((c) => c.id);
+    expect(planWave(g, 'mk48', [{ target: near, n: 4 }, { target: far, n: 1 }])).toMatchObject({ ok: false });
+    expect(planWave(g, 'mk48', [{ target: near, n: 4 }])).toMatchObject({ ok: true });
+    expect(planWave(g, 'mk96', [{ target: near, n: 4 }])).toMatchObject({ ok: true });
+    expect(planWave(g, 'mst', [{ target: near, n: 4 }, { target: far, n: 4 }, { target: near, n: 4 }, { target: far, n: 1 }])).toMatchObject({ ok: false, why: expect.stringContaining('vertical tubes') });
+    expect(planWave(g, 'tlam', [{ target: near, n: 1 }])).toMatchObject({ ok: false });
+    // Mjolnir can loft its arc, but not enough to wait 290 nm' worth for the far target.
+    expect(planWave(g, 'mjolnir', [{ target: near, n: 1 }, { target: far, n: 1 }])).toMatchObject({ ok: false, why: expect.stringContaining('too close') });
+    // A Tomahawk has the fuel to loiter that long.
+    expect(planWave(g, 'mst', [{ target: near, n: 1 }, { target: far, n: 1 }])).toMatchObject({ ok: true });
+    orders.wave(g, 'mjolnir', [{ target: near, n: 1 }, { target: far, n: 1 }]);
     expect(g.weapons.filter((w) => w.side === 'us')).toHaveLength(0);
   });
 });
