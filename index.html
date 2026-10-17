@@ -55,6 +55,22 @@
       <div class="sol-head"><span>Sea conditions · <span id="depthRead" class="depth-read"></span></span><button id="depthClose">Close <kbd>X</kbd></button></div>
       <canvas id="depthCanvas" aria-label="Side view of the sea around Tang: thermal layer, contact depths and aircraft altitudes"></canvas>
     </div>
+    <div class="depthview attackview" id="attackView" hidden>
+      <div class="sol-head"><span>Attack plan · <span id="attackRead" class="depth-read"></span></span><button id="attackClose">Close <kbd>⇧A</kbd></button></div>
+      <div class="attack-body">
+        <div class="sol-table">
+          <table>
+            <thead><tr><th>Target</th><th>Bearing</th><th>Range</th><th>Weapon</th><th>Number</th><th>How it makes the time</th></tr></thead>
+            <tbody id="attackRows"></tbody>
+          </table>
+        </div>
+        <div class="attack-foot">
+          <div><div id="attackPlan" class="attack-plan"></div><div id="attackTubes" class="depth-read"></div></div>
+          <button class="fire" id="attackFire" title="Fire the wave. Missiles that can loiter go now and circle until it is time; torpedoes run slow; Mjolnir and ASROC wait in their tubes and launch on time.">Fire wave</button>
+        </div>
+        <p class="note">The fire-control computer picks one time on target for everything in the wave. Harpoon and the Tomahawks loiter near the boat as far as their fuel allows, torpedoes run slow, and Mjolnir and ASROC wait in their tubes. If the target runs and the torpedoes fall behind, the rest of the wave waits for them.</p>
+      </div>
+    </div>
     <div class="solution" id="solution" hidden>
       <div class="sol-head"><span id="solTitle">Solution</span><button id="solClose">Close <kbd>B</kbd></button></div>
       <div class="sol-sonar">
@@ -181,6 +197,7 @@
           <button class="fire exp" id="fireMjLand" title="Experimental. Mjolnir at a fixed site ashore, 10 to 1,000 nm out: up the ballistic arc and straight down at Mach 6. Three Tomahawks' worth of damage, and it rarely misses.">Mjolnir land <kbd>⇧Y</kbd></button>
         </div>
       </div>
+      <div class="row"><button id="attackBtn" title="Plan an attack wave: up to four weapons on each target, timed by the fire-control computer to arrive together.">Attack plan <kbd>⇧A</kbd></button></div>
       <p class="note" id="wNote"></p>
     </section>
     <section class="card sensors">

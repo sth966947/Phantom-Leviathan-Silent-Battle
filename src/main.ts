@@ -11,6 +11,7 @@ import { play, unlockAudio } from './ui/audio';
 import { Periscope } from './ui/periscope';
 import { Solution } from './ui/solution';
 import { DepthView } from './ui/depth';
+import { AttackPlan } from './ui/attack';
 import { StrikeCam, type Impact } from './ui/strikecam';
 import { Player, noteSelection, record as recordOrders, recording } from './replay';
 import { FRONTS, FRONT_NAMES, WAR_MAX, WAR_MIN, currentSlot, warLength, newsCard, resolve as resolveWar, warOver, type Ending, type WarState } from './sim/war';
@@ -44,6 +45,8 @@ const signature = new SignatureDisplay($('signature') as HTMLCanvasElement);
 const periscope = new Periscope($('scopeView') as HTMLCanvasElement, () => g);
 const solution = new Solution(() => g);
 const depthView = new DepthView($('depthCanvas') as HTMLCanvasElement, () => g);
+const attack = new AttackPlan(() => g);
+const toggleAttack = () => { solution.close(); depthView.close(); attack.toggle(); };
 const strikeCam = new StrikeCam();
 let strikesSeen = 0; // land-attack arrivals already handed to the battle camera
 let hitsSeen = 0; // hits on vessels and aircraft already handed to it
@@ -173,8 +176,9 @@ on('fireTlam', () => orders.strike(g, Number(($('tlamSite') as HTMLSelectElement
 on('fireMjLand', () => orders.strike(g, Number(($('mjSite') as HTMLSelectElement).value), 'mjolnir'));
 on('layMine', () => orders.layMine(g));
 on('scopeBtn', togglePeriscope);
-on('solBtn', () => { depthView.close(); solution.toggle(); });
-on('depthBtn', () => { solution.close(); depthView.toggle(); });
+on('solBtn', () => { depthView.close(); attack.close(); solution.toggle(); });
+on('depthBtn', () => { solution.close(); attack.close(); depthView.toggle(); });
+on('attackBtn', toggleAttack);
 on('ping', () => orders.ping(g));
 on('decoy', () => orders.decoy(g));
 on('zoomIn', () => { plot.zoom = Math.max(0, plot.zoom - 1); });
@@ -245,7 +249,7 @@ document.addEventListener('keydown', (ev) => {
     l: () => orders.layer(g),
     f: () => orders.fire(g, 'mk48'), h: () => orders.fire(g, 'harpoon'), t: () => orders.fire(g, 'mst'),
     g: () => orders.fire(g, 'asroc'), y: () => orders.strike(g, Number(($('tlamSite') as HTMLSelectElement).value)), j: () => orders.fire(g, 'jatm'), m: () => orders.fire(g, 'sm6'),
-    r: () => orders.radar(g), v: togglePeriscope, b: () => { depthView.close(); solution.toggle(); }, x: () => { solution.close(); depthView.toggle(); }, escape: () => { if (replay && liveGame && !periscope.open && !depthView.open && !solution.open) exitReplay(); else if (periscope.open) periscope.close(); else if (depthView.open) depthView.close(); else solution.close(); },
+    r: () => orders.radar(g), v: togglePeriscope, b: () => { depthView.close(); attack.close(); solution.toggle(); }, x: () => { solution.close(); attack.close(); depthView.toggle(); }, escape: () => { if (replay && liveGame && !periscope.open && !depthView.open && !solution.open && !attack.open) exitReplay(); else if (periscope.open) periscope.close(); else if (attack.open) attack.close(); else if (depthView.open) depthView.close(); else solution.close(); },
     p: () => orders.ping(g), c: () => orders.decoy(g), z: () => orders.match(g, 'speed'), i: () => orders.layMine(g), o: () => orders.launchDrone(g),
     tab: () => orders.cycleContact(g), k: acceptTop,
     ' ': togglePause,
@@ -254,6 +258,7 @@ document.addEventListener('keydown', (ev) => {
   };
   // Shift picks the experimental weapons, and cycles the newest drone's mode.
   const shifted: Record<string, () => void> = {
+    a: toggleAttack,
     f: () => orders.fire(g, 'mk96'), t: () => orders.fire(g, 'mjolnir'),
     y: () => orders.strike(g, Number(($('mjSite') as HTMLSelectElement).value), 'mjolnir'),
     o: () => { const d = g.drones[g.drones.length - 1]; if (d) orders.droneMode(g, d.mode === 'passive' ? 'active' : d.mode === 'active' ? 'decoy' : 'passive'); },
@@ -264,7 +269,7 @@ document.addEventListener('keydown', (ev) => {
   if (!act) return;
   ev.preventDefault();
   // Firing from the keyboard brings up the tab that weapon lives on.
-  if ((ev.shiftKey && shifted[k]) || k === 'o') weaponTab(true);
+  if ((ev.shiftKey && shifted[k] && k !== 'a') || k === 'o') weaponTab(true);
   else if ('fhtgjm'.includes(k)) weaponTab(false);
   act();
 });
@@ -305,6 +310,7 @@ function setUp(key: ScenarioKey) {
   periscope.close();
   solution.close();
   depthView.close();
+  attack.close();
   strikeCam.close();
   forgetArrivals();
   overShown = false;
@@ -583,6 +589,7 @@ function frame(now: number) {
   waterfall.draw(g);
   signature.draw(g);
   depthView.draw(g);
+  attack.draw(g);
   if (now - panelT > 150) {
     panelT = now;
     updatePanel(g);
