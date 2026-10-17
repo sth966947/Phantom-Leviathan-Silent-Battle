@@ -32,6 +32,36 @@ describe('missions', () => {
     expect(g.strikes[0]).toMatchObject({ siteId: g.sites[0].id, siteName: 'Yokosuka naval yard', kind: 'shipyard', weapon: 'TLAM 1', type: 'tlam' });
     expect(g.strikes[0].hit).toBe(g.sites[0].hits === 1);
   });
+  it('one Mjolnir on Japan counts as three hits and wins the Doolittle mission', () => {
+    const g = create('doolittle', 2);
+    g.own.depthT = 1; g.own.ordDepth = 1;
+    g.vessels.forEach((v) => { if (v.cls.key === 'picket') { v.alive = false; v.gone = true; } });
+    orders.strike(g, g.sites[0].id, 'mjolnir');
+    for (let i = 0; i < 6000 && g.weapons.some((w) => w.type === 'mjolnir'); i++) tick(g, 1);
+    expect(g.strikes[0]).toMatchObject({ type: 'mjolnir', hit: true });
+    expect(objectives(g).find((o) => o.text.startsWith('Land 3 hits on Japan'))?.state).toBe('done');
+    for (let i = 0; i < 12000 && !g.over; i++) tick(g, 1);
+    expect(g.over).toMatchObject({ win: true });
+    expect(g.over!.reason).toContain('3 hits have already landed on Japan');
+  });
+  it('modern air defence shoots at Mjolnir only as it climbs or dives, with a fifth of its usual chance', () => {
+    const fly = (roll: number, run: number) => {
+      const g = create('I16', 3);
+      g.own.depthT = 1; g.own.ordDepth = 1;
+      orders.strike(g, g.sites[0].id, 'mjolnir');
+      const w = g.weapons.find((x) => x.type === 'mjolnir')!, kochi = g.vessels.find((v) => v.name.includes('Kochi'))!;
+      w.x = kochi.x + 5; w.y = kochi.y; w.run = run;
+      w.aim = { x: kochi.x + 205, y: kochi.y };
+      g.r = () => roll;
+      tick(g, 1);
+      return !!w.dead;
+    };
+    // Climbing out: Kochi's Barak-8 stops a Tomahawk with chance 0.7, so a Mjolnir with 0.14.
+    expect(fly(0.13, 0)).toBe(true);
+    expect(fly(0.15, 0)).toBe(false);
+    // High on its arc, 200 nm from the target: out of reach.
+    expect(fly(0, 100)).toBe(false);
+  });
   it('a site with no kind gets one from its name', () => {
     const at = { x: 0, y: 0, id: 1, hits: 0 };
     expect(siteKind({ ...at, name: 'Harbour submarine pens' })).toBe('subpens');

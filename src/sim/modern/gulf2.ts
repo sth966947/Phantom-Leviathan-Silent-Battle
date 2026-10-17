@@ -6,6 +6,8 @@ import { depthT, end, log, shellfire, type Game, type Vessel } from '../sim';
 import {
   add, alive, arrive, at, bombed, byId, clock, flag, go, ids, isSunk, keepCourse, mins, missileSalvo, moored, pointDefence,
   screen, setGoal, skirmish, steer, watch, type Carry, type Mission, type MissionKey, type Objective, type ObjectiveFn,
+  adP,
+  high,
 } from '../kit';
 import { mineField, mineLine } from '../hazards';
 
@@ -60,7 +62,7 @@ function droneBoats(g: Game, boats: Vessel[], targets: Vessel[], dmg = 2) {
 /** Small boats jink hard at 30 to 40 knots: each of our anti-ship missiles that gets within 1 nm of one misses with chance `p`. */
 function jink(g: Game, boats: Vessel[], p = 0.35) {
   for (const w of g.weapons) {
-    if (w.dead || w.side !== 'us' || (w.type !== 'harpoon' && w.type !== 'mst') || g.flags[`jk${w.id}`]) continue;
+    if (w.dead || w.side !== 'us' || (w.type !== 'nsm' && w.type !== 'mst') || g.flags[`jk${w.id}`]) continue;
     const b = boats.find((v) => v.alive && dist(v, w) < 1);
     if (!b) continue;
     g.flags[`jk${w.id}`] = 1;
@@ -70,7 +72,7 @@ function jink(g: Game, boats: Vessel[], p = 0.35) {
 /** Launch a wave of drone boats from `from`. */
 function droneWave(g: Game, list: Vessel[], from: Vec, n: number, tag: string) {
   for (let i = 0; i < n; i++) list.push(add(g, 'droneboat', `Drone boat ${tag}${i + 1}`, 'enemy', offset(from, g.r() * 360, 0.5 + g.r()), 0, 40, go(0, 40, 1e9)));
-  log(g, 'danger', `Radar and sonar: ${n} high-speed contacts, bearing ${fmtBrg(brg(g.own, from))}, coming in at 40 knots. Explosive drone boats! Harpoon, Tomahawk or Mk 48 can stop them.`, 'alarm');
+  log(g, 'danger', `Radar and sonar: ${n} high-speed contacts, bearing ${fmtBrg(brg(g.own, from))}, coming in at 40 knots. Explosive drone boats! NSM, Tomahawk or Mk 48 can stop them.`, 'alarm');
 }
 /** Fast attack craft: each dashes at the nearest ship, fires its missiles inside `range` nm, then runs for home. */
 function facRun(g: Game, facs: Vessel[], ships: Vessel[], range: number, p: () => number, missile = 'C-704', n = 2) {
@@ -223,17 +225,18 @@ missions.I7 = {
       pointDefence(gg, [sahand], 0.5);
       const radar = hits(gg, 'Kharg air-defence radar') >= 2;
       for (const w of gg.weapons) {
-        if (w.type !== 'tlam' || w.dead) continue;
-        if (!gg.flags[`tl${w.id}`]) gg.flags[`tl${w.id}`] = dist(w, kharg) > 20 ? 2 : 1;
+        if ((w.type !== 'tlam' && w.type !== 'mjolnir') || high(w) || w.dead) continue;
+        // Mjolnir is ballistic and needs no terrain fix; only the Tomahawks wander off.
+        if (!gg.flags[`tl${w.id}`]) gg.flags[`tl${w.id}`] = w.type === 'tlam' && dist(w, kharg) > 20 ? 2 : 1;
         if (gg.flags[`tl${w.id}`] === 2 && w.run > 5) { w.dead = true; log(gg, 'warn', `${w.label} has no terrain fix over open water and is wandering off course. Launch from within 20 nm of Kharg.`); continue; }
         if (gg.flags[`ad${w.id}`] || dist(w, kharg) > 10) continue;
         gg.flags[`ad${w.id}`] = 1;
-        if (!radar && gg.r() < 0.5) { w.dead = true; log(gg, 'warn', `Kharg's Mersad battery shot down ${w.label}.`); }
+        if (!radar && gg.r() < adP(w, 0.5)) { w.dead = true; log(gg, 'warn', `Kharg's Mersad battery shot down ${w.label}.`); }
       }
       // Every launch gives us away: coastal radar sees the missile climb out and the hunters get a rough datum.
-      if (gg.stats.fired.tlam > flag(gg, 'seen')) {
+      if (gg.stats.fired.tlam + gg.stats.fired.mjolnir > flag(gg, 'seen')) {
         if (!gg.flags.seen) log(gg, 'warn', 'Radio intercepts: Iranian coastal radar saw the launch. Sahand and the Kilo are being vectored toward us.');
-        gg.flags.seen = gg.stats.fired.tlam;
+        gg.flags.seen = gg.stats.fired.tlam + gg.stats.fired.mjolnir;
         for (const v of [kilo, sahand]) if (v.alive && v.ai!.mode !== 'evade') { v.ai!.knows = { x: gg.own.x + (gg.r() - 0.5) * 3, y: gg.own.y + (gg.r() - 0.5) * 3, t: gg.t, deep: false }; v.ai!.mode = 'attack'; }
       }
       if (['Kharg T-jetty', 'Sea Island terminal', 'Kharg tank farm'].every((n) => hits(gg, n) >= 3)) end(gg, true, 'Kharg\'s jetties and tanks are burning. Iran\'s oil exports have stopped.');
@@ -241,7 +244,7 @@ missions.I7 = {
   },
 };
 extras.I7 = (g, b) => [
-  ...['Kharg T-jetty', 'Sea Island terminal', 'Kharg tank farm'].map((n): Objective => ({ text: `Three Tomahawk hits on the ${n.replace('Kharg ', '')}`, state: hits(g, n) >= 3 ? 'done' : 'open', detail: `${Math.min(3, hits(g, n))} of 3.` })),
+  ...['Kharg T-jetty', 'Sea Island terminal', 'Kharg tank farm'].map((n): Objective => ({ text: `Three hits on the ${n.replace('Kharg ', '')}`, state: hits(g, n) >= 3 ? 'done' : 'open', detail: `${Math.min(3, hits(g, n))} of 3.` })),
   { text: 'Launch from within 20 nm of Kharg', state: 'open', detail: `${dist(g.own, offset({ x: 0, y: 0 }, 20, 32)).toFixed(1)} nm from the island now.` },
   { text: 'Silence the air-defence radar (optional)', state: hits(g, 'Kharg air-defence radar') >= 2 ? 'done' : 'open', detail: hits(g, 'Kharg air-defence radar') >= 2 ? 'Two hits: the battery is blind.' : 'While it works, half the Tomahawks are shot down near the island.' },
   ...b,
@@ -251,7 +254,7 @@ extras.I7 = (g, b) => [
 missions.I18 = {
   key: 'I18', title: 'Bahrain', era: '2029', place: 'Off Manama, Bahrain', date: 'June 2029, 0300', night: true,
   library: ['ghadir', 'droneboat', 'arleigh', 'tender', 'boxship', 'fac', 'kilo'],
-  brief: 'Iran is going for the Fifth Fleet\'s home port. Three Ghadir midget subs are creeping in from the northeast toward the Mina Salman channel, 8 nm west-southwest of you (bearing 250), and explosive drone boats will follow from the Iranian coast. USS Emory S. Land, USS Thad Cochran and a supply ship are alongside; USS Sam Nunn patrols just south of the channel mouth and her guns can stop a drone boat or two; mind your torpedoes near her. Hold for two and a half hours. Don\'t let two midgets into the channel, and lose no more than one ship in port. Drone boats are fast and loud: Harpoon or Tomahawk them well out.',
+  brief: 'Iran is going for the Fifth Fleet\'s home port. Three Ghadir midget subs are creeping in from the northeast toward the Mina Salman channel, 8 nm west-southwest of you (bearing 250), and explosive drone boats will follow from the Iranian coast. USS Emory S. Land, USS Thad Cochran and a supply ship are alongside; USS Sam Nunn patrols just south of the channel mouth and her guns can stop a drone boat or two; mind your torpedoes near her. Hold for two and a half hours. Don\'t let two midgets into the channel, and lose no more than one ship in port. Drone boats are fast and loud: NSM or Tomahawk them well out.',
   build(g, r) {
     g.startClock = clock(3);
     g.timeLimit = 2.5 * 3600;
@@ -364,7 +367,7 @@ missions.I6 = {
         const s = gg.sites.find((x) => x.name === n)!, k = `shown${n[0]}`;
         // Mobile launchers, hidden in the hills: they are out in the open only for the few minutes after a salvo, then move on.
         const open = gg.flags[k] !== undefined && gg.t - gg.flags[k] < 7 * 60;
-        if (s.hits > flag(gg, `kept${n[0]}`) && s.hits < 2 && !open) { s.hits = flag(gg, `kept${n[0]}`); log(gg, 'warn', `${n}: the Tomahawk hit empty ground. The launchers have moved.`); }
+        if (s.hits > flag(gg, `kept${n[0]}`) && flag(gg, `kept${n[0]}`) < 2 && !open) { s.hits = flag(gg, `kept${n[0]}`); log(gg, 'warn', `${n}: the strike hit empty ground. The launchers have moved.`); }
         if (s.hits >= 2 || open) gg.flags[`kept${n[0]}`] = s.hits;
         if (s.hits < 2 && gg.t >= 3 * 60 && (gg.t - 3 * 60) % (15 * 60) === ({ M: 0, D: 420, Z: 240 } as Record<string, number>)[n[0]]) {
           missileSalvo(gg, n.replace(' site', ''), 'Ghader', 3, ships, radar ? 0.25 : 0.45, 2);
@@ -641,7 +644,7 @@ extras.I24 = (g, b) => {
   return [
     { text: 'Sink the oiler Chaganhu', state: oiler && isSunk(oiler) ? 'done' : oiler?.gone ? 'failed' : 'open', detail: flag(g, 'run') ? 'She is running north: 25 nm and she is gone.' : 'At anchor in the bay.' },
     { text: 'Sink the Kilo', state: vs(g, 'kilo').every(isSunk) ? 'done' : 'open', detail: flag(g, 'dived') ? 'Dived and hunting.' : 'Alongside the oiler, taking on fuel.' },
-    { text: 'Three Tomahawk hits on the fuel depot', state: hits(g, 'Hadibu fuel depot') >= 3 ? 'done' : 'open', detail: `${Math.min(3, hits(g, 'Hadibu fuel depot'))} of 3.` },
+    { text: 'Three hits on the fuel depot', state: hits(g, 'Hadibu fuel depot') >= 3 ? 'done' : 'open', detail: `${Math.min(3, hits(g, 'Hadibu fuel depot'))} of 3.` },
     ...b,
   ];
 };

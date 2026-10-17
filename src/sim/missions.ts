@@ -111,7 +111,7 @@ const BUILT: Record<MissionKey, Mission> = {
   doolittle: {
     key: 'doolittle', title: 'The Doolittle Raid', era: '1941', place: '650 nm east of Japan', date: '18 Apr 1942, 0600',
     library: ['picket', 'yorktown', 'fletcher', 'atlanta', 'merchant', 'mavis'],
-    brief: 'Hornet has sixteen Army B-25s lashed to her flight deck, and Enterprise is covering her. Historically the picket boat Nittō Maru spotted the task force at 0738 and radioed Tokyo, and the bombers had to launch ten hours early, 170 miles farther out than planned. Tang is ahead of the task force. Find the picket boats and sink them before they can report. Then hit Japan first: Tang\'s land-attack Tomahawks can reach the raid\'s own targets, flying by terrain maps with no GPS. Land at least three hits before the bombers launch. A Kawanishi flying boat is patrolling high overhead.',
+    brief: 'Hornet has sixteen Army B-25s lashed to her flight deck, and Enterprise is covering her. Historically the picket boat Nittō Maru spotted the task force at 0738 and radioed Tokyo, and the bombers had to launch ten hours early, 170 miles farther out than planned. Tang is ahead of the task force. Find the picket boats and sink them before they can report. Then hit Japan first: Tang\'s land-attack Tomahawks can reach the raid\'s own targets, flying by terrain maps with no GPS, and so can the experimental Mjolnir. Land at least three hits before the bombers launch: a Mjolnir counts as three. A Kawanishi flying boat is patrolling high overhead.',
     build(g, r) {
       g.startClock = clock(6);
       g.timeLimit = 3 * 3600;
@@ -133,11 +133,11 @@ const BUILT: Record<MissionKey, Mission> = {
       g.sites = ([['Yokosuka naval yard', 200, 25, 'shipyard'], ['Tokyo: army arsenal and steel works', 0, 0, 'factory'], ['Yokohama docks', 210, 14, 'docks'],
         ['Nagoya: Mitsubishi aircraft works', 250, 140, 'factory'], ['Kobe: Kawasaki aircraft works', 255, 245, 'factory']] as const)
         .map(([name, b, d, kind], i) => ({ id: -(i + 1), name, kind, ...offset(tokyo, b, d), hits: 0 }));
-      setGoal(g, { targets: ids(pickets), need: 99, win: '', timeout: 'Fewer than three Tomahawks reached Japan before the raid launched.' });
+      setGoal(g, { targets: ids(pickets), need: 99, win: '', timeout: 'Fewer than three hits landed on Japan before the raid launched.' });
       g.script = (gg) => {
         const sender = pickets.find((p) => p.alive && (p.ai!.reportT ?? 0) >= 240);
         if (sender) return end(gg, false, `${sender.name}'s report reached Tokyo. The raid launches early and far out.`);
-        if (gg.t >= gg.timeLimit - 1 && (gg.flags.landHits ?? 0) >= 3) end(gg, true, `No report reached Tokyo, and ${gg.flags.landHits} Tomahawks have already hit Japan. Hornet launches the raid from the planned spot.`);
+        if (gg.t >= gg.timeLimit - 1 && (gg.flags.landHits ?? 0) >= 3) end(gg, true, `No report reached Tokyo, and ${gg.flags.landHits} hits have already landed on Japan. Hornet launches the raid from the planned spot.`);
       };
     },
   },
@@ -944,7 +944,7 @@ const BUILT: Record<MissionKey, Mission> = {
   darkwater: {
     key: 'darkwater', title: 'Dark Water', era: '2029', place: 'Iceland Basin', date: 'April 2029, 1500',
     library: ['udaloy', 'ka27', 'il38', 'virginia'],
-    brief: 'GPS and the satellite links are jammed. Nobody will cue you today, and the anti-ship Tomahawk can\'t get its in-flight updates, so it\'s torpedoes and Harpoon. A Udaloy group is hunting in the Iceland Basin with a Ka-27 and an Il-38 working for it. Sink the flagship, Vice-Admiral Kulakov, and the hunt falls apart. The Udaloys have strong hull sonar and will come after you as soon as they hear you.',
+    brief: 'GPS and the satellite links are jammed. Nobody will cue you today, and the anti-ship Tomahawk can\'t get its in-flight updates, so it\'s torpedoes and NSM. A Udaloy group is hunting in the Iceland Basin with a Ka-27 and an Il-38 working for it. Sink the flagship, Vice-Admiral Kulakov, and the hunt falls apart. The Udaloys have strong hull sonar and will come after you as soon as they hear you.',
     build(g, r) {
       g.startClock = clock(15);
       g.timeLimit = 3 * 3600;
@@ -999,7 +999,7 @@ const EXTRA: Record<MissionKey, ObjectiveFn> = {
   midgets: (g, b) => [...b, watch('Don\'t let two midgets into the harbour', flag(g, 'midgetsIn') >= 2, `${flag(g, 'midgetsIn')} of 2 have got in.`)],
   doolittle: (g, b) => [
     watch('Sink the picket boats before they radio Tokyo', !!g.over?.reason.includes('report'), 'A picket that watches the task force for four minutes gets its report out.'),
-    { text: 'Land 3 Tomahawks on Japan before the raid launches', state: flag(g, 'landHits') >= 3 ? 'done' : 'open', detail: `${flag(g, 'landHits')} of 3 hits so far.` },
+    { text: 'Land 3 hits on Japan before the raid launches', state: flag(g, 'landHits') >= 3 ? 'done' : 'open', detail: `${flag(g, 'landHits')} of 3 hits so far. A Tomahawk counts 1, a Mjolnir 3.` },
     ...b,
   ],
   guadalcanal: (g, b) => [...b, watch('Keep the battleships from shelling Henderson Field', flag(g, 'shelling') > 600, flag(g, 'shelling') ? `They have been shelling for ${mins(flag(g, 'shelling'))}. At 10 minutes the field is lost.` : 'Not under fire yet.')],

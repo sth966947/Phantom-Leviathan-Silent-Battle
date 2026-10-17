@@ -8,6 +8,8 @@ import { mineLine, type Mine } from '../hazards';
 import {
   add, arrive, at, baseObjectives, byId, clock, flag, go, ids, isSunk, keepCourse, mins, missileSalvo, moored, pointDefence,
   screen, setGoal, skirmish, steer, watch, type Mission, type MissionKey, type ObjectiveFn,
+  adP,
+  high,
 } from '../kit';
 
 // ---- Helpers -----------------------------------------------------------------------------------
@@ -473,9 +475,9 @@ export const missions: Record<MissionKey, Mission> = {
         }
         // Until the radar is down, the battery shoots at every Tomahawk coming in.
         for (const w of gg.weapons) {
-          if (w.type !== 'tlam' || w.dead || dist(w, isle) > 10 || gg.flags[`sam${w.id}`]) continue;
+          if ((w.type !== 'tlam' && w.type !== 'mjolnir') || high(w) || w.dead || dist(w, isle) > 10 || gg.flags[`sam${w.id}`]) continue;
           gg.flags[`sam${w.id}`] = 1;
-          if (!gg.flags.radarDown && gg.r() < 0.75) { w.dead = true; log(gg, 'warn', `${w.label} was shot down by the island's missile battery.`); }
+          if (!gg.flags.radarDown && gg.r() < adP(w, 0.75)) { w.dead = true; log(gg, 'warn', `${w.label} was shot down by the island's missile battery.`); }
         }
         if (gg.t === 45 * 60) {
           if (runway.hits) log(gg, 'good', 'Intelligence: the second Orion is stuck on the cratered runway.');
@@ -517,7 +519,7 @@ export const extras: Record<MissionKey, ObjectiveFn> = {
     const s = (id: number) => g.sites.find((x) => x.id === id)?.hits ?? 0;
     return [
       { text: 'Knock out the air-defence radar', state: flag(g, 'radarDown') ? 'done' : 'open', detail: flag(g, 'radarDown') ? 'Down.' : g.sites.some((x) => x.id === -3) ? 'Fixed: on the Tomahawk target list. It moves every 40 minutes.' : `Come to periscope depth within 60 nm of the island for an ESM fix (${Math.min(120, flag(g, 'esm'))} of 120 s).` },
-      { text: 'Two Tomahawk hits on the runway', state: s(-1) >= 2 ? 'done' : 'open', detail: `${s(-1)} of 2.` },
+      { text: 'Two hits on the runway', state: s(-1) >= 2 ? 'done' : 'open', detail: `${s(-1)} of 2.` },
       { text: 'One hit on the fuel farm', state: s(-2) >= 1 ? 'done' : 'open', detail: `${s(-2)} of 1.` },
       ...timeOnly(b),
     ];

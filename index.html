@@ -55,6 +55,22 @@
       <div class="sol-head"><span>Sea conditions · <span id="depthRead" class="depth-read"></span></span><button id="depthClose">Close <kbd>X</kbd></button></div>
       <canvas id="depthCanvas" aria-label="Side view of the sea around Tang: thermal layer, contact depths and aircraft altitudes"></canvas>
     </div>
+    <div class="depthview attackview" id="attackView" hidden>
+      <div class="sol-head"><span>Attack plan · <span id="attackRead" class="depth-read"></span></span><button id="attackClose">Close <kbd>⇧A</kbd></button></div>
+      <div class="attack-body">
+        <div class="sol-table">
+          <table>
+            <thead><tr><th>Target</th><th>Bearing</th><th>Range</th><th>Weapon</th><th>Number</th><th>How it makes the time</th></tr></thead>
+            <tbody id="attackRows"></tbody>
+          </table>
+        </div>
+        <div class="attack-foot">
+          <div><div id="attackPlan" class="attack-plan"></div><div id="attackTubes" class="depth-read"></div></div>
+          <button class="fire" id="attackFire" title="Fire every salvo now. Each weapon's salvo hits on the same second.">Fire salvoes</button>
+        </div>
+        <p class="note">Each weapon is its own salvo: every Tomahawk hits on the same second, every NSM on the same second, and so on. Everything fires at once. NSM and the Tomahawks loiter near the boat as far as their fuel allows, Mjolnir and ASROC fly a higher, longer arc, and torpedoes run slow. If a target runs and some torpedoes fall behind, the rest of that salvo slows down to match.</p>
+      </div>
+    </div>
     <div class="solution" id="solution" hidden>
       <div class="sol-head"><span id="solTitle">Solution</span><button id="solClose">Close <kbd>B</kbd></button></div>
       <div class="sol-sonar">
@@ -137,7 +153,7 @@
         <div class="wlabel">Torpedo tubes · ships and subs</div>
         <div class="row">
           <button class="fire" id="fireMk48" title="Mk 48 ADCAP Mod 7, wire-guided heavyweight torpedo. Ships and submarines.">Mk 48 <kbd>F</kbd></button>
-          <button class="fire" id="fireHarpoon" title="UGM-84 Harpoon Block II from a torpedo tube. Surface ships only, 150 ft or shallower.">Harpoon <kbd>H</kbd></button>
+          <button class="fire" id="fireNsm" title="Naval Strike Missile from a torpedo tube, out to 100 nm. Stealthy and sea-skimming, so point defence seldom stops it, and its passive infrared seeker aims for the screws, the bridge or the magazine. Surface ships only, 150 ft or shallower.">NSM <kbd>H</kbd></button>
         </div>
         <div class="wlabel">Vertical tubes · 150 ft or shallower</div>
         <div class="row">
@@ -174,13 +190,14 @@
         </div>
         <div class="wlabel">Vertical tubes · 150 ft or shallower</div>
         <div class="row">
-          <button class="fire exp" id="fireMjolnir" title="Experimental. Mjolnir, sub-launched Precision Strike Missile Increment 2: a ballistic arc to the solution 10 to 1,000 nm out, then down on the ship at Mach 6 with a 1,500 lb penetrating warhead. Too fast for point defence. For targets ashore, use Mjolnir land.">Mjolnir ship <kbd>⇧T</kbd></button>
+          <button class="fire exp" id="fireMjolnir" title="Experimental. Mjolnir, sub-launched Precision Strike Missile Increment 2: a ballistic arc to the solution 10 to 1,000 nm out, then down on the ship at Mach 6 with a 1,500 lb penetrating warhead. Air defence can only reach it as it climbs out or dives, and seldom stops it. For targets ashore, use Mjolnir land.">Mjolnir ship <kbd>⇧T</kbd></button>
         </div>
         <div class="row" id="mjLandRow" hidden>
           <select id="mjSite" aria-label="Mjolnir land target"></select>
           <button class="fire exp" id="fireMjLand" title="Experimental. Mjolnir at a fixed site ashore, 10 to 1,000 nm out: up the ballistic arc and straight down at Mach 6. Three Tomahawks' worth of damage, and it rarely misses.">Mjolnir land <kbd>⇧Y</kbd></button>
         </div>
       </div>
+      <div class="row"><button id="attackBtn" title="Plan salvoes: up to four of a weapon at each target, timed by the fire-control computer so each weapon's salvo hits together.">Attack plan <kbd>⇧A</kbd></button></div>
       <p class="note" id="wNote"></p>
     </section>
     <section class="card sensors">
@@ -188,12 +205,17 @@
       <dl>
         <dt>Radar</dt><dd id="sRadar">off</dd>
         <dt>ADC Mk 5 countermeasures</dt><dd id="wDecoys">4</dd>
+        <dt>Blackwing drones</dt><dd id="wBlackwing">4 aboard</dd>
       </dl>
       <div class="row" style="margin-top:8px">
         <button id="scopeBtn" title="Look at the selected contact through the periscope and compare it with the identification book. Periscope depth, ships within 8 nm, aircraft within 10 nm.">Periscope view <kbd>V</kbd></button>
         <button id="radar" title="Mast radar, periscope depth only. Sees and identifies ships out to 25 nm. Sees low fliers such as helicopters inside 15 nm and high aircraft out to 100 nm; identifies aircraft inside 15 nm. Enemies with radar warning receivers hear it.">Radar <kbd>R</kbd></button>
         <button id="ping">Active ping <kbd>P</kbd></button>
         <button id="decoy">Countermeasure <kbd>C</kbd></button>
+      </div>
+      <div class="row">
+        <button id="blackwing" title="Fire a Blackwing reconnaissance drone from the 3-inch signal ejector, at any depth. Its canister floats up and it flies to the selected contact (or down its bearing, or ahead) and circles, following it. Its camera fixes, tracks and identifies every ship and aircraft it can see, 10 nm by day and 7 by night, for an hour; aircraft it tracks can be engaged with JATM or SM-6. The pictures need our mast up: periscope depth, within 40 nm of it. Enemies can't find it.">Blackwing <kbd>⇧B</kbd></button>
+        <button id="blackwingTo" title="Send the newest Blackwing to the selected contact.">Send Blackwing to target</button>
       </div>
       <div class="row straddle">
         <button id="arrayUp" title="Go below the layer to 550 feet and work the towed array up above it, to hear surface ships and shallow submarines while staying hidden under the layer.">Sub below · array above <kbd>U</kbd></button>
@@ -231,7 +253,7 @@
       <li><b>Build a solution.</b> Range firms up the longer you track, and each new leg (a turn of 40° or more) improves it sharply.</li>
       <li><b>Paused?</b> Space pauses and shows the briefing with a live checklist of the mission's objectives.</li>
       <li><b>Escorts.</b> Destroyers and corvettes come hunting after a torpedo hits or a periscope is seen. Their depth charges are set for 50 to 400 feet: go to 700 feet and slow down.</li>
-      <li><b>Shoot.</b> Mk 48s are wire-guided to your solution. Harpoon and Tomahawk fly to your solution and home on the ship nearest it, friend or foe, so a poor solution can hit the wrong ship. ASROC drops a Mk 54 on your solution 1 to 15 miles out. JATM and SM-6 shoot down aircraft. Missiles launch from 150 feet or shallower.</li>
+      <li><b>Shoot.</b> Mk 48s are wire-guided to your solution. NSM and Tomahawk fly to your solution and home on the ship nearest it, friend or foe, so a poor solution can hit the wrong ship. ASROC drops a Mk 54 on your solution 1 to 15 miles out. JATM and SM-6 shoot down aircraft. Missiles launch from 150 feet or shallower.</li>
     </ul>
     </details>
   </div>

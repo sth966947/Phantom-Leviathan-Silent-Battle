@@ -7,6 +7,8 @@ import { CLASSES } from '../classes';
 import {
   add, alive, at, clock, flag, go, ids, isSunk, keepCourse, mins, missileSalvo, pointDefence, pressRaids, raid, screen,
   setGoal, skirmish, steer, watch, type Carry, type Mission, type MissionKey, type ObjectiveFn, type Raid,
+  adP,
+  high,
 } from '../kit';
 import { mineField, mineLine } from '../hazards';
 
@@ -34,12 +36,12 @@ export function enemyTorpedo(g: Game, v: Vessel, aim: Vec, deep = v.depthT > 1.5
 /** Air defence against TLAMs: each one that flies within `range` nm of a live ship (or point) is shot down with chance `p`, once per defender. */
 export function tlamDefence(g: Game, defenders: (Vec & { name: string; alive?: boolean })[], range: number, p: number) {
   for (const w of g.weapons) {
-    if (w.dead || w.type !== 'tlam') continue;
+    if (w.dead || (w.type !== 'tlam' && w.type !== 'mjolnir') || high(w)) continue;
     for (const d of defenders) {
       const k = `sam${w.id}_${d.name}`;
       if (d.alive === false || g.flags[k] || dist(d, w) > range) continue;
       g.flags[k] = 1;
-      if (g.r() < p) { w.dead = true; log(g, 'warn', `${w.label} was shot down by ${d.name}.`); break; }
+      if (g.r() < adP(w, p)) { w.dead = true; log(g, 'warn', `${w.label} was shot down by ${d.name}.`); break; }
     }
   }
 }
@@ -63,7 +65,8 @@ export function screenSub(v: Vessel, group: Vessel[], station: Vec, spd: number)
 }
 /** Shore radar sees each missile launch: the hunters are told where we are. */
 export function launchReported(g: Game, hunters: Vessel[], by: string, err = 1) {
-  const n = g.stats.fired.tlam + g.stats.fired.mst + g.stats.fired.harpoon;
+  // NSM's low radar cross-section slips past the shore radar.
+  const n = g.stats.fired.tlam + g.stats.fired.mst + g.stats.fired.mjolnir;
   if (n <= flag(g, 'seenLaunches')) return;
   g.flags.seenLaunches = n;
   const up = hunters.filter((v) => v.alive && v.ai);
@@ -92,7 +95,7 @@ const lift = (g: Game, id: number) => g.sites.find((s) => s.id === id)!.hits;
 /** Hits on a site, counted out of `need`. */
 const hitLine = (g: Game, id: number, need: number) => {
   const s = g.sites.find((x) => x.id === id)!;
-  return { text: `Land ${need} Tomahawks on ${s.name}`, state: s.hits >= need ? 'done' as const : 'open' as const, detail: `${Math.min(s.hits, need)} of ${need} hits.` };
+  return { text: `Land ${need} hits on ${s.name}`, state: s.hits >= need ? 'done' as const : 'open' as const, detail: `${Math.min(s.hits, need)} of ${need} hits. A Tomahawk counts 1, a Mjolnir 3.` };
 };
 
 const YASEN = ['Novosibirsk (K-573)', 'Krasnoyarsk (K-571)', 'Arkhangelsk (K-564)', 'Perm (K-575)', 'Severodvinsk (K-560)'];
@@ -312,7 +315,7 @@ export const missions: Record<MissionKey, Mission> = {
         tlamDefence(gg, group, 8, 0.6);
         steer(rankin, offset(lead, 120, 8), 6);
         skirmish(gg, [rankin], hunters, 5, 0.12, 0.08, 0.5);
-        if (gg.stats.fired.tlam && !gg.flags.sortie) {
+        if ((gg.stats.fired.tlam || gg.stats.fired.mjolnir) && !gg.flags.sortie) {
           gg.flags.sortie = 1;
           gg.flags.sortieT = gg.t;
         }
@@ -346,12 +349,12 @@ export const missions: Record<MissionKey, Mission> = {
       g.script = (gg) => {
         // Tomahawks launched from far out: the coastal SAMs get most of them on the way in.
         for (const w of gg.weapons) {
-          if (w.type !== 'tlam' || w.dead) continue;
+          if ((w.type !== 'tlam' && w.type !== 'mjolnir') || high(w) || w.dead) continue;
           const k = `tl${w.id}`;
           if (gg.flags[k] === undefined) gg.flags[k] = dist(gg.own, w.aim) > 25 ? 1 : 0;
           if (gg.flags[k] === 1 && dist(w, w.aim) < 10) {
             gg.flags[k] = 2;
-            if (gg.r() < 0.75) { w.dead = true; log(gg, 'warn', `${w.label} was shot down by the coastal air defences after a long run in over the coast.`); }
+            if (gg.r() < adP(w, 0.75)) { w.dead = true; log(gg, 'warn', `${w.label} was shot down by the coastal air defences after a long run in over the coast.`); }
           }
         }
         tlamDefence(gg, [{ ...dock, name: 'the base\'s Tor batteries' }], 6, 0.25);
@@ -596,7 +599,7 @@ export const extras: Record<MissionKey, ObjectiveFn> = {
     ];
   },
   CS3: (g, b) => [
-    { text: 'Land 2 Tomahawks on the shiplift while Álvaro Alberto is on it', state: flag(g, 'onLift') >= 2 ? 'done' : g.t >= 7200 ? 'failed' : 'open',
+    { text: 'Land 2 hits on the shiplift while Álvaro Alberto is on it', state: flag(g, 'onLift') >= 2 ? 'done' : g.t >= 7200 ? 'failed' : 'open',
       detail: `${Math.min(2, flag(g, 'onLift'))} of 2. ${g.t < 3600 ? `She rolls out in ${mins(3600 - g.t)}.` : g.t < 7200 ? `She is on the lift for ${mins(7200 - g.t)} more.` : 'She is in the water.'}` },
     hitLine(g, -2, 2), ...b,
   ],

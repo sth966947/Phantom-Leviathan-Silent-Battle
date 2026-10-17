@@ -7,6 +7,8 @@ import { underIce } from '../hazards';
 import {
   add, alive, at, baseObjectives, clock, flag, go, held, ids, isSunk, keepCourse, listNames, mins, screen, setGoal, skirmish, steer, watch,
   type Carry, type Mission, type MissionKey, type Objective, type ObjectiveFn,
+  adP,
+  high,
 } from '../kit';
 
 // ---- Names: the first of each list that earlier missions haven't sunk ---------------------------
@@ -96,10 +98,10 @@ function bottom(g: Game, limit: (p: Vec) => number | null) {
     v.depthT = Math.min(v.depthT, lim);
   }
 }
-/** Our anti-ship missiles lose ships in the ice clutter: each that gets within 3 nm of its target may go blind. */
+/** Radar seekers lose ships in the ice clutter: each Tomahawk that gets within 3 nm of its target may go blind. The NSM's infrared seeker isn't fooled. */
 function iceClutter(g: Game, p: number) {
   for (const w of g.weapons) {
-    if (w.dead || w.side !== 'us' || (w.type !== 'harpoon' && w.type !== 'mst') || !w.target || g.flags[`ic${w.id}`]) continue;
+    if (w.dead || w.side !== 'us' || w.type !== 'mst' || !w.target || g.flags[`ic${w.id}`]) continue;
     g.flags[`ic${w.id}`] = 1;
     if (g.r() < p) { w.dead = true; log(g, 'warn', `${w.label} lost its target in the ice clutter.`); }
   }
@@ -282,7 +284,7 @@ export const missions: Record<MissionKey, Mission> = {
         // The east-southeast lead is closing under pressure from the pack.
         at(gg, 120 * 60, 'squeeze', () => { if (gg.env.polynyas.includes(a)) log(gg, 'warn', 'Upward-looking sonar: the ice is moving. The east-southeast lead is closing.'); });
         if (gg.t > 120 * 60 && a.r > 0) { a.r = Math.max(0, 0.8 - (gg.t - 120 * 60) / 1500); if (!a.r) closeLead(gg, a); }
-        if (flag(gg, 'landHits') >= 4) end(gg, true, 'Four Tomahawks on Nagurskoye. The runway is cratered and the Bastion has lost its northern air cover.');
+        if (flag(gg, 'landHits') >= 4) end(gg, true, 'Four hits on Nagurskoye. The runway is cratered and the Bastion has lost its northern air cover.');
       };
     },
   },
@@ -542,9 +544,9 @@ export const missions: Record<MissionKey, Mission> = {
         // A helicopter can't dip its sonar through the pack.
         if (helo.alive && helo.ai!.mode === 'dip' && underIce(gg, helo)) helo.ai!.dipT = 0;
         for (const w of gg.weapons) {
-          if (w.dead || w.type !== 'tlam' || !gor.alive || gg.flags[`sam${w.id}`] || dist(w, gor) > 14) continue;
+          if (w.dead || (w.type !== 'tlam' && w.type !== 'mjolnir') || high(w) || !gor.alive || gg.flags[`sam${w.id}`] || dist(w, gor) > 14) continue;
           gg.flags[`sam${w.id}`] = 1;
-          if (gg.r() < 0.55) { w.dead = true; gg.flags.samKills = flag(gg, 'samKills') + 1; log(gg, 'warn', `Admiral Golovko's Redut missiles shot down ${w.label}.`); }
+          if (gg.r() < adP(w, 0.55)) { w.dead = true; gg.flags.samKills = flag(gg, 'samKills') + 1; log(gg, 'warn', `Admiral Golovko's Redut missiles shot down ${w.label}.`); }
         }
         if (flag(gg, 'landHits') >= 4) end(gg, true, 'Four hits on Nagurskoye. The Bastion\'s northern air cover is out of action.');
       };
@@ -630,7 +632,7 @@ export const extras: Record<MissionKey, ObjectiveFn> = {
     const hits = flag(g, 'landHits');
     return [
       { text: 'Find open water under the ice', state: leadsOpen(g) ? 'done' : 'open', detail: `${leadsOpen(g)} lead${leadsOpen(g) === 1 ? '' : 's'} found and open.` },
-      { text: 'Land 4 Tomahawks on Nagurskoye', state: hits >= 4 ? 'done' : 'open', detail: `${hits} of 4 hits so far.` },
+      { text: 'Land 4 hits on Nagurskoye', state: hits >= 4 ? 'done' : 'open', detail: `${hits} of 4 hits so far. A Tomahawk counts 1, a Mjolnir 3.` },
       ...b,
     ];
   },
@@ -665,7 +667,7 @@ export const extras: Record<MissionKey, ObjectiveFn> = {
     const gor = g.vessels.find((v) => v.cls.key === 'gorshkov');
     return [
       { text: 'Break through the thin ice', state: leadsOpen(g) ? 'done' : 'open', detail: 'Stop under a patch at 250 feet or shallower, 3 knots or less, for three minutes.' },
-      { text: 'Land 4 Tomahawks on Nagurskoye', state: hits >= 4 ? 'done' : 'open', detail: `${hits} of 4 hits so far.${flag(g, 'samKills') ? ` Admiral Golovko has shot down ${flag(g, 'samKills')}.` : ''}` },
+      { text: 'Land 4 hits on Nagurskoye', state: hits >= 4 ? 'done' : 'open', detail: `${hits} of 4 hits so far. A Tomahawk counts 1, a Mjolnir 3.${flag(g, 'samKills') ? ` Admiral Golovko has shot down ${flag(g, 'samKills')}.` : ''}` },
       { text: 'Optional: sink Admiral Golovko', state: gor && isSunk(gor) ? 'done' : 'open', detail: 'Her Redut missiles shoot down Tomahawks that pass within 10 nm of her.' },
       ...b,
     ];

@@ -87,6 +87,18 @@ canvas { display: block; width: 100%; height: 100%; }
 .depthview[hidden] { display: none; }
 .depthview canvas { width: 100%; height: 100%; min-height: 0; display: block; cursor: pointer; }
 .depth-read { color: var(--dim); font-weight: 400; }
+/* Attack plan: covers the plot column like the depth view. */
+.attack-body { display: grid; grid-template-rows: minmax(0, 1fr) auto auto; gap: 8px; min-height: 0; }
+.attackview .sol-table select { background: #0a1b2b; color: var(--ink); border: 1px solid var(--rule); font: 12px var(--f-body); padding: 2px 4px; }
+.attackview .sol-table tr.on td { background: rgba(255, 176, 64, 0.08); }
+.attackview .sol-table td.how { color: var(--dim); white-space: normal; }
+.attackview .sol-table td.empty { color: var(--dim); white-space: normal; padding: 12px 6px; }
+.attackview .sol-table .dim { color: var(--dim); font-size: 11px; }
+.attack-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; font: 12.5px var(--f-data); }
+.attack-plan { color: var(--good); margin-bottom: 2px; }
+.attack-plan .bad { color: var(--threat); }
+.attack-foot .fire { flex: none; padding: 6px 18px; }
+.attackview .note { margin: 0; }
 .zoom { position: absolute; right: 8px; top: 8px; display: flex; gap: 4px; z-index: 1; }
 .wf-wrap, .sig-wrap { border: 1px solid var(--rule); background: #020a12; position: relative; min-width: 0; }
 .sig-wrap canvas { height: 120px; image-rendering: pixelated; }

@@ -6,6 +6,8 @@ import { mineField, mineLine, underIce } from '../hazards';
 import {
   add, arrive, at, byId, clock, flag, go, held, ids, isSunk, keepCourse, mins, missileSalvo, pointDefence, screen, setGoal, watch,
   type Mission, type MissionKey, type Objective, type ObjectiveFn,
+  adP,
+  high,
 } from '../kit';
 
 // ---- Local helpers -----------------------------------------------------------------------------
@@ -51,11 +53,11 @@ const site = (g: Game, name: string, p: Vec) => { const s = { id: -(g.sites.leng
 const sunkOf = (vs: Vessel[]) => vs.filter(isSunk).length;
 const ended = (g: Game, s: string) => !!g.over?.reason.includes(s);
 
-/** Tang's own Tomahawks fired since the last call (land attack or anti-ship), for scripts that react to launches. */
-function newLaunches(g: Game, type: 'tlam' | 'any') {
+/** Tang's own missiles fired since the last call, for scripts that react to launches. 'land' is land attack only: TLAM, or Mjolnir at a site. */
+function newLaunches(g: Game, type: 'land' | 'any') {
   const out = [];
   for (const w of g.weapons) {
-    if (w.side !== 'us' || g.flags[`seen${w.id}`] || (type === 'tlam' && w.type !== 'tlam')) continue;
+    if (w.side !== 'us' || g.flags[`seen${w.id}`] || (type === 'land' && w.type !== 'tlam' && !w.land)) continue;
     g.flags[`seen${w.id}`] = 1;
     out.push(w);
   }
@@ -67,7 +69,7 @@ export const missions: Record<MissionKey, Mission> = {
   A8: {
     key: 'A8', title: 'Fjord War', era: '2029', place: 'Vestfjorden, Norway', date: 'April 2029, 0230', night: true,
     library: ['ropucha', 'ivangren', 'kilo', 'steregushchiy', 'ka27', 'nansen', 'virginia'],
-    brief: 'A Russian landing force has come round Lofoten in the dark and is running up Vestfjorden for the beaches south of Bodø. Three Ropucha landing ships and the Ivan Gren-class Pyotr Morgunov are in a loose column about 15 nm northwest of you, making 12 knots for a beach about 14 nm to your east. A Kilo sweeps ahead of them and the corvette Stoikiy rides with the column, with a Ka-27 up. Sink two of the four landing ships. If three of them reach the beach, the landing has succeeded and the mission fails. The corvette has good sonar and will leave the column to come after you if she hears you. Russian jamming covers the fjord: the anti-ship Tomahawk can\'t get its in-flight updates, so it\'s Harpoon and torpedoes, and the ships\' guns shoot down a share of what comes at them.',
+    brief: 'A Russian landing force has come round Lofoten in the dark and is running up Vestfjorden for the beaches south of Bodø. Three Ropucha landing ships and the Ivan Gren-class Pyotr Morgunov are in a loose column about 15 nm northwest of you, making 12 knots for a beach about 14 nm to your east. A Kilo sweeps ahead of them and the corvette Stoikiy rides with the column, with a Ka-27 up. Sink two of the four landing ships. If three of them reach the beach, the landing has succeeded and the mission fails. The corvette has good sonar and will leave the column to come after you if she hears you. Russian jamming covers the fjord: the anti-ship Tomahawk can\'t get its in-flight updates, so it\'s NSM and torpedoes, and the ships\' guns shoot down a share of what comes at them.',
     build(g, r) {
       g.startClock = clock(2, 30);
       g.timeLimit = 3 * 3600;
@@ -194,8 +196,10 @@ export const missions: Record<MissionKey, Mission> = {
         pointDefence(gg, corvs, 0.4);
         const inside = dist(gg.own, box) <= 3;
         if (inside !== !!gg.flags.inBox) { gg.flags.inBox = inside ? 1 : 0; log(gg, 'info', inside ? 'Navigator: we are inside the launch box. Tomahawks will fly the planned route from here.' : 'Navigator: we have left the launch box.'); }
-        for (const w of newLaunches(gg, 'tlam')) {
-          if (dist(gg.own, box) <= 3) continue;
+        for (const w of newLaunches(gg, 'land')) {
+          // Mjolnir doesn't fly the route: the S-400s see it wherever it was launched from, but seldom stop it.
+          if (dist(gg.own, box) <= 3 && w.type !== 'mjolnir') continue;
+          if (w.type === 'mjolnir') { if (gg.r() < adP(w, 1)) { w.dead = true; log(gg, 'warn', `The S-400s over Pechenga caught ${w.label} in its terminal dive.`); } continue; }
           w.dead = true;
           log(gg, 'warn', `${w.label} flew into the S-400 umbrella over Pechenga and was shot down. Launch from inside the box.`);
         }
@@ -277,11 +281,11 @@ export const missions: Record<MissionKey, Mission> = {
       const hunt = offset(g.own, 80 + r() * 30, 16);
       const dds = ['Admiral Levchenko', 'Severomorsk'].map((n, i) => add(g, 'udaloy', n, 'enemy', offset(hunt, i * 180 + r() * 60, 3), r() * 360, 12, { mode: 'patrol', legT: 500 }));
       const helo = add(g, 'ka27', 'Ka-27PL Helix', 'enemy', offset(hunt, r() * 360, 2), 0, 120, { mode: 'search', center: hunt, wp: offset(hunt, r() * 360, 5), torps: 1, datum: null, hits: 0, dipT: 0 });
-      setGoal(g, { targets: [], need: 1, win: 'Four Tomahawks into the pens, and we are clear of the coast. The Northern Fleet\'s boats are buried in their own shelters.', timeout: 'Time ran out before the strike was done and we were clear.' });
+      setGoal(g, { targets: [], need: 1, win: 'Both pens hit hard, and we are clear of the coast. The Northern Fleet\'s boats are buried in their own shelters.', timeout: 'Time ran out before the strike was done and we were clear.' });
       g.script = (gg) => {
         pointDefence(gg, dds, 0.5);
         for (const v of dds) if (v.alive && v.ai!.mode === 'patrol' && dist(v, hunt) > 10) { v.ordHdg = brg(v, hunt); v.ordSpd = 14; }
-        if (newLaunches(gg, 'tlam').length && !gg.flags.fired) {
+        if (newLaunches(gg, 'land').length && !gg.flags.fired) {
           gg.flags.fired = 1; gg.flags.lx = gg.own.x * 1000; gg.flags.ly = gg.own.y * 1000;
           log(gg, 'warn', 'Radio intercepts: the coast has seen our launch. The Udaloys are turning toward the launch point and an Il-38 is scrambling.');
           for (const v of dds) cue(gg, v, 2.5);
@@ -656,7 +660,7 @@ export const missions: Record<MissionKey, Mission> = {
   A25: {
     key: 'A25', title: 'Tartus', era: '2029', place: 'Off Syria', date: 'May 2029, 1600',
     library: ['ropucha', 'ivangren', 'kilo', 'tanker', 'lng', 'ka27', 'virginia'],
-    brief: 'Tartus is Russia\'s only naval base in the Mediterranean, and it lives on supply ships run in from the Black Sea and the Baltic. Three are coming in now: the landing ships Korolev and Aleksandr Shabalin and the Ivan Gren-class Pyotr Morgunov, about 18 nm west of you, making 14 knots for Tartus, which is about 16 nm east of you. The Kilo Stary Oskol is out ahead of them and a Ka-27 is up from Tartus. The jammers at Hmeimim cover the coast, so the anti-ship Tomahawk can\'t get its in-flight updates: Harpoon and torpedoes. The Pantsir and S-400 batteries round Tartus shoot down most missiles inside 12 nm of the port. Sink two of the three. If two of them reach Tartus, the mission fails. These are busy waters: the Liberian tanker MT Aegean Star and the gas carrier LNG Cyprus Spirit are crossing the area, and sinking either fails the mission. Identify before you shoot.',
+    brief: 'Tartus is Russia\'s only naval base in the Mediterranean, and it lives on supply ships run in from the Black Sea and the Baltic. Three are coming in now: the landing ships Korolev and Aleksandr Shabalin and the Ivan Gren-class Pyotr Morgunov, about 18 nm west of you, making 14 knots for Tartus, which is about 16 nm east of you. The Kilo Stary Oskol is out ahead of them and a Ka-27 is up from Tartus. The jammers at Hmeimim cover the coast, so the anti-ship Tomahawk can\'t get its in-flight updates: NSM and torpedoes. The Pantsir and S-400 batteries round Tartus shoot down most missiles inside 12 nm of the port. Sink two of the three. If two of them reach Tartus, the mission fails. These are busy waters: the Liberian tanker MT Aegean Star and the gas carrier LNG Cyprus Spirit are crossing the area, and sinking either fails the mission. Identify before you shoot.',
     build(g, r) {
       g.startClock = clock(16);
       g.timeLimit = 3 * 3600;
@@ -680,9 +684,9 @@ export const missions: Record<MissionKey, Mission> = {
         pointDefence(gg, ships, 0.3);
         // The Pantsir and S-400 batteries round Tartus cover the last 12 nm.
         for (const w of gg.weapons) {
-          if (w.dead || w.side !== 'us' || (w.type !== 'harpoon' && w.type !== 'mst') || dist(w, tartus) > 12 || gg.flags[`pt${w.id}`]) continue;
+          if (w.dead || w.side !== 'us' || (w.type !== 'nsm' && w.type !== 'mst' && w.type !== 'mjolnir') || high(w) || dist(w, tartus) > 12 || gg.flags[`pt${w.id}`]) continue;
           gg.flags[`pt${w.id}`] = 1;
-          if (gg.r() < 0.6) { w.dead = true; log(gg, 'warn', `The air defences at Tartus shot down ${w.label}.`); }
+          if (gg.r() < adP(w, 0.6)) { w.dead = true; log(gg, 'warn', `The air defences at Tartus shot down ${w.label}.`); }
         }
         for (const s of ships) {
           if (s.alive && s.ai!.mode === 'transit') s.ai!.baseCourse = brg(s, tartus);
@@ -739,7 +743,7 @@ export const extras: Record<MissionKey, ObjectiveFn> = {
       watch('Keep the missile hits on Keflavik under four', flag(g, 'baseHits') >= 4, `${flag(g, 'baseHits')} hits so far. Backfires are expected about 35 and 95 minutes in.`),
     ];
   },
-  A21: (g, b) => [sitesObj(g, 1, 'Hit all four radar sites with Tomahawks'), watch('Launch only from inside the box', false, 'A 3 nm circle about 10 nm east of where you started. Missiles from outside it are shot down.'), ...b],
+  A21: (g, b) => [sitesObj(g, 1, 'Hit all four radar sites with Tomahawk or Mjolnir'), watch('Launch only from inside the box', false, 'A 3 nm circle about 10 nm east of where you started. Tomahawks from outside it are shot down. Mjolnir flies its own path and usually gets through.'), ...b],
   A11: (g, b) => {
     const tr = Math.min(flag(g, 'trail'), 1200);
     const borei = vessel(g, 'borei');
@@ -753,7 +757,7 @@ export const extras: Record<MissionKey, ObjectiveFn> = {
   A12: (g, b) => {
     const lp = { x: flag(g, 'lx') / 1000, y: flag(g, 'ly') / 1000 };
     return [
-      sitesObj(g, 2, 'Land two Tomahawks on each pen'),
+      sitesObj(g, 2, 'Land two hits on each pen (one Mjolnir does it)'),
       { text: 'Then get 20 nm from the launch point', state: g.over?.win ? 'done' : 'open', detail: flag(g, 'fired') ? `${dist(g.own, lp).toFixed(1)} nm from it now.` : 'Not launched yet.' },
       ...b,
     ];

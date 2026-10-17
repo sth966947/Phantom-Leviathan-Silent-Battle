@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { create, excess, inPeriscope, orders, tick, vesselSL, JATM_PER_CANISTER, MJOLNIR_LAND_HITS, WEAPONS, type Game, type Vessel } from './sim';
+import { create, excess, inPeriscope, makeAI, radarTracked, orders, planWave, tick, vesselSL, JATM_PER_CANISTER, MJOLNIR_LAND_HITS, WEAPONS, type Game, type Vessel } from './sim';
 import { angDiff, offset } from './math';
 import { CLASSES, LIBRARY } from './classes';
 import { matchClasses, signatureView } from './signature';
@@ -97,14 +97,14 @@ describe('Sink the Bismarck', () => {
     run(g, 300);
     orders.depth(g, 2);
     run(g, 120);
-    orders.fire(g, 'harpoon');
-    expect(g.stats.fired.harpoon).toBe(0);
+    orders.fire(g, 'nsm');
+    expect(g.stats.fired.nsm).toBe(0);
     orders.depth(g, 1);
     run(g, 60);
-    orders.fire(g, 'harpoon');
-    expect(g.stats.fired.harpoon).toBe(1);
+    orders.fire(g, 'nsm');
+    expect(g.stats.fired.nsm).toBe(1);
   });
-  it('Harpoons and Tomahawks on a good solution sink Bismarck', () => {
+  it('NSMs and Tomahawks on a good solution sink Bismarck', () => {
     const g = create('bismarck', 5);
     run(g, 60);
     const bis = g.vessels[1];
@@ -489,5 +489,138 @@ describe('experimental weapons', () => {
     expect(c.estErr).toBe(0);
     expect(Math.hypot(c.est!.x - k.x, c.est!.y - k.y)).toBeLessThan(0.3);
     expect(d.battery).toBeLessThan(5400 - 1800);
+  });
+});
+
+describe('attack waves', () => {
+  /** Bismarck stopped dead `near` nm east of Tang and Prinz Eugen `far` nm to the northeast, with perfect solutions. */
+  function sittingShips(near: number, far: number) {
+    const g = create('bismarck', 3);
+    g.own.depthT = 1; g.own.ordDepth = 1;
+    for (let i = 0; i < 600; i++) tick(g, 1);
+    const ships = ['Bismarck', 'Prinz Eugen'].map((n) => g.vessels.find((x) => x.name.includes(n))!);
+    ships[0].x = g.own.x + near; ships[0].y = g.own.y;
+    ships[1].x = g.own.x + far * 0.6; ships[1].y = g.own.y + far * 0.8;
+    const cs = ships.map((v) => {
+      v.ai = null; v.spd = v.ordSpd = 0;
+      let c = g.contacts.find((x) => x.vid === v.id);
+      if (!c) { c = { ...g.contacts[0], id: g.seq++, vid: v.id, name: v.name }; g.contacts.push(c); }
+      c.held = true; c.est = { x: v.x, y: v.y, t: g.t }; c.motion = { crs: 0, spd: 0 };
+      return c;
+    });
+    return { g, ships, cs };
+  }
+  const run = (g: Game) => { for (let i = 0; i < 3000 && g.weapons.some((w) => w.side === 'us'); i++) tick(g, 1); };
+  const spread = (ts: number[]) => Math.max(...ts) - Math.min(...ts);
+
+  for (const [type, near, far, n] of [['mst', 11, 30, 2], ['nsm', 11, 30, 2], ['mjolnir', 12, 40, 1], ['mk48', 5, 11, 2]] as const) {
+    it(`a salvo of ${type} at targets ${near} and ${far} nm out all hit within seconds`, () => {
+      const { g, cs } = sittingShips(near, far);
+      orders.wave(g, type, cs.map((c) => ({ target: c.id, n })));
+      // Everything leaves at once: nothing waits in a tube.
+      expect(g.weapons.filter((w) => w.side === 'us')).toHaveLength(2 * n);
+      const tot = g.waves[0].tot;
+      run(g);
+      const ts = g.hits.map((h) => h.t);
+      expect(ts.length).toBeGreaterThanOrEqual(2);
+      expect(spread(ts)).toBeLessThanOrEqual(5);
+      expect(Math.abs(Math.max(...ts) - tot)).toBeLessThanOrEqual(5);
+    });
+  }
+  it('salvoes of different weapons each hit together, on their own times', () => {
+    const { g, cs } = sittingShips(11, 30);
+    for (const type of ['mst', 'nsm'] as const) orders.wave(g, type, cs.map((c) => ({ target: c.id, n: 1 })));
+    expect(g.waves).toHaveLength(2);
+    run(g);
+    for (const kind of ['Tomahawk', 'NSM']) {
+      const ts = g.hits.filter((h) => h.label.startsWith(kind)).map((h) => h.t);
+      expect(ts).toHaveLength(2);
+      expect(spread(ts)).toBeLessThanOrEqual(5);
+    }
+  });
+  it('an NSM goes for a weak point: screws, bridge or magazine', () => {
+    const seen = new Set<string>();
+    for (let seed = 0; seed < 12; seed++) {
+      const { g, ships, cs } = sittingShips(11, 30);
+      g.r = (() => { let x = seed * 7919 + 1; return () => ((x = (x * 16807) % 2147483647) / 2147483647); })();
+      const v = ships[0], hp = v.hp;
+      v.ai = makeAI({ mode: 'transit', baseCourse: 0, cruise: 0 });
+      orders.wave(g, 'nsm', [{ target: cs[0].id, n: 1 }]);
+      run(g);
+      const line = g.events.find((e) => e.text.startsWith('NSM 1 hit'))?.text ?? g.events.slice(-5).map((e) => e.text).join(' | ');
+      if (line.includes('screws')) { seen.add('screws'); expect(v.crippled).toBe(true); expect(hp - v.hp).toBe(2); }
+      else if (line.includes('bridge')) { seen.add('bridge'); expect(v.ai!.cool).toBe(Infinity); }
+      else if (line.includes('magazine')) { seen.add('magazine'); expect(hp - v.hp).toBe(5); }
+      else throw new Error(line);
+    }
+    expect([...seen].sort()).toEqual(['bridge', 'magazine', 'screws']);
+  });
+  it('land-attack Tomahawks on sites 610 and 740 nm out hit together', () => {
+    const g = create('doolittle', 2);
+    g.own.depthT = 1; g.own.ordDepth = 1;
+    g.vessels.forEach((v) => { if (v.cls.key === 'picket') { v.alive = false; v.gone = true; } });
+    orders.wave(g, 'tlam', [{ target: g.sites[0].id, site: true, n: 3 }, { target: g.sites[3].id, site: true, n: 2 }]);
+    expect(g.weapons).toHaveLength(5);
+    for (let i = 0; i < 8000 && g.weapons.length; i++) tick(g, 1);
+    expect(g.strikes).toHaveLength(5);
+    expect(spread(g.strikes.map((x) => x.t))).toBeLessThanOrEqual(5);
+  });
+  it('the plan checks tubes, ranges and how far each weapon can stretch its flight', () => {
+    const { g, cs } = sittingShips(11, 300);
+    const [near, far] = cs.map((c) => c.id);
+    expect(planWave(g, 'mk48', [{ target: near, n: 4 }, { target: far, n: 1 }])).toMatchObject({ ok: false });
+    expect(planWave(g, 'mk48', [{ target: near, n: 4 }])).toMatchObject({ ok: true });
+    expect(planWave(g, 'mk96', [{ target: near, n: 4 }])).toMatchObject({ ok: true });
+    expect(planWave(g, 'mst', [{ target: near, n: 4 }, { target: far, n: 4 }, { target: near, n: 4 }, { target: far, n: 1 }])).toMatchObject({ ok: false, why: expect.stringContaining('vertical tubes') });
+    expect(planWave(g, 'tlam', [{ target: near, n: 1 }])).toMatchObject({ ok: false });
+    // Mjolnir can loft its arc, but not enough to wait 290 nm' worth for the far target.
+    expect(planWave(g, 'mjolnir', [{ target: near, n: 1 }, { target: far, n: 1 }])).toMatchObject({ ok: false, why: expect.stringContaining('too close') });
+    // A Tomahawk has the fuel to loiter that long.
+    expect(planWave(g, 'mst', [{ target: near, n: 1 }, { target: far, n: 1 }])).toMatchObject({ ok: true });
+    orders.wave(g, 'mjolnir', [{ target: near, n: 1 }, { target: far, n: 1 }]);
+    expect(g.weapons.filter((w) => w.side === 'us')).toHaveLength(0);
+  });
+});
+
+describe('Blackwing', () => {
+  it('flies out from the signal ejector at depth and fixes and identifies ships once our mast is up', () => {
+    const g = create('bismarck', 5);
+    g.own.depthT = g.own.ordDepth = 2; // deep: the canister doesn't care
+    g.selected = null;
+    const v = g.vessels.find((x) => x.name.includes('Bismarck'))!;
+    const at = offset(g.own, g.own.hdg, 18);
+    v.x = at.x; v.y = at.y; v.ai = null; v.spd = v.ordSpd = 0;
+    g.vessels.filter((x) => x !== v && x !== g.own).forEach((x) => { x.alive = false; x.gone = true; });
+    orders.blackwing(g);
+    expect(g.own.blackwings).toBe(3);
+    for (let i = 0; i < 900; i++) tick(g, 1);
+    // Overhead, but no link while we are deep.
+    expect(g.uavs[0].life).toBeLessThan(3600 - 899);
+    expect(g.contacts.find((c) => c.vid === v.id)?.classified ?? null).toBe(null);
+    g.own.depthT = g.own.ordDepth = 0;
+    for (let i = 0; i < 5; i++) tick(g, 1);
+    const c = g.contacts.find((x) => x.vid === v.id)!;
+    expect(c.classified).toBe(v.cls.key);
+    expect(Math.hypot(c.est!.x - v.x, c.est!.y - v.y)).toBeLessThan(0.01);
+    expect(c.motion).toEqual({ crs: v.hdg, spd: v.spd });
+  });
+  it('tracks and identifies aircraft it sees, firmly enough for JATM and SM-6', () => {
+    const g = create('bismarck', 5);
+    g.own.depthT = g.own.ordDepth = 0;
+    const air = g.vessels.find((x) => x.cls.kind === 'air')!;
+    orders.blackwing(g);
+    for (let i = 0; i < 120; i++) tick(g, 1);
+    const u = g.uavs[0];
+    air.x = u.x + 3; air.y = u.y;
+    tick(g, 1);
+    const c = g.contacts.find((x) => x.vid === air.id)!;
+    expect(c.classified).toBe(air.cls.key);
+    expect(radarTracked(g, c)).toBe(true);
+  });
+  it('runs out of battery after an hour', () => {
+    const g = create('bismarck', 5);
+    orders.blackwing(g);
+    for (let i = 0; i < 3601; i++) tick(g, 1);
+    expect(g.uavs).toHaveLength(0);
   });
 });

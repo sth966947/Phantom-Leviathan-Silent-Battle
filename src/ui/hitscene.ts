@@ -16,7 +16,7 @@ export interface ShotSpec {
   kind: ShotKind;
   /** Class key (ships, subs, aircraft) or site name (land). */
   cls: string; siteKind?: SiteKind;
-  /** One per weapon arriving: its key ('mk48', 'harpoon', 'tlam', 'mine'...), when it lands (shot seconds), and for land whether it hit. */
+  /** One per weapon arriving: its key ('mk48', 'nsm', 'tlam', 'mine'...), when it lands (shot seconds), and for land whether it hit. */
   weapons: string[]; at: number[]; hits: boolean[];
   /** The target sank, broke up or fell (land: was hit at all). */
   sunk: boolean;
