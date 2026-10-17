@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { create, excess, inPeriscope, orders, tick, vesselSL, JATM_PER_CANISTER, MJOLNIR_LAND_HITS, WEAPONS, type Game, type Vessel } from './sim';
+import { create, excess, inPeriscope, orders, planWave, tick, vesselSL, JATM_PER_CANISTER, MJOLNIR_LAND_HITS, WEAPONS, type Game, type Vessel } from './sim';
 import { angDiff, offset } from './math';
 import { CLASSES, LIBRARY } from './classes';
 import { matchClasses, signatureView } from './signature';
@@ -489,5 +489,53 @@ describe('experimental weapons', () => {
     expect(c.estErr).toBe(0);
     expect(Math.hypot(c.est!.x - k.x, c.est!.y - k.y)).toBeLessThan(0.3);
     expect(d.battery).toBeLessThan(5400 - 1800);
+  });
+});
+
+describe('attack waves', () => {
+  /** Bismarck stopped dead, 11 nm east of Tang, with a perfect solution. */
+  function sittingBismarck() {
+    const g = create('bismarck', 3);
+    g.own.depthT = 1; g.own.ordDepth = 1;
+    for (let i = 0; i < 600; i++) tick(g, 1);
+    const v = g.vessels.find((x) => x.name.includes('Bismarck'))!;
+    v.ai = null; v.spd = v.ordSpd = 0;
+    g.own.x = v.x - 11; g.own.y = v.y;
+    const c = g.contacts.find((x) => x.vid === v.id)!;
+    c.est = { x: v.x, y: v.y, t: g.t }; c.motion = { crs: 0, spd: 0 };
+    return { g, v, c };
+  }
+  it('torpedoes, Harpoon, Tomahawks and Mjolnir all arrive within seconds of each other', () => {
+    const { g, v, c } = sittingBismarck();
+    orders.wave(g, [{ target: c.id, type: 'mk48', n: 1 }, { target: c.id, type: 'harpoon', n: 1 }, { target: c.id, type: 'mst', n: 2 }, { target: c.id, type: 'mjolnir', n: 1 }]);
+    // Mjolnir can't loiter and the Harpoon hasn't the fuel: both wait in their tubes.
+    expect(g.queue.map((q) => q.type).sort()).toEqual(['harpoon', 'mjolnir']);
+    expect(g.own.vls.filter((x) => x === Infinity)).toHaveLength(1);
+    const tot = g.waves[0].tot;
+    for (let i = 0; i < 1500 && (g.weapons.some((w) => w.side === 'us') || g.queue.length); i++) { c.est = { x: v.x, y: v.y, t: g.t }; tick(g, 1); }
+    const ts = g.hits.map((h) => h.t);
+    expect(ts).toHaveLength(5);
+    expect(Math.max(...ts) - Math.min(...ts)).toBeLessThanOrEqual(5);
+    expect(Math.abs(Math.max(...ts) - tot)).toBeLessThanOrEqual(5);
+  });
+  it('land-attack Tomahawks and Mjolnirs hit their sites together', () => {
+    const g = create('doolittle', 2);
+    g.own.depthT = 1; g.own.ordDepth = 1;
+    g.vessels.forEach((v) => { if (v.cls.key === 'picket') { v.alive = false; v.gone = true; } });
+    orders.wave(g, [{ target: g.sites[0].id, site: true, type: 'tlam', n: 3 }, { target: g.sites[1].id, site: true, type: 'mjolnir', n: 2 }]);
+    for (let i = 0; i < 8000 && (g.weapons.length || g.queue.length); i++) tick(g, 1);
+    const ts = g.strikes.map((s) => s.t);
+    expect(ts).toHaveLength(5);
+    expect(Math.max(...ts) - Math.min(...ts)).toBeLessThanOrEqual(5);
+  });
+  it('the plan checks tubes, ranges and weapons before anything fires', () => {
+    const { g, c } = sittingBismarck();
+    expect(planWave(g, [{ target: c.id, type: 'mk48', n: 4 }, { target: c.id, type: 'mk96', n: 1 }])).toMatchObject({ ok: false, why: expect.stringContaining('torpedo tubes') });
+    expect(planWave(g, [{ target: c.id, type: 'tlam', n: 1 }])).toMatchObject({ ok: false });
+    expect(planWave(g, [{ target: c.id, type: 'asroc', n: 1 }])).toMatchObject({ ok: true });
+    g.own.x -= 20;
+    expect(planWave(g, [{ target: c.id, type: 'mk48', n: 1 }])).toMatchObject({ ok: false, why: expect.stringContaining('Mk 48 reaches') });
+    orders.wave(g, [{ target: c.id, type: 'mk48', n: 1 }]);
+    expect(g.weapons.filter((w) => w.side === 'us')).toHaveLength(0);
   });
 });

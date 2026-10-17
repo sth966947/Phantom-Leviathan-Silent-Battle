@@ -88,7 +88,10 @@ export function updatePanel(g: Game) {
   setText('sigLabel', sel ? `Signature · ${sel.name}` : 'Signature · no contact selected');
 
   const ready = (bank: number[]) => bank.filter((x) => x <= 0).length;
-  const next = (bank: number[]) => { const l = bank.filter((x) => x > 0); return l.length ? ` · next ${Math.ceil(Math.min(...l))}s` : ''; };
+  const next = (bank: number[]) => {
+    const l = bank.filter((x) => x > 0 && x < Infinity), held = bank.filter((x) => x === Infinity).length;
+    return `${held ? ` · ${held} held for the wave` : ''}${l.length ? ` · next ${Math.ceil(Math.min(...l))}s` : ''}`;
+  };
   setText('wTubes', `${ready(o.tubes)} of ${o.tubes.length} ready${next(o.tubes)}`);
   setText('wVls', `${ready(o.vls)} of ${o.vls.length} ready${next(o.vls)}`);
   setText('wTubesX', $('wTubes').textContent!);
