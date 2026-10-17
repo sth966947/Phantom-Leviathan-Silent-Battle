@@ -537,7 +537,7 @@ export const extras: Record<MissionKey, ObjectiveFn> = {
   },
   I15: (g, b) => [{ text: 'Get two of the three ships into Karachi', state: flag(g, 'inPort') >= 2 ? 'done' : g.over && !g.over.win ? 'failed' : 'open', detail: `${flag(g, 'inPort')} of 2 in port.` }, ...b],
   I16: (g, b) => [
-    ...g.sites.map((s) => ({ text: `Two Tomahawk hits on ${s.name}`, state: s.hits >= 2 ? 'done' as const : 'open' as const, detail: `${s.hits} of 2.` })),
+    ...g.sites.map((s) => ({ text: `Two hits on ${s.name}`, state: s.hits >= 2 ? 'done' as const : 'open' as const, detail: `${s.hits} of 2.` })),
     watch('Mind INS Kochi\'s Barak-8: it shoots down Tomahawks within 20 nm of her', false, g.vessels.some((v) => v.cls.key === 'kolkata' && isSunk(v)) ? 'Kochi is sunk. The sky is open.' : 'Kochi is still afloat.'),
     ...b,
   ],

@@ -407,7 +407,7 @@ export const extras: Record<MissionKey, ObjectiveFn> = {
     return [
       { text: 'Choose one: sink the Oscar II before it reaches the lanes', state: isSunk(os) ? 'done' : os.gone ? 'failed' : 'open' },
       { text: 'Or sink the oiler Akademik Pashin', state: isSunk(oil) ? 'done' : 'open' },
-      { text: 'Or land 3 Tomahawks on Barentsburg radar', state: s.hits >= 3 ? 'done' : 'open', detail: `${Math.min(3, s.hits)} of 3 hits.` },
+      { text: 'Or land 3 hits on Barentsburg radar', state: s.hits >= 3 ? 'done' : 'open', detail: `${Math.min(3, s.hits)} of 3 hits. A Tomahawk counts 1, a Mjolnir 3.` },
       ...b.filter((o) => !o.text.startsWith('Sink')),
     ];
   },

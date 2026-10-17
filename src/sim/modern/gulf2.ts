@@ -231,9 +231,9 @@ missions.I7 = {
         if (!radar && gg.r() < 0.5) { w.dead = true; log(gg, 'warn', `Kharg's Mersad battery shot down ${w.label}.`); }
       }
       // Every launch gives us away: coastal radar sees the missile climb out and the hunters get a rough datum.
-      if (gg.stats.fired.tlam > flag(gg, 'seen')) {
+      if (gg.stats.fired.tlam + gg.stats.fired.mjolnir > flag(gg, 'seen')) {
         if (!gg.flags.seen) log(gg, 'warn', 'Radio intercepts: Iranian coastal radar saw the launch. Sahand and the Kilo are being vectored toward us.');
-        gg.flags.seen = gg.stats.fired.tlam;
+        gg.flags.seen = gg.stats.fired.tlam + gg.stats.fired.mjolnir;
         for (const v of [kilo, sahand]) if (v.alive && v.ai!.mode !== 'evade') { v.ai!.knows = { x: gg.own.x + (gg.r() - 0.5) * 3, y: gg.own.y + (gg.r() - 0.5) * 3, t: gg.t, deep: false }; v.ai!.mode = 'attack'; }
       }
       if (['Kharg T-jetty', 'Sea Island terminal', 'Kharg tank farm'].every((n) => hits(gg, n) >= 3)) end(gg, true, 'Kharg\'s jetties and tanks are burning. Iran\'s oil exports have stopped.');
@@ -241,7 +241,7 @@ missions.I7 = {
   },
 };
 extras.I7 = (g, b) => [
-  ...['Kharg T-jetty', 'Sea Island terminal', 'Kharg tank farm'].map((n): Objective => ({ text: `Three Tomahawk hits on the ${n.replace('Kharg ', '')}`, state: hits(g, n) >= 3 ? 'done' : 'open', detail: `${Math.min(3, hits(g, n))} of 3.` })),
+  ...['Kharg T-jetty', 'Sea Island terminal', 'Kharg tank farm'].map((n): Objective => ({ text: `Three hits on the ${n.replace('Kharg ', '')}`, state: hits(g, n) >= 3 ? 'done' : 'open', detail: `${Math.min(3, hits(g, n))} of 3.` })),
   { text: 'Launch from within 20 nm of Kharg', state: 'open', detail: `${dist(g.own, offset({ x: 0, y: 0 }, 20, 32)).toFixed(1)} nm from the island now.` },
   { text: 'Silence the air-defence radar (optional)', state: hits(g, 'Kharg air-defence radar') >= 2 ? 'done' : 'open', detail: hits(g, 'Kharg air-defence radar') >= 2 ? 'Two hits: the battery is blind.' : 'While it works, half the Tomahawks are shot down near the island.' },
   ...b,
@@ -364,7 +364,7 @@ missions.I6 = {
         const s = gg.sites.find((x) => x.name === n)!, k = `shown${n[0]}`;
         // Mobile launchers, hidden in the hills: they are out in the open only for the few minutes after a salvo, then move on.
         const open = gg.flags[k] !== undefined && gg.t - gg.flags[k] < 7 * 60;
-        if (s.hits > flag(gg, `kept${n[0]}`) && s.hits < 2 && !open) { s.hits = flag(gg, `kept${n[0]}`); log(gg, 'warn', `${n}: the Tomahawk hit empty ground. The launchers have moved.`); }
+        if (s.hits > flag(gg, `kept${n[0]}`) && flag(gg, `kept${n[0]}`) < 2 && !open) { s.hits = flag(gg, `kept${n[0]}`); log(gg, 'warn', `${n}: the strike hit empty ground. The launchers have moved.`); }
         if (s.hits >= 2 || open) gg.flags[`kept${n[0]}`] = s.hits;
         if (s.hits < 2 && gg.t >= 3 * 60 && (gg.t - 3 * 60) % (15 * 60) === ({ M: 0, D: 420, Z: 240 } as Record<string, number>)[n[0]]) {
           missileSalvo(gg, n.replace(' site', ''), 'Ghader', 3, ships, radar ? 0.25 : 0.45, 2);
@@ -641,7 +641,7 @@ extras.I24 = (g, b) => {
   return [
     { text: 'Sink the oiler Chaganhu', state: oiler && isSunk(oiler) ? 'done' : oiler?.gone ? 'failed' : 'open', detail: flag(g, 'run') ? 'She is running north: 25 nm and she is gone.' : 'At anchor in the bay.' },
     { text: 'Sink the Kilo', state: vs(g, 'kilo').every(isSunk) ? 'done' : 'open', detail: flag(g, 'dived') ? 'Dived and hunting.' : 'Alongside the oiler, taking on fuel.' },
-    { text: 'Three Tomahawk hits on the fuel depot', state: hits(g, 'Hadibu fuel depot') >= 3 ? 'done' : 'open', detail: `${Math.min(3, hits(g, 'Hadibu fuel depot'))} of 3.` },
+    { text: 'Three hits on the fuel depot', state: hits(g, 'Hadibu fuel depot') >= 3 ? 'done' : 'open', detail: `${Math.min(3, hits(g, 'Hadibu fuel depot'))} of 3.` },
     ...b,
   ];
 };

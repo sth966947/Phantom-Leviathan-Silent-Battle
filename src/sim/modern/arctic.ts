@@ -282,7 +282,7 @@ export const missions: Record<MissionKey, Mission> = {
         // The east-southeast lead is closing under pressure from the pack.
         at(gg, 120 * 60, 'squeeze', () => { if (gg.env.polynyas.includes(a)) log(gg, 'warn', 'Upward-looking sonar: the ice is moving. The east-southeast lead is closing.'); });
         if (gg.t > 120 * 60 && a.r > 0) { a.r = Math.max(0, 0.8 - (gg.t - 120 * 60) / 1500); if (!a.r) closeLead(gg, a); }
-        if (flag(gg, 'landHits') >= 4) end(gg, true, 'Four Tomahawks on Nagurskoye. The runway is cratered and the Bastion has lost its northern air cover.');
+        if (flag(gg, 'landHits') >= 4) end(gg, true, 'Four hits on Nagurskoye. The runway is cratered and the Bastion has lost its northern air cover.');
       };
     },
   },
@@ -630,7 +630,7 @@ export const extras: Record<MissionKey, ObjectiveFn> = {
     const hits = flag(g, 'landHits');
     return [
       { text: 'Find open water under the ice', state: leadsOpen(g) ? 'done' : 'open', detail: `${leadsOpen(g)} lead${leadsOpen(g) === 1 ? '' : 's'} found and open.` },
-      { text: 'Land 4 Tomahawks on Nagurskoye', state: hits >= 4 ? 'done' : 'open', detail: `${hits} of 4 hits so far.` },
+      { text: 'Land 4 hits on Nagurskoye', state: hits >= 4 ? 'done' : 'open', detail: `${hits} of 4 hits so far. A Tomahawk counts 1, a Mjolnir 3.` },
       ...b,
     ];
   },
@@ -665,7 +665,7 @@ export const extras: Record<MissionKey, ObjectiveFn> = {
     const gor = g.vessels.find((v) => v.cls.key === 'gorshkov');
     return [
       { text: 'Break through the thin ice', state: leadsOpen(g) ? 'done' : 'open', detail: 'Stop under a patch at 250 feet or shallower, 3 knots or less, for three minutes.' },
-      { text: 'Land 4 Tomahawks on Nagurskoye', state: hits >= 4 ? 'done' : 'open', detail: `${hits} of 4 hits so far.${flag(g, 'samKills') ? ` Admiral Golovko has shot down ${flag(g, 'samKills')}.` : ''}` },
+      { text: 'Land 4 hits on Nagurskoye', state: hits >= 4 ? 'done' : 'open', detail: `${hits} of 4 hits so far. A Tomahawk counts 1, a Mjolnir 3.${flag(g, 'samKills') ? ` Admiral Golovko has shot down ${flag(g, 'samKills')}.` : ''}` },
       { text: 'Optional: sink Admiral Golovko', state: gor && isSunk(gor) ? 'done' : 'open', detail: 'Her Redut missiles shoot down Tomahawks that pass within 10 nm of her.' },
       ...b,
     ];

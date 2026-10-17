@@ -517,7 +517,7 @@ export const extras: Record<MissionKey, ObjectiveFn> = {
     const s = (id: number) => g.sites.find((x) => x.id === id)?.hits ?? 0;
     return [
       { text: 'Knock out the air-defence radar', state: flag(g, 'radarDown') ? 'done' : 'open', detail: flag(g, 'radarDown') ? 'Down.' : g.sites.some((x) => x.id === -3) ? 'Fixed: on the Tomahawk target list. It moves every 40 minutes.' : `Come to periscope depth within 60 nm of the island for an ESM fix (${Math.min(120, flag(g, 'esm'))} of 120 s).` },
-      { text: 'Two Tomahawk hits on the runway', state: s(-1) >= 2 ? 'done' : 'open', detail: `${s(-1)} of 2.` },
+      { text: 'Two hits on the runway', state: s(-1) >= 2 ? 'done' : 'open', detail: `${s(-1)} of 2.` },
       { text: 'One hit on the fuel farm', state: s(-2) >= 1 ? 'done' : 'open', detail: `${s(-2)} of 1.` },
       ...timeOnly(b),
     ];

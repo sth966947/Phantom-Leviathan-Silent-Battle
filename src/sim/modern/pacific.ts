@@ -500,7 +500,7 @@ export const extras: Record<MissionKey, ObjectiveFn> = {
   ],
   P6: (g, b) => [
     reached(g, P6_EXIT, 3, 'Reach the exit point 40 nm southwest'),
-    { text: 'Shut the airfields with Tomahawks (optional)', state: g.sites.every((s) => s.hits >= 2) ? 'done' : 'open', detail: `${g.sites.map((s) => `${s.name.replace(' airfield', '')} ${Math.min(2, s.hits)}/2`).join(', ')}.` },
+    { text: 'Shut the airfields with Tomahawk or Mjolnir (optional)', state: g.sites.every((s) => s.hits >= 2) ? 'done' : 'open', detail: `${g.sites.map((s) => `${s.name.replace(' airfield', '')} ${Math.min(2, s.hits)}/2`).join(', ')}.` },
     ...b,
   ],
 };

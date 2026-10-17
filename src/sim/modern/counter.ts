@@ -63,7 +63,7 @@ export function screenSub(v: Vessel, group: Vessel[], station: Vec, spd: number)
 }
 /** Shore radar sees each missile launch: the hunters are told where we are. */
 export function launchReported(g: Game, hunters: Vessel[], by: string, err = 1) {
-  const n = g.stats.fired.tlam + g.stats.fired.mst + g.stats.fired.harpoon;
+  const n = g.stats.fired.tlam + g.stats.fired.mst + g.stats.fired.harpoon + g.stats.fired.mjolnir;
   if (n <= flag(g, 'seenLaunches')) return;
   g.flags.seenLaunches = n;
   const up = hunters.filter((v) => v.alive && v.ai);
@@ -92,7 +92,7 @@ const lift = (g: Game, id: number) => g.sites.find((s) => s.id === id)!.hits;
 /** Hits on a site, counted out of `need`. */
 const hitLine = (g: Game, id: number, need: number) => {
   const s = g.sites.find((x) => x.id === id)!;
-  return { text: `Land ${need} Tomahawks on ${s.name}`, state: s.hits >= need ? 'done' as const : 'open' as const, detail: `${Math.min(s.hits, need)} of ${need} hits.` };
+  return { text: `Land ${need} hits on ${s.name}`, state: s.hits >= need ? 'done' as const : 'open' as const, detail: `${Math.min(s.hits, need)} of ${need} hits. A Tomahawk counts 1, a Mjolnir 3.` };
 };
 
 const YASEN = ['Novosibirsk (K-573)', 'Krasnoyarsk (K-571)', 'Arkhangelsk (K-564)', 'Perm (K-575)', 'Severodvinsk (K-560)'];
@@ -312,7 +312,7 @@ export const missions: Record<MissionKey, Mission> = {
         tlamDefence(gg, group, 8, 0.6);
         steer(rankin, offset(lead, 120, 8), 6);
         skirmish(gg, [rankin], hunters, 5, 0.12, 0.08, 0.5);
-        if (gg.stats.fired.tlam && !gg.flags.sortie) {
+        if ((gg.stats.fired.tlam || gg.stats.fired.mjolnir) && !gg.flags.sortie) {
           gg.flags.sortie = 1;
           gg.flags.sortieT = gg.t;
         }
@@ -596,7 +596,7 @@ export const extras: Record<MissionKey, ObjectiveFn> = {
     ];
   },
   CS3: (g, b) => [
-    { text: 'Land 2 Tomahawks on the shiplift while Álvaro Alberto is on it', state: flag(g, 'onLift') >= 2 ? 'done' : g.t >= 7200 ? 'failed' : 'open',
+    { text: 'Land 2 hits on the shiplift while Álvaro Alberto is on it', state: flag(g, 'onLift') >= 2 ? 'done' : g.t >= 7200 ? 'failed' : 'open',
       detail: `${Math.min(2, flag(g, 'onLift'))} of 2. ${g.t < 3600 ? `She rolls out in ${mins(3600 - g.t)}.` : g.t < 7200 ? `She is on the lift for ${mins(7200 - g.t)} more.` : 'She is in the water.'}` },
     hitLine(g, -2, 2), ...b,
   ],

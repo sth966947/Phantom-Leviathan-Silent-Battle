@@ -51,11 +51,11 @@ const site = (g: Game, name: string, p: Vec) => { const s = { id: -(g.sites.leng
 const sunkOf = (vs: Vessel[]) => vs.filter(isSunk).length;
 const ended = (g: Game, s: string) => !!g.over?.reason.includes(s);
 
-/** Tang's own Tomahawks fired since the last call (land attack or anti-ship), for scripts that react to launches. */
-function newLaunches(g: Game, type: 'tlam' | 'any') {
+/** Tang's own missiles fired since the last call, for scripts that react to launches. 'land' is land attack only: TLAM, or Mjolnir at a site. */
+function newLaunches(g: Game, type: 'land' | 'any') {
   const out = [];
   for (const w of g.weapons) {
-    if (w.side !== 'us' || g.flags[`seen${w.id}`] || (type === 'tlam' && w.type !== 'tlam')) continue;
+    if (w.side !== 'us' || g.flags[`seen${w.id}`] || (type === 'land' && w.type !== 'tlam' && !w.land)) continue;
     g.flags[`seen${w.id}`] = 1;
     out.push(w);
   }
@@ -194,8 +194,9 @@ export const missions: Record<MissionKey, Mission> = {
         pointDefence(gg, corvs, 0.4);
         const inside = dist(gg.own, box) <= 3;
         if (inside !== !!gg.flags.inBox) { gg.flags.inBox = inside ? 1 : 0; log(gg, 'info', inside ? 'Navigator: we are inside the launch box. Tomahawks will fly the planned route from here.' : 'Navigator: we have left the launch box.'); }
-        for (const w of newLaunches(gg, 'tlam')) {
-          if (dist(gg.own, box) <= 3) continue;
+        for (const w of newLaunches(gg, 'land')) {
+          // Mjolnir comes down from above at Mach 6: the S-400s can't touch it, wherever it was launched from.
+          if (dist(gg.own, box) <= 3 || w.type === 'mjolnir') continue;
           w.dead = true;
           log(gg, 'warn', `${w.label} flew into the S-400 umbrella over Pechenga and was shot down. Launch from inside the box.`);
         }
@@ -277,11 +278,11 @@ export const missions: Record<MissionKey, Mission> = {
       const hunt = offset(g.own, 80 + r() * 30, 16);
       const dds = ['Admiral Levchenko', 'Severomorsk'].map((n, i) => add(g, 'udaloy', n, 'enemy', offset(hunt, i * 180 + r() * 60, 3), r() * 360, 12, { mode: 'patrol', legT: 500 }));
       const helo = add(g, 'ka27', 'Ka-27PL Helix', 'enemy', offset(hunt, r() * 360, 2), 0, 120, { mode: 'search', center: hunt, wp: offset(hunt, r() * 360, 5), torps: 1, datum: null, hits: 0, dipT: 0 });
-      setGoal(g, { targets: [], need: 1, win: 'Four Tomahawks into the pens, and we are clear of the coast. The Northern Fleet\'s boats are buried in their own shelters.', timeout: 'Time ran out before the strike was done and we were clear.' });
+      setGoal(g, { targets: [], need: 1, win: 'Both pens hit hard, and we are clear of the coast. The Northern Fleet\'s boats are buried in their own shelters.', timeout: 'Time ran out before the strike was done and we were clear.' });
       g.script = (gg) => {
         pointDefence(gg, dds, 0.5);
         for (const v of dds) if (v.alive && v.ai!.mode === 'patrol' && dist(v, hunt) > 10) { v.ordHdg = brg(v, hunt); v.ordSpd = 14; }
-        if (newLaunches(gg, 'tlam').length && !gg.flags.fired) {
+        if (newLaunches(gg, 'land').length && !gg.flags.fired) {
           gg.flags.fired = 1; gg.flags.lx = gg.own.x * 1000; gg.flags.ly = gg.own.y * 1000;
           log(gg, 'warn', 'Radio intercepts: the coast has seen our launch. The Udaloys are turning toward the launch point and an Il-38 is scrambling.');
           for (const v of dds) cue(gg, v, 2.5);
@@ -739,7 +740,7 @@ export const extras: Record<MissionKey, ObjectiveFn> = {
       watch('Keep the missile hits on Keflavik under four', flag(g, 'baseHits') >= 4, `${flag(g, 'baseHits')} hits so far. Backfires are expected about 35 and 95 minutes in.`),
     ];
   },
-  A21: (g, b) => [sitesObj(g, 1, 'Hit all four radar sites with Tomahawks'), watch('Launch only from inside the box', false, 'A 3 nm circle about 10 nm east of where you started. Missiles from outside it are shot down.'), ...b],
+  A21: (g, b) => [sitesObj(g, 1, 'Hit all four radar sites with Tomahawk or Mjolnir'), watch('Launch only from inside the box', false, 'A 3 nm circle about 10 nm east of where you started. Missiles from outside it are shot down.'), ...b],
   A11: (g, b) => {
     const tr = Math.min(flag(g, 'trail'), 1200);
     const borei = vessel(g, 'borei');
@@ -753,7 +754,7 @@ export const extras: Record<MissionKey, ObjectiveFn> = {
   A12: (g, b) => {
     const lp = { x: flag(g, 'lx') / 1000, y: flag(g, 'ly') / 1000 };
     return [
-      sitesObj(g, 2, 'Land two Tomahawks on each pen'),
+      sitesObj(g, 2, 'Land two hits on each pen (one Mjolnir does it)'),
       { text: 'Then get 20 nm from the launch point', state: g.over?.win ? 'done' : 'open', detail: flag(g, 'fired') ? `${dist(g.own, lp).toFixed(1)} nm from it now.` : 'Not launched yet.' },
       ...b,
     ];
