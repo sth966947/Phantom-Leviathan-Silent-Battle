@@ -3,9 +3,10 @@
 // at any time compression.
 
 import { Application, Container, Graphics, Text } from 'pixi.js';
-import { BAFFLE_HALF, RADAR, WEAPONS, arrayActive, isFriendlyClass, type Contact, type Game } from '../sim/sim';
+import { BAFFLE_HALF, BLACKWING, RADAR, WEAPONS, arrayActive, isFriendlyClass, type Contact, type Game } from '../sim/sim';
 import { CLASSES } from '../sim/classes';
 import { angDiff, dist, fmtBrg, offset, type Vec } from '../sim/math';
+import { visibility } from '../sim/hazards';
 
 const COL = {
   rule: 0x1f3b54, dim: 0x6f8ea6, own: 0x7cc8ff, contact: 0xf3b04b, threat: 0xff5d4f, ink: 0xc9dbe8, friend: 0x6fd3a8,
@@ -235,6 +236,17 @@ export class Plot {
       d.rect(q.x - 3.5, q.y - 3.5, 7, 7).stroke({ width: 1.2, color: COL.own, alpha: 0.9 });
       if (loud) d.circle(q.x, q.y, 9 + 4 * pulse).stroke({ width: 1, color: COL.own, alpha: 0.5 * (1 - pulse) + 0.2 });
       this.label(`drone ${dr.n} · ${dr.mode}`, q.x + 8, q.y - 8, COL.own);
+    }
+
+    // Blackwings: a small aircraft mark, the circle its camera covers, and whether the link is up.
+    for (const u of g.uavs) {
+      const q = scr(u), aloft = g.t >= u.airAt;
+      const link = g.own.depthT < 0.3 && dist(g.own, u) <= BLACKWING.link;
+      const h = ray(u.hdg, 7), hx = h.x - cx, hy = h.y - cy, s = ray(u.hdg + 90, 6), sx = s.x - cx, sy = s.y - cy;
+      d.moveTo(q.x + hx, q.y + hy).lineTo(q.x - hx + sx, q.y - hy + sy).lineTo(q.x - hx * 0.4, q.y - hy * 0.4).lineTo(q.x - hx - sx, q.y - hy - sy).closePath()
+        .stroke({ width: 1.2, color: COL.own, alpha: aloft ? 0.95 : 0.4 });
+      if (aloft) d.circle(q.x, q.y, (g.night ? BLACKWING.viewNight : BLACKWING.view) * visibility(g.env) * k).stroke({ width: 1, color: COL.own, alpha: link ? 0.25 : 0.1 });
+      this.label(`Blackwing ${u.n} · ${!aloft ? 'rising' : link ? `${Math.ceil(u.life / 60)} min` : 'no link'}`, q.x + 9, q.y - 9, COL.own);
     }
 
     // Weapons. Own weapons are tracked; enemy torpedoes show as bearings.

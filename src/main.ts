@@ -168,6 +168,8 @@ on('fireSm6', () => orders.fire(g, 'sm6'));
 on('fireMk96', () => orders.fire(g, 'mk96'));
 on('fireMjolnir', () => orders.fire(g, 'mjolnir'));
 on('launchDrone', () => orders.launchDrone(g));
+on('blackwing', () => orders.blackwing(g));
+on('blackwingTo', () => orders.blackwingTo(g));
 on('dronePassive', () => orders.droneMode(g, 'passive'));
 on('droneActive', () => orders.droneMode(g, 'active'));
 on('droneDecoy', () => orders.droneMode(g, 'decoy'));
@@ -258,7 +260,7 @@ document.addEventListener('keydown', (ev) => {
   };
   // Shift picks the experimental weapons, and cycles the newest drone's mode.
   const shifted: Record<string, () => void> = {
-    a: toggleAttack,
+    a: toggleAttack, b: () => orders.blackwing(g),
     f: () => orders.fire(g, 'mk96'), t: () => orders.fire(g, 'mjolnir'),
     y: () => orders.strike(g, Number(($('mjSite') as HTMLSelectElement).value), 'mjolnir'),
     o: () => { const d = g.drones[g.drones.length - 1]; if (d) orders.droneMode(g, d.mode === 'passive' ? 'active' : d.mode === 'active' ? 'decoy' : 'passive'); },
@@ -269,7 +271,7 @@ document.addEventListener('keydown', (ev) => {
   if (!act) return;
   ev.preventDefault();
   // Firing from the keyboard brings up the tab that weapon lives on.
-  if ((ev.shiftKey && shifted[k] && k !== 'a') || k === 'o') weaponTab(true);
+  if ((ev.shiftKey && shifted[k] && k !== 'a' && k !== 'b') || k === 'o') weaponTab(true);
   else if ('fhtgjm'.includes(k)) weaponTab(false);
   act();
 });

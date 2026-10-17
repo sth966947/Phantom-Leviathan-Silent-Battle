@@ -94,6 +94,8 @@ export function updatePanel(g: Game) {
   setText('wTubesX', $('wTubes').textContent!);
   setText('wVlsX', $('wVls').textContent!);
   setText('wDecoys', String(o.decoys));
+  const up = g.uavs.filter((u) => g.t >= u.airAt);
+  setText('wBlackwing', `${o.blackwings} aboard${g.uavs.length ? ` · ${up.length ? `${up.length} flying` : 'rising'}${up.length ? `, ${Math.ceil(Math.min(...up.map((u) => u.life)) / 60)} min left` : ''}${up.length && !atPeriscopeDepth(g) ? ', no link below PD' : ''}` : ''}`);
   const dr = g.drones[g.drones.length - 1];
   setText('wDrones', `${o.drones} aboard${g.drones.length ? ` · ${g.drones.length} out` : ''}`);
   setText('wJatm', o.jatm ? `${o.jatm} of ${JATM_PER_CANISTER} left` : `fresh, ${JATM_PER_CANISTER} rounds`);
@@ -118,6 +120,8 @@ export function updatePanel(g: Game) {
   dis('fireTlam', !ready(o.vls) || !depthOk || !g.sites.length);
   const mjSite = g.sites.find((x) => x.id === Number(($('mjSite') as HTMLSelectElement).value));
   dis('fireMjLand', !ready(o.vls) || !depthOk || !mjSite || dist(o, mjSite) < WEAPONS.mjolnir.minRun! || dist(o, mjSite) > WEAPONS.mjolnir.maxRun);
+  dis('blackwing', !o.blackwings);
+  dis('blackwingTo', !g.uavs.length || !sel || sel.air);
   dis('layMine', !ready(o.tubes) || !g.flags.minesAboard || o.spd > 12);
   dis('radar', !o.radar && !atPeriscopeDepth(g));
   dis('scopeBtn', !inPeriscope(g, sel));

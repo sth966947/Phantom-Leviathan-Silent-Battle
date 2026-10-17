@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { create, excess, inPeriscope, makeAI, orders, planWave, tick, vesselSL, JATM_PER_CANISTER, MJOLNIR_LAND_HITS, WEAPONS, type Game, type Vessel } from './sim';
+import { create, excess, inPeriscope, makeAI, radarTracked, orders, planWave, tick, vesselSL, JATM_PER_CANISTER, MJOLNIR_LAND_HITS, WEAPONS, type Game, type Vessel } from './sim';
 import { angDiff, offset } from './math';
 import { CLASSES, LIBRARY } from './classes';
 import { matchClasses, signatureView } from './signature';
@@ -579,5 +579,48 @@ describe('attack waves', () => {
     expect(planWave(g, 'mst', [{ target: near, n: 1 }, { target: far, n: 1 }])).toMatchObject({ ok: true });
     orders.wave(g, 'mjolnir', [{ target: near, n: 1 }, { target: far, n: 1 }]);
     expect(g.weapons.filter((w) => w.side === 'us')).toHaveLength(0);
+  });
+});
+
+describe('Blackwing', () => {
+  it('flies out from the signal ejector at depth and fixes and identifies ships once our mast is up', () => {
+    const g = create('bismarck', 5);
+    g.own.depthT = g.own.ordDepth = 2; // deep: the canister doesn't care
+    g.selected = null;
+    const v = g.vessels.find((x) => x.name.includes('Bismarck'))!;
+    const at = offset(g.own, g.own.hdg, 18);
+    v.x = at.x; v.y = at.y; v.ai = null; v.spd = v.ordSpd = 0;
+    g.vessels.filter((x) => x !== v && x !== g.own).forEach((x) => { x.alive = false; x.gone = true; });
+    orders.blackwing(g);
+    expect(g.own.blackwings).toBe(3);
+    for (let i = 0; i < 900; i++) tick(g, 1);
+    // Overhead, but no link while we are deep.
+    expect(g.uavs[0].life).toBeLessThan(3600 - 899);
+    expect(g.contacts.find((c) => c.vid === v.id)?.classified ?? null).toBe(null);
+    g.own.depthT = g.own.ordDepth = 0;
+    for (let i = 0; i < 5; i++) tick(g, 1);
+    const c = g.contacts.find((x) => x.vid === v.id)!;
+    expect(c.classified).toBe(v.cls.key);
+    expect(Math.hypot(c.est!.x - v.x, c.est!.y - v.y)).toBeLessThan(0.01);
+    expect(c.motion).toEqual({ crs: v.hdg, spd: v.spd });
+  });
+  it('tracks and identifies aircraft it sees, firmly enough for JATM and SM-6', () => {
+    const g = create('bismarck', 5);
+    g.own.depthT = g.own.ordDepth = 0;
+    const air = g.vessels.find((x) => x.cls.kind === 'air')!;
+    orders.blackwing(g);
+    for (let i = 0; i < 120; i++) tick(g, 1);
+    const u = g.uavs[0];
+    air.x = u.x + 3; air.y = u.y;
+    tick(g, 1);
+    const c = g.contacts.find((x) => x.vid === air.id)!;
+    expect(c.classified).toBe(air.cls.key);
+    expect(radarTracked(g, c)).toBe(true);
+  });
+  it('runs out of battery after an hour', () => {
+    const g = create('bismarck', 5);
+    orders.blackwing(g);
+    for (let i = 0; i < 3601; i++) tick(g, 1);
+    expect(g.uavs).toHaveLength(0);
   });
 });

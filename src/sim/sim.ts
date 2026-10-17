@@ -62,6 +62,8 @@ export interface OwnBoat extends Vessel {
   jatm: number; radar: boolean;
   /** Sonar drones left aboard. */
   drones: number;
+  /** Blackwing drones left aboard. */
+  blackwings: number;
 }
 
 /**
@@ -76,6 +78,15 @@ export interface Drone extends Vec { id: number; n: number; hdg: number; run: nu
 export interface Buoy extends Vec { id: number; life: number; deep: boolean; heard: boolean; hits: number; est: Vec | null }
 
 export interface Decoy extends Vec { id: number; side: Side; life: number; deep: boolean }
+
+/**
+ * A Blackwing: a small electric drone fired from the 3-inch signal ejector in a canister that
+ * floats up and launches it. It flies to a contact (following it) or a point and circles there,
+ * and its EO/IR camera gives the boat the exact position, course and speed of every ship and aircraft it can
+ * see, and identifies them. The pictures come down the data link, which needs our mast up:
+ * periscope depth, within BLACKWING.link nm. Enemies can't find it.
+ */
+export interface Uav extends Vec { id: number; n: number; hdg: number; life: number; airAt: number; target: number | null; aim: Vec }
 
 export interface Weapon extends Vec {
   id: number; type: WeaponKey; side: Side; label: string;
@@ -165,14 +176,14 @@ export interface Game {
   /** A replay of a finished mission: the plot shows every ship where it really is. */
   replay?: boolean;
   own: OwnBoat; vessels: Vessel[]; contacts: Contact[]; selected: number | null;
-  weapons: Weapon[]; decoys: Decoy[]; drones: Drone[]; buoys: Buoy[]; splashT: number; heard: Set<number>; sweeps: { t: number }[];
+  weapons: Weapon[]; decoys: Decoy[]; drones: Drone[]; uavs: Uav[]; buoys: Buoy[]; splashT: number; heard: Set<number>; sweeps: { t: number }[];
   events: GameEvent[]; waterfall: WaterfallRow | null; wfTimer: number;
   pings: (Partial<Vec> & { t: number })[]; blasts: (Vec & { t: number; missile: boolean })[];
   /** Depth charges sinking toward their set depth, and when they go off. */
   charges: (Vec & { t: number })[];
   /** Attack waves under way. */
   waves: Wave[];
-  stats: { fired: Record<WeaponKey, number>; enemyFired: number; pings: number; hits: number; blueOnBlue: number; drones?: number };
+  stats: { fired: Record<WeaponKey, number>; enemyFired: number; pings: number; hits: number; blueOnBlue: number; drones?: number; blackwings?: number };
 }
 
 // ---- Weapons ------------------------------------------------------------------------
@@ -222,6 +233,8 @@ export const MJOLNIR_LAND_HITS = 3, MJOLNIR_LAND_P = 0.95;
 /** Extra damage when an NSM finds the magazine: the ship's own ammunition goes up. */
 const NSM_MAGAZINE = 3;
 export const DRONES_ABOARD = 6;
+/** Blackwing: aboard, knots, seconds aloft, seconds for the canister to surface, camera range by day and night, data-link range (nm). */
+export const BLACKWING = { aboard: 4, spd: 55, life: 3600, rise: 30, view: 10, viewNight: 7, link: 40 };
 /** Drone battery, seconds of passive listening; active and decoy run it down three times as fast. */
 const DRONE_BATTERY = 5400, DRONE_RUN = 4, DRONE_SPD = 8, DRONE_DECOY_SL = 122;
 const AA_CONE = 45;
@@ -311,7 +324,7 @@ export function create(scenario: ScenarioKey = 'bismarck', seed?: number, carry:
     goal: { targets: [], need: 1, protect: [], maxLosses: Infinity, surviveWin: false, win: '', timeout: '', lossText: '' },
     sunk: [], flags: {}, script: null, sites: [], strikes: [], hits: [], mines: [], env: calmSea(),
     t: 0, r, seq: 1, over: null, vessels: [], contacts: [], selected: null,
-    weapons: [], decoys: [], drones: [], buoys: [], charges: [], waves: [], splashT: -1e9, heard: new Set(), sweeps: [], events: [], waterfall: null, wfTimer: 0, pings: [], blasts: [],
+    weapons: [], decoys: [], drones: [], uavs: [], buoys: [], charges: [], waves: [], splashT: -1e9, heard: new Set(), sweeps: [], events: [], waterfall: null, wfTimer: 0, pings: [], blasts: [],
     stats: {
       fired: Object.fromEntries(Object.keys(WEAPONS).map((k) => [k, 0])) as Record<WeaponKey, number>,
       enemyFired: 0, pings: 0, hits: 0, blueOnBlue: 0,
@@ -319,7 +332,7 @@ export function create(scenario: ScenarioKey = 'bismarck', seed?: number, carry:
   } as unknown as Game;
 
   const ownV = makeVessel(g, 'virginia', 'USS Tang (SSN-805)', 'us', { x: 0, y: 0 }, 0, 5, 1);
-  g.own = Object.assign(ownV, { tubes: [0, 0, 0, 0], vls: Array(12).fill(0), decoys: 4, arrayStableAt: 0, arraySide: 'with' as ArraySide, jatm: 0, radar: false, drones: DRONES_ABOARD });
+  g.own = Object.assign(ownV, { tubes: [0, 0, 0, 0], vls: Array(12).fill(0), decoys: 4, arrayStableAt: 0, arraySide: 'with' as ArraySide, jatm: 0, radar: false, drones: DRONES_ABOARD, blackwings: BLACKWING.aboard });
   g.vessels.push(g.own);
   m.build(g, r, carry);
   return g;
@@ -722,6 +735,25 @@ export const orders = {
     g.drones.push({ id: g.seq++, n, x: o.x, y: o.y, hdg, run: 0, mode: 'passive', battery: DRONE_BATTERY, deep: o.depthT > LAYER_AT, pingT: 0 });
     log(g, 'good', `Tube ${tube + 1}: sonar drone ${n} away, bearing ${fmtBrg(hdg)}. It will run ${DRONE_RUN} nm and hover, listening. ${o.drones} left aboard.`, 'launch');
   },
+  /** Fire a Blackwing from the signal ejector at the selected contact, or along its bearing, or dead ahead. Any depth. */
+  blackwing(g: Game) {
+    const o = g.own;
+    if (g.over) return;
+    if (o.blackwings <= 0) return log(g, 'warn', 'No Blackwings left aboard.');
+    if (underIce(g)) return log(g, 'warn', 'Blackwing: ice overhead. The canister can\'t reach open air.');
+    o.blackwings--;
+    const n = g.stats.blackwings = (g.stats.blackwings ?? 0) + 1;
+    const u: Uav = { id: g.seq++, n, x: o.x, y: o.y, hdg: o.hdg, life: BLACKWING.life, airAt: g.t + BLACKWING.rise, target: null, aim: offset(o, o.hdg, 20) };
+    uavTask(g, u);
+    g.uavs.push(u);
+    log(g, 'good', `Signal ejector: Blackwing ${n} away. The canister is rising; it will be flying in ${BLACKWING.rise} seconds. ${o.blackwings} left aboard.`);
+  },
+  /** Send the newest Blackwing to the selected contact. */
+  blackwingTo(g: Game) {
+    const u = g.uavs[g.uavs.length - 1];
+    if (g.over || !u) return;
+    uavTask(g, u);
+  },
   /** Switch the newest drone between passive listening, active pinging and decoy. */
   droneMode(g: Game, mode: DroneMode) {
     const d = g.drones[g.drones.length - 1];
@@ -794,6 +826,53 @@ function updateDrones(g: Game, dt: number) {
   }
   for (const d of g.drones) if (d.battery <= 0) log(g, 'warn', `Drone ${d.n}: battery flat. It has scuttled itself.`);
   g.drones = g.drones.filter((d) => d.battery > 0);
+}
+
+/** Point a Blackwing at the selected surface contact: at its position if we have one, else 25 nm down its bearing. */
+function uavTask(g: Game, u: Uav) {
+  const c = contactById(g, g.selected);
+  if (c && !c.air && c.bearing !== null) {
+    u.target = c.est ? c.id : null;
+    u.aim = c.est ? { x: c.est.x, y: c.est.y } : offset(g.own, c.bearing, 25);
+    log(g, 'info', `Blackwing ${u.n}: tasked ${c.est ? `to ${contactLabel(c)}` : `down bearing ${fmtBrg(c.bearing)}, 25 nm`}.`);
+  } else if (u.target === null) log(g, 'info', `Blackwing ${u.n}: no contact selected, flying ahead 20 nm.`);
+}
+
+function updateUavs(g: Game, dt: number) {
+  const o = g.own;
+  const link = (u: Uav) => o.depthT < PD_MAX && dist(o, u) <= BLACKWING.link;
+  for (const u of g.uavs) {
+    u.life -= dt;
+    if (g.t < u.airAt) continue;
+    if (g.t - dt < u.airAt) log(g, 'good', `Blackwing ${u.n} is flying.`);
+    // Follow the contact while we hold it; it circles once there.
+    const c = contactById(g, u.target);
+    if (c?.est && c.held) u.aim = { x: c.est.x, y: c.est.y };
+    const want = dist(u, u.aim) > 1 ? brg(u, u.aim) : norm(u.hdg + 20);
+    u.hdg = norm(u.hdg + clamp(angDiff(want, u.hdg), -10 * dt, 10 * dt));
+    u.x += Math.sin(u.hdg * D2R) * BLACKWING.spd * KT * dt;
+    u.y += Math.cos(u.hdg * D2R) * BLACKWING.spd * KT * dt;
+    if (!link(u)) continue;
+    // Every ship and aircraft in sight: exact fix, course and speed, and a visual identification.
+    // Aircraft it tracks count as a firm track for JATM and SM-6.
+    const view = (g.night ? BLACKWING.viewNight : BLACKWING.view) * visibility(g.env);
+    for (const v of g.vessels) {
+      if (v === o || !v.alive || v.gone || v.cls.kind === 'sub' || dist(u, v) > view) continue;
+      const k = contactFor(g, v, 'Victor');
+      if (!k.held) {
+        k.held = true;
+        log(g, 'contact', `Blackwing ${u.n}: ${k.ever ? 'eyes on' : 'new contact'} ${contactLabel(k)}${v.cls.kind === 'air' ? ', aircraft' : ''}, bearing ${fmtBrg(brg(o, v))}, range ${fmtRng(dist(o, v))}.`, k.ever ? undefined : 'contact');
+        k.ever = true;
+      }
+      k.lastSeen = g.t; k.bearing = brg(o, v); k.q = 0.99; k.bias = 0;
+      k.est = { x: v.x, y: v.y, t: g.t }; k.estErr = 0.05;
+      k.motion = { crs: v.hdg, spd: v.spd };
+      if (v.cls.kind === 'air') k.radarT = g.t;
+      if (k.classified !== v.cls.key) classifyBy(g, k, v, `Blackwing ${u.n}`);
+    }
+  }
+  for (const u of g.uavs) if (u.life <= 0) log(g, 'warn', `Blackwing ${u.n}: battery flat. It has ditched.`);
+  g.uavs = g.uavs.filter((u) => u.life > 0);
 }
 
 /** Contacts are named for the sensor that found them: Sierra (sonar), Victor (eyes), Romeo (radar), Echo (ESM). */
@@ -1823,6 +1902,7 @@ export function tick(g: Game, dt = 1) {
   if (g.drones.length) updateDrones(g, dt);
   ownSensors(g, dt);
   radarAndAir(g);
+  if (g.uavs.length) updateUavs(g, dt);
   updateBuoys(g, dt);
   g.wfTimer -= dt;
   if (g.wfTimer <= 0) { g.wfTimer = 3; g.waterfall = waterfallRow(g); updateSignatures(g); }
