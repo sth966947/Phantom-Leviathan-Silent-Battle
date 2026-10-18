@@ -68,7 +68,7 @@
           <div><div id="attackPlan" class="attack-plan"></div><div id="attackTubes" class="depth-read"></div></div>
           <button class="fire" id="attackFire" title="Fire every salvo now. Each weapon's salvo hits on the same second.">Fire salvoes</button>
         </div>
-        <p class="note">Each weapon is its own salvo: every Tomahawk hits on the same second, every NSM on the same second, and so on. Everything fires at once. NSM and the Tomahawks loiter near the boat as far as their fuel allows, Mjolnir and ASROC fly a higher, longer arc, and torpedoes run slow. If a target runs and some torpedoes fall behind, the rest of that salvo slows down to match.</p>
+        <p class="note">Each weapon is its own salvo: every Tomahawk hits on the same second, every NSM on the same second, and so on. Everything fires at once. NSM and the Tomahawks loiter near the boat as far as their fuel allows, Mjolnir and ASROC fly a higher, longer arc, and torpedoes run slow. If a target runs and some torpedoes fall behind, the rest of that salvo slows down to match. JATM and SM-6 at aircraft all fire at once, fire and forget. Step the weapon and number with the arrows, the arrow keys or the mouse wheel.</p>
       </div>
     </div>
     <div class="solution" id="solution" hidden>
@@ -113,7 +113,7 @@
         <button id="zoomIn" title="Zoom in">+</button>
         <button id="zoomOut" title="Zoom out">−</button>
       </div>
-      <div class="plot-hint">Click a contact to select · click water to steer · scroll to zoom</div>
+      <div class="plot-hint" id="plotHint">Click a contact to select · click water to steer · scroll to zoom</div>
       <div class="scope" id="scope" hidden>
         <div class="scope-head"><span id="scopeTitle">Periscope</span><button id="scopeClose">Lower <kbd>V</kbd></button></div>
         <canvas id="scopeView" width="440" height="440" aria-label="Periscope view of the selected contact"></canvas>
@@ -214,8 +214,9 @@
         <button id="decoy">Countermeasure <kbd>C</kbd></button>
       </div>
       <div class="row">
-        <button id="blackwing" title="Fire a Blackwing reconnaissance drone from the 3-inch signal ejector, at any depth. Its canister floats up and it flies to the selected contact (or down its bearing, or ahead) and circles, following it. Its camera fixes, tracks and identifies every ship and aircraft it can see, 10 nm by day and 7 by night, for an hour; aircraft it tracks can be engaged with JATM or SM-6. The pictures need our mast up: periscope depth, within 40 nm of it. Enemies can't find it.">Blackwing <kbd>⇧B</kbd></button>
-        <button id="blackwingTo" title="Send the newest Blackwing to the selected contact.">Send Blackwing to target</button>
+        <button id="blackwing" title="Fire a Blackwing reconnaissance drone from the 3-inch signal ejector, at any depth. Its canister floats up and it flies to the selected contact (or down its bearing, or ahead) and circles, following it. Its camera fixes, tracks and identifies every ship and aircraft it can see, 10 nm by day and 7 by night, for an hour; aircraft it tracks can be engaged with JATM or SM-6. The pictures come down the data link: within 50 nm at periscope depth, or 30 nm at 150 feet or shallower. Enemies can't find it.">Blackwing <kbd>⇧B</kbd></button>
+        <button id="blackwingCtl" title="Steer a Blackwing. While you steer it, clicks on the plot go to the drone: click water to send it there, or a ship to follow it. Keys still drive the boat. Press again for the next Blackwing; Esc goes back to steering the boat. You can also click a Blackwing on the plot.">Steer Blackwing <kbd>⇧D</kbd></button>
+        <button id="blackwingTo" title="Send the Blackwing you are steering (or the newest) to the selected contact.">Blackwing to target</button>
       </div>
       <div class="row straddle">
         <button id="arrayUp" title="Go below the layer to 550 feet and work the towed array up above it, to hear surface ships and shallow submarines while staying hidden under the layer.">Sub below · array above <kbd>U</kbd></button>

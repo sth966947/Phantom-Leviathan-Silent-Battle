@@ -83,8 +83,9 @@ export interface Decoy extends Vec { id: number; side: Side; life: number; deep:
  * A Blackwing: a small electric drone fired from the 3-inch signal ejector in a canister that
  * floats up and launches it. It flies to a contact (following it) or a point and circles there,
  * and its EO/IR camera gives the boat the exact position, course and speed of every ship and aircraft it can
- * see, and identifies them. The pictures come down the data link, which needs our mast up:
- * periscope depth, within BLACKWING.link nm. Enemies can't find it.
+ * see, and identifies them. The pictures come down the data link: within BLACKWING.linkPD nm with
+ * the mast up at periscope depth, or BLACKWING.link nm on the buoyant antenna at 150 ft or shallower.
+ * Enemies can't find it.
  */
 export interface Uav extends Vec { id: number; n: number; hdg: number; life: number; airAt: number; target: number | null; aim: Vec }
 
@@ -233,8 +234,9 @@ export const MJOLNIR_LAND_HITS = 3, MJOLNIR_LAND_P = 0.95;
 /** Extra damage when an NSM finds the magazine: the ship's own ammunition goes up. */
 const NSM_MAGAZINE = 3;
 export const DRONES_ABOARD = 6;
-/** Blackwing: aboard, knots, seconds aloft, seconds for the canister to surface, camera range by day and night, data-link range (nm). */
-export const BLACKWING = { aboard: 4, spd: 55, life: 3600, rise: 30, view: 10, viewNight: 7, link: 40 };
+/** Blackwing: aboard, knots, seconds aloft, seconds for the canister to surface, camera range by day and night,
+ *  data-link range (nm) at 150 ft or shallower and at periscope depth. */
+export const BLACKWING = { aboard: 4, spd: 55, life: 3600, rise: 30, view: 10, viewNight: 7, link: 30, linkPD: 50 };
 /** Drone battery, seconds of passive listening; active and decoy run it down three times as fast. */
 const DRONE_BATTERY = 5400, DRONE_RUN = 4, DRONE_SPD = 8, DRONE_DECOY_SL = 122;
 const AA_CONE = 45;
@@ -462,8 +464,9 @@ function strikeSite(g: Game, siteId: number, type: 'tlam' | 'mjolnir', opt: Laun
 // flight to arrive on it: NSM and both Tomahawks fly a loiter orbit near the boat as far as
 // their fuel allows, then throttle back on the way in; Mjolnir and ASROC fly a higher, longer
 // arc; torpedoes run slow. A target too close for its weapon to stretch that far can't join.
-export type WaveKey = 'mk48' | 'mk96' | 'nsm' | 'mst' | 'asroc' | 'mjolnir' | 'tlam';
-export const WAVE_KEYS: WaveKey[] = ['mk48', 'mk96', 'nsm', 'mst', 'asroc', 'mjolnir', 'tlam'];
+// JATM and SM-6 at aircraft are fire and forget: they all go at once, straight down each bearing.
+export type WaveKey = 'mk48' | 'mk96' | 'nsm' | 'mst' | 'asroc' | 'mjolnir' | 'tlam' | 'jatm' | 'sm6';
+export const WAVE_KEYS: WaveKey[] = ['mk48', 'mk96', 'nsm', 'mst', 'asroc', 'mjolnir', 'tlam', 'jatm', 'sm6'];
 /** One line of the attack plan: `n` (1 to 4) weapons at a contact, or at a site ashore. */
 export interface WaveItem { target: number; site?: boolean; n: number }
 /** How a wave weapon makes its time: straight there, a loiter orbit, a lofted arc, or a slow run. */
@@ -515,6 +518,7 @@ export function planWave(g: Game, type: WaveKey, items: WaveItem[]): WavePlan {
   if (w.missile && underIce(g)) return { ok: false, why: 'Ice overhead: missiles need open water.' };
   if (w.missile && o.depthT > MISSILE_MAX_DEPTH) return { ok: false, why: 'Missiles need 150 ft or shallower.' };
   if (type === 'mst' && g.flags.jammed) return { ok: false, why: 'Satellite links are jammed: no anti-ship Tomahawk.' };
+  if (w.role === 'aa') return planAir(g, type, list);
   const legs: { it: WaveItem; d: number; name: string }[] = [];
   for (const it of list) {
     if (it.n > 4) return { ok: false, why: 'Four weapons a target at most.' };
@@ -526,6 +530,7 @@ export function planWave(g: Game, type: WaveKey, items: WaveItem[]): WavePlan {
     if (it.site) p = at as Site;
     else {
       const c = at as Contact;
+      if (c.air) return { ok: false, why: `${w.short} can't be sent at an aircraft: use JATM or SM-6.` };
       if (!c.est || !vesselById(g, c.vid).alive) return { ok: false, why: `${name}: no solution to aim at.` };
       p = aimPoint(c, type, o);
     }
@@ -546,11 +551,35 @@ export function planWave(g: Game, type: WaveKey, items: WaveItem[]): WavePlan {
   return { ok: true, type, tot, shots };
 }
 
+/** Air salvo: every JATM or SM-6 goes at once down its aircraft's bearing; no time on target. */
+function planAir(g: Game, type: WaveKey, list: WaveItem[]): WavePlan {
+  const o = g.own, w = WEAPONS[type], shots: WaveShot[] = [];
+  for (const it of list) {
+    if (it.n > 4) return { ok: false, why: 'Four weapons a target at most.' };
+    const c = it.site ? undefined : contactById(g, it.target);
+    if (!c) return { ok: false, why: it.site ? `${w.short} can't be sent at a target ashore.` : 'A target in the plan is gone.' };
+    if (!c.air) return { ok: false, why: `${w.short} is for aircraft, not ${contactLabel(c)}.` };
+    if (c.bearing === null) return { ok: false, why: `${contactLabel(c)}: no bearing to fire down.` };
+    const d = c.est ? dist(o, c.est) : w.seeker;
+    if (d > w.maxRun) return { ok: false, why: `${contactLabel(c)} is ${fmtRng(d)} away: ${w.short} reaches ${w.maxRun} nm.` };
+    for (let i = 0; i < it.n; i++) shots.push({ target: it.target, site: false, how: 'direct', flight: Math.round((d / w.spd) * 3600) });
+  }
+  // A JATM canister holds seven: count the rounds left in the open one plus seven a free tube.
+  const free = o.vls.filter((x) => x <= 0).length, rounds = type === 'jatm' ? o.jatm + free * JATM_PER_CANISTER : free;
+  if (shots.length > rounds) return { ok: false, why: type === 'jatm' ? `The plan needs ${shots.length} JATM; ${rounds} are ready.` : `The plan needs ${shots.length} vertical tubes; ${free} are loaded.` };
+  return { ok: true, type, tot: g.t + Math.max(...shots.map((x) => x.flight)), shots };
+}
+
 function fireWave(g: Game, type: WaveKey, items: WaveItem[]) {
   if (g.over) return;
   const plan = planWave(g, type, items);
   if (!plan.ok) return log(g, 'warn', `Attack plan: ${plan.why}`);
   const id = g.seq++, targets = new Set(plan.shots.map((x) => `${x.site}${x.target}`)).size;
+  if (WEAPONS[type].role === 'aa') {
+    log(g, 'good', `Attack plan: ${plan.shots.length} ${WEAPONS[type].short} at ${targets} aircraft, all fired now.`);
+    for (const x of plan.shots) fireWeapon(g, type as FireKey, { contactId: x.target });
+    return;
+  }
   g.waves.push({ id, tot: plan.tot, n: plan.shots.length });
   log(g, 'good', `Attack plan: ${plan.shots.length} ${WEAPONS[type].short} on ${targets} target${targets > 1 ? 's' : ''}, time on target in ${mmss(plan.tot - g.t)}.`);
   for (const x of plan.shots) {
@@ -748,11 +777,23 @@ export const orders = {
     g.uavs.push(u);
     log(g, 'good', `Signal ejector: Blackwing ${n} away. The canister is rising; it will be flying in ${BLACKWING.rise} seconds. ${o.blackwings} left aboard.`);
   },
-  /** Send the newest Blackwing to the selected contact. */
-  blackwingTo(g: Game) {
-    const u = g.uavs[g.uavs.length - 1];
+  /** Send a Blackwing (the newest unless one is named) to the selected contact. */
+  blackwingTo(g: Game, id?: number) {
+    const u = id === undefined ? g.uavs[g.uavs.length - 1] : g.uavs.find((x) => x.id === id);
     if (g.over || !u) return;
     uavTask(g, u);
+  },
+  /** Fly a Blackwing to a point on the map and circle there, or to a ship or submarine to follow it. */
+  blackwingGo(g: Game, id: number, x: number, y: number, contactId: number | null = null) {
+    const u = g.uavs.find((v) => v.id === id);
+    if (g.over || !u) return;
+    const c = contactById(g, contactId);
+    if (c?.est && !c.air) {
+      u.target = c.id; u.aim = { x: c.est.x, y: c.est.y };
+      return log(g, 'info', `Blackwing ${u.n}: following ${contactLabel(c)}.`);
+    }
+    u.target = null; u.aim = { x, y };
+    log(g, 'info', `Blackwing ${u.n}: flying to bearing ${fmtBrg(brg(g.own, u.aim))}, ${fmtRng(dist(g.own, u.aim))} from us, and circling there.`);
   },
   /** Switch the newest drone between passive listening, active pinging and decoy. */
   droneMode(g: Game, mode: DroneMode) {
@@ -838,9 +879,12 @@ function uavTask(g: Game, u: Uav) {
   } else if (u.target === null) log(g, 'info', `Blackwing ${u.n}: no contact selected, flying ahead 20 nm.`);
 }
 
+/** How far the Blackwing data link reaches at our depth: the mast at periscope depth, the buoyant antenna to 150 ft, nothing deeper. */
+export const blackwingLink = (g: Game) => (g.own.depthT < PD_MAX ? BLACKWING.linkPD : g.own.depthT <= 1.01 ? BLACKWING.link : 0);
+
 function updateUavs(g: Game, dt: number) {
   const o = g.own;
-  const link = (u: Uav) => o.depthT < PD_MAX && dist(o, u) <= BLACKWING.link;
+  const link = (u: Uav) => dist(o, u) <= blackwingLink(g);
   for (const u of g.uavs) {
     u.life -= dt;
     if (g.t < u.airAt) continue;
@@ -895,7 +939,7 @@ function updateMotion(g: Game) {
   }
 }
 
-function contactFor(g: Game, v: Vessel, sensor: Sensor = 'Sierra'): Contact {
+export function contactFor(g: Game, v: Vessel, sensor: Sensor = 'Sierra'): Contact {
   let c = g.contacts.find((x) => x.vid === v.id);
   if (!c) {
     const n = g.contacts.filter((x) => x.name.startsWith(sensor)).length + 1;
