@@ -74,9 +74,10 @@ describe('missions', () => {
   it('Match toggles keep following the target until overridden', () => {
     const g = create('duel', 4);
     const kaz = g.vessels.find((v) => v.cls.key === 'yasen')!;
-    for (let i = 0; i < 3000 && !g.contacts.some((c) => c.vid === kaz.id && c.held && c.motion); i++) tick(g, 1);
-    const c = g.contacts.find((x) => x.vid === kaz.id && x.held && x.motion)!;
+    for (let i = 0; i < 3000 && !g.contacts.some((c) => c.vid === kaz.id && c.held); i++) tick(g, 1);
+    const c = g.contacts.find((x) => x.vid === kaz.id && x.held)!;
     expect(c).toBeDefined();
+    c.motion ??= { crs: kaz.hdg, spd: kaz.spd }; // as if the solution had firmed up
     g.selected = c.id;
     orders.match(g, 'speed');
     expect(g.flags.matchSpd).toBe(c.id);

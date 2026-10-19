@@ -148,7 +148,9 @@ export function missileSalvo(g: Game, from: string, missile: string, n: number, 
 export const MJOLNIR_AD = 0.2, MJOLNIR_DIVE_NM = 15, NSM_AD = 0.4;
 /** A Mjolnir high on its arc, past the climb and not yet in the dive, where no air defence can reach it. */
 export const high = (w: Vec & { type: string; aim: Vec; run: number }) => w.type === 'mjolnir' && w.run > MJOLNIR_DIVE_NM && dist(w, w.aim) > MJOLNIR_DIVE_NM;
-export const adP = (w: { type: string }, p: number) => (w.type === 'mjolnir' ? p * MJOLNIR_AD : w.type === 'nsm' ? p * NSM_AD : p);
+/** A missile in a Blackwing's jamming is half as likely to be shot down. */
+export const JAM_AD = 0.5;
+export const adP = (w: { type: string; screened?: boolean }, p: number) => (w.type === 'mjolnir' ? p * MJOLNIR_AD : w.type === 'nsm' ? p * NSM_AD : p) * (w.screened ? JAM_AD : 1);
 /** Modern warships' close-in air defence: each of our anti-ship missiles that gets within 3 nm of one is shot down with chance `p`. */
 export function pointDefence(g: Game, ships: Vessel[], p: number) {
   for (const w of g.weapons) {

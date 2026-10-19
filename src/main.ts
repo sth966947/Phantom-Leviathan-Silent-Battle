@@ -169,25 +169,38 @@ on('fireMk96', () => orders.fire(g, 'mk96'));
 on('fireMjolnir', () => orders.fire(g, 'mjolnir'));
 on('launchDrone', () => orders.launchDrone(g));
 on('blackwing', () => orders.blackwing(g));
-on('blackwingTo', () => orders.blackwingTo(g, plot.uavSel ?? undefined));
-on('blackwingCtl', () => nextUav());
+on('blackwingTo', () => orders.blackwingTo(g, plot.steerId ?? undefined));
+on('blackwingCtl', () => nextSteer('air'));
+on('bwSearch', () => orders.blackwingMode(g, 'search', plot.steerId ?? undefined));
+on('bwJam', () => orders.blackwingMode(g, 'jam', plot.steerId ?? undefined));
+/** Jam toggle for the steered (or newest) Blackwing. */
+function toggleJam() {
+  const u = g.uavs.find((x) => x.id === plot.steerId) ?? g.uavs[g.uavs.length - 1];
+  if (u) orders.blackwingMode(g, u.mode === 'jam' ? 'search' : 'jam', u.id);
+}
 
-// Steering a Blackwing: plot clicks go to the drone instead of the boat until Esc.
-function steerUav(id: number | null) {
-  plot.uavSel = id;
-  const u = g.uavs.find((x) => x.id === id);
+// Steering a drone (a Blackwing or a UUV): plot clicks go to it instead of the boat until Esc.
+function steerTo(id: number | null) {
+  plot.steerId = id;
+  const u = g.uavs.find((x) => x.id === id), d = g.drones.find((x) => x.id === id);
   $('plotHint').textContent = u ? `Steering Blackwing ${u.n} · click water to send it · click a ship to follow it · Esc for the boat`
-    : 'Click a contact to select · click water to steer · scroll to zoom';
-  $('plotHint').classList.toggle('uav', !!u);
+    : d ? `Steering UUV ${d.n} · click water to send it there · click a ship or sub to shadow it · Esc for the boat`
+      : 'Click a contact to select · click water to steer · scroll to zoom';
+  $('plotHint').classList.toggle('uav', !!(u || d));
 }
-/** Steer the next Blackwing in the air, newest first; after the last, back to the boat. */
-function nextUav() {
-  const list = [...g.uavs].reverse(), i = list.findIndex((u) => u.id === plot.uavSel);
-  steerUav(list[i + 1]?.id ?? null);
+/** Steer the next drone, Blackwings then UUVs, newest first; after the last, back to the boat. */
+function nextSteer(kind?: 'air' | 'sea') {
+  const list = [...(kind !== 'sea' ? [...g.uavs].reverse() : []), ...(kind !== 'air' ? [...g.drones].reverse() : [])];
+  const i = list.findIndex((u) => u.id === plot.steerId);
+  steerTo(list[i + 1]?.id ?? null);
 }
-on('dronePassive', () => orders.droneMode(g, 'passive'));
-on('droneActive', () => orders.droneMode(g, 'active'));
-on('droneDecoy', () => orders.droneMode(g, 'decoy'));
+on('uuvCtl', () => nextSteer('sea'));
+on('uuvHome', () => orders.droneHome(g, uuvId()));
+/** The UUV the buttons act on: the one being steered, else the newest. */
+const uuvId = () => (g.drones.some((d) => d.id === plot.steerId) ? plot.steerId! : undefined);
+on('dronePassive', () => orders.droneMode(g, 'passive', uuvId()));
+on('droneActive', () => orders.droneMode(g, 'active', uuvId()));
+on('droneDecoy', () => orders.droneMode(g, 'decoy', uuvId()));
 on('radar', () => orders.radar(g));
 on('fireTlam', () => orders.strike(g, Number(($('tlamSite') as HTMLSelectElement).value)));
 on('fireMjLand', () => orders.strike(g, Number(($('mjSite') as HTMLSelectElement).value), 'mjolnir'));
@@ -224,12 +237,13 @@ $('matches').addEventListener('click', (ev) => {
 const wrap = $('plotWrap');
 wrap.addEventListener('click', (ev) => {
   if (!running || g.over || (ev.target as HTMLElement).closest('button, .scope')) return;
-  const drone = plot.pickUav(ev.clientX, ev.clientY);
-  if (drone !== null) { steerUav(drone === plot.uavSel ? null : drone); return; }
+  const drone = plot.pickSteer(ev.clientX, ev.clientY);
+  if (drone !== null) { steerTo(drone === plot.steerId ? null : drone); return; }
   const picked = plot.pick(ev.clientX, ev.clientY);
-  if (plot.uavSel !== null) {
+  if (plot.steerId !== null) {
     const at = plot.seaAt(ev.clientX, ev.clientY);
-    orders.blackwingGo(g, plot.uavSel, at.x, at.y, picked);
+    if (g.drones.some((d) => d.id === plot.steerId)) orders.droneGo(g, plot.steerId, at.x, at.y, picked);
+    else orders.blackwingGo(g, plot.steerId, at.x, at.y, picked);
     return;
   }
   if (picked !== null) {
@@ -273,7 +287,7 @@ document.addEventListener('keydown', (ev) => {
     l: () => orders.layer(g),
     f: () => orders.fire(g, 'mk48'), h: () => orders.fire(g, 'nsm'), t: () => orders.fire(g, 'mst'),
     g: () => orders.fire(g, 'asroc'), y: () => orders.strike(g, Number(($('tlamSite') as HTMLSelectElement).value)), j: () => orders.fire(g, 'jatm'), m: () => orders.fire(g, 'sm6'),
-    r: () => orders.radar(g), v: togglePeriscope, b: () => { depthView.close(); attack.close(); solution.toggle(); }, x: () => { solution.close(); attack.close(); depthView.toggle(); }, escape: () => { if (plot.uavSel !== null) steerUav(null); else if (replay && liveGame && !periscope.open && !depthView.open && !solution.open && !attack.open) exitReplay(); else if (periscope.open) periscope.close(); else if (attack.open) attack.close(); else if (depthView.open) depthView.close(); else solution.close(); },
+    r: () => orders.radar(g), v: togglePeriscope, b: () => { depthView.close(); attack.close(); solution.toggle(); }, x: () => { solution.close(); attack.close(); depthView.toggle(); }, escape: () => { if (plot.steerId !== null) steerTo(null); else if (replay && liveGame && !periscope.open && !depthView.open && !solution.open && !attack.open) exitReplay(); else if (periscope.open) periscope.close(); else if (attack.open) attack.close(); else if (depthView.open) depthView.close(); else solution.close(); },
     p: () => orders.ping(g), c: () => orders.decoy(g), z: () => orders.match(g, 'speed'), i: () => orders.layMine(g), o: () => orders.launchDrone(g),
     tab: () => orders.cycleContact(g), k: acceptTop,
     ' ': togglePause,
@@ -282,10 +296,11 @@ document.addEventListener('keydown', (ev) => {
   };
   // Shift picks the experimental weapons, and cycles the newest drone's mode.
   const shifted: Record<string, () => void> = {
-    a: toggleAttack, b: () => orders.blackwing(g), d: nextUav,
+    a: toggleAttack, b: () => orders.blackwing(g), d: () => nextSteer('air'), j: toggleJam,
     f: () => orders.fire(g, 'mk96'), t: () => orders.fire(g, 'mjolnir'),
     y: () => orders.strike(g, Number(($('mjSite') as HTMLSelectElement).value), 'mjolnir'),
-    o: () => { const d = g.drones[g.drones.length - 1]; if (d) orders.droneMode(g, d.mode === 'passive' ? 'active' : d.mode === 'active' ? 'decoy' : 'passive'); },
+    o: () => { const d = g.drones.find((x) => x.id === uuvId()) ?? g.drones[g.drones.length - 1]; if (d) orders.droneMode(g, d.mode === 'passive' ? 'active' : d.mode === 'active' ? 'decoy' : 'passive', d.id); },
+    u: () => nextSteer('sea'), r: () => orders.droneHome(g, uuvId()),
   };
   const k = ev.key.toLowerCase();
   if (k === '`') { ev.preventDefault(); weaponTab($('paneExp').hidden); return; }
@@ -293,8 +308,8 @@ document.addEventListener('keydown', (ev) => {
   if (!act) return;
   ev.preventDefault();
   // Firing from the keyboard brings up the tab that weapon lives on.
-  if ((ev.shiftKey && shifted[k] && k !== 'a' && k !== 'b' && k !== 'd') || k === 'o') weaponTab(true);
-  else if ('fhtgjm'.includes(k)) weaponTab(false);
+  if (ev.shiftKey && shifted[k] && 'ftyFTY'.includes(k)) weaponTab(true);
+  else if (!ev.shiftKey && 'fhtgjm'.includes(k)) weaponTab(false);
   act();
 });
 
@@ -335,7 +350,7 @@ function setUp(key: ScenarioKey) {
   solution.close();
   depthView.close();
   attack.close();
-  steerUav(null);
+  steerTo(null);
   strikeCam.close();
   forgetArrivals();
   overShown = false;
@@ -615,10 +630,10 @@ function frame(now: number) {
   signature.draw(g);
   depthView.draw(g);
   attack.draw(g);
-  if (plot.uavSel !== null && !g.uavs.some((u) => u.id === plot.uavSel)) steerUav(null);
+  if (plot.steerId !== null && !g.uavs.some((u) => u.id === plot.steerId) && !g.drones.some((d) => d.id === plot.steerId)) steerTo(null);
   if (now - panelT > 150) {
     panelT = now;
-    updatePanel(g);
+    updatePanel(g, plot.steerId);
     solution.update(g);
     for (const b of $('speeds').children as HTMLCollectionOf<HTMLElement>) b.classList.toggle('on', +b.dataset.v! === g.own.ordSpd);
     for (const b of $('depths').children as HTMLCollectionOf<HTMLElement>) b.classList.toggle('on', +b.dataset.v! === g.own.ordDepth);
@@ -632,7 +647,7 @@ function frame(now: number) {
     updatePauseCard();
   }
   if (g.over && !overShown && !strikeCam.open) {
-    overShown = true; updatePanel(g);
+    overShown = true; updatePanel(g, plot.steerId);
     if (replay) $('replayText').textContent = 'Replay finished';
     else setTimeout(showResult, 2500);
   }
@@ -644,7 +659,7 @@ async function boot() {
   await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]);
   await plot.init(wrap);
   newGame('bismarck');
-  updatePanel(g);
+  updatePanel(g, plot.steerId);
   showMenu();
   requestAnimationFrame(frame);
 }

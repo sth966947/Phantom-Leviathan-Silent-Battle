@@ -1,5 +1,5 @@
 // Ship status, contact list, identification and weapons readouts, plus the log.
-import { ARRAY, depthFeet, JATM_PER_CANISTER, WEAPONS, arrayActive, atPeriscopeDepth, bearingRate, blackwingLink, contactById, contactLabel, isFriendlyClass, missileDepthOk, inPeriscope, radarTracked, targetContact, vesselSL, type Game, type GameEvent } from '../sim/sim';
+import { ARRAY, DRONE_LINK, depthFeet, JATM_PER_CANISTER, WEAPONS, arrayActive, atPeriscopeDepth, bearingRate, blackwingLink, contactById, contactLabel, isFriendlyClass, missileDepthOk, inPeriscope, radarTracked, targetContact, vesselSL, type Game, type GameEvent } from '../sim/sim';
 import { CLASSES } from '../sim/classes';
 import { angDiff, dist, fmtBrg, fmtRng } from '../sim/math';
 
@@ -67,7 +67,7 @@ function identHTML(g: Game) {
   return { prop, matches };
 }
 
-export function updatePanel(g: Game) {
+export function updatePanel(g: Game, steerId: number | null = null) {
   const o = g.own;
   setText('clock', clock(g.startClock + g.t));
   setText('mtime', `+${Math.floor(g.t / 3600)}:${String(Math.floor((g.t % 3600) / 60)).padStart(2, '0')}`);
@@ -95,9 +95,16 @@ export function updatePanel(g: Game) {
   setText('wVlsX', $('wVls').textContent!);
   setText('wDecoys', String(o.decoys));
   const up = g.uavs.filter((u) => g.t >= u.airAt);
-  setText('wBlackwing', `${o.blackwings} aboard${g.uavs.length ? ` · ${up.length ? `${up.length} flying` : 'rising'}${up.length ? `, ${Math.ceil(Math.min(...up.map((u) => u.life)) / 60)} min left` : ''}${up.length && !up.some((u) => dist(o, u) <= blackwingLink(g)) ? (blackwingLink(g) ? ', out of link range' : ', no link below 150 ft') : ''}` : ''}`);
-  const dr = g.drones[g.drones.length - 1];
+  setText('wBlackwing', `${o.blackwings} aboard${g.uavs.length ? ` · ${up.length ? `${up.length} up` : 'rising'}${up.length ? `, ${Math.ceil(Math.min(...up.map((u) => u.life)) / 60)} min` : ''}` : ''}`);
+  // The drone the buttons act on: the one being steered, else the newest.
+  const bw = g.uavs.find((u) => u.id === steerId) ?? g.uavs[g.uavs.length - 1];
+  const reach = blackwingLink(g);
+  setText('bwLink', !reach ? 'none below 150 ft' : `${reach} nm${bw ? ` · #${bw.n} ${dist(o, bw) <= reach ? fmtRng(dist(o, bw)) : 'out of range'}` : ''}`);
+  setText('bwMode', bw ? `#${bw.n} ${bw.mode === 'jam' ? 'jamming radar' : 'radar search'}` : '—');
+  const dr = g.drones.find((d) => d.id === steerId) ?? g.drones[g.drones.length - 1];
   setText('wDrones', `${o.drones} aboard${g.drones.length ? ` · ${g.drones.length} out` : ''}`);
+  const quarry = dr?.target != null ? contactById(g, dr.target) : null;
+  setText('uuvLink', dr ? `#${dr.n} ${dist(o, dr) <= DRONE_LINK ? fmtRng(dist(o, dr)) : 'out of range'} · ${dr.home ? 'coming home' : quarry ? `shadowing ${contactLabel(quarry)}` : dr.mode}` : `${DRONE_LINK} nm`);
   setText('wJatm', o.jatm ? `${o.jatm} of ${JATM_PER_CANISTER} left` : `fresh, ${JATM_PER_CANISTER} rounds`);
   const over = !!g.over, depthOk = missileDepthOk(g);
   const ship = targetContact(g, false), air = targetContact(g, true);
@@ -123,6 +130,12 @@ export function updatePanel(g: Game) {
   dis('blackwing', !o.blackwings);
   dis('blackwingTo', !g.uavs.length || !sel || sel.air);
   dis('blackwingCtl', !g.uavs.length);
+  dis('uuvCtl', !g.drones.length);
+  dis('uuvHome', !dr || !!dr.home);
+  for (const [id, m] of [['bwSearch', 'search'], ['bwJam', 'jam']] as const) {
+    dis(id, !bw);
+    $(id).classList.toggle('on', bw?.mode === m);
+  }
   dis('layMine', !ready(o.tubes) || !g.flags.minesAboard || o.spd > 12);
   dis('radar', !o.radar && !atPeriscopeDepth(g));
   dis('scopeBtn', !inPeriscope(g, sel));
