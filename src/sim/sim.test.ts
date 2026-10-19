@@ -767,10 +767,25 @@ describe('UUV', () => {
     expect(g.mines[g.mines.length - 1].found).toBe(true);
     // Home and aboard.
     const aboard = g.own.drones;
-    g.own.tubes = [0, 0, 0, 0]; g.own.spd = g.own.ordSpd = 3;
+    g.own.spd = g.own.ordSpd = 3;
     orders.droneHome(g, d.id);
-    for (let i = 0; i < 3600 && g.drones.length; i++) tick(g, 1);
+    // No tube is free: recovery still happens and cycles a tube like a shot.
+    for (let i = 0; i < 3600 && g.drones.length; i++) { g.own.tubes = g.own.tubes.map((x) => Math.max(x, 50)); tick(g, 1); }
     expect(g.drones).toHaveLength(0);
     expect(g.own.drones).toBe(aboard + 1);
+    expect(Math.max(...g.own.tubes)).toBeGreaterThan(110);
+  });
+});
+
+describe('UUV launch', () => {
+  it('waits for a tube to clear when every tube is reloading', () => {
+    const g = create('duel', 4);
+    g.own.tubes = [30, 60, 90, 120];
+    orders.launchDrone(g);
+    expect(g.drones).toHaveLength(0);
+    expect(g.own.droneQueue).toBe(1);
+    for (let i = 0; i < 31; i++) tick(g, 1);
+    expect(g.drones).toHaveLength(1);
+    expect(g.own.droneQueue).toBe(0);
   });
 });
