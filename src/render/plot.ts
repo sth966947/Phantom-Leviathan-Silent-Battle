@@ -3,7 +3,7 @@
 // at any time compression.
 
 import { Application, Container, Graphics, Text } from 'pixi.js';
-import { BAFFLE_HALF, BLACKWING, RADAR, WEAPONS, arrayActive, isFriendlyClass, type Contact, type Game } from '../sim/sim';
+import { BAFFLE_HALF, BLACKWING, RADAR, blackwingLink, WEAPONS, arrayActive, isFriendlyClass, type Contact, type Game } from '../sim/sim';
 import { CLASSES } from '../sim/classes';
 import { angDiff, dist, fmtBrg, offset, type Vec } from '../sim/math';
 import { visibility } from '../sim/hazards';
@@ -44,6 +44,11 @@ export class Plot {
   private seenBlasts = 0;
   private effects: { kind: 'ping' | 'blast'; at: number; pos: Vec; missile?: boolean }[] = [];
   private markers: { id: number; x: number; y: number }[] = [];
+  private uavMarks: { id: number; x: number; y: number }[] = [];
+  /** Screen centre, pixels per nm and own ship's position at the last draw, to turn a click back into sea. */
+  private view = { cx: 0, cy: 0, k: 1, ox: 0, oy: 0 };
+  /** The Blackwing the captain is steering, drawn with a ring. */
+  uavSel: number | null = null;
 
   async init(host: HTMLElement) {
     await this.app.init({ resizeTo: host, antialias: true, backgroundAlpha: 0, resolution: window.devicePixelRatio || 1, autoDensity: true });
@@ -81,6 +86,20 @@ export class Plot {
     return best;
   }
 
+  /** Blackwing under the pointer, if any. */
+  pickUav(clientX: number, clientY: number): number | null {
+    const p = this.local(clientX, clientY);
+    let best: number | null = null, bd = 16;
+    for (const m of this.uavMarks) { const d = Math.hypot(m.x - p.x, m.y - p.y); if (d < bd) { bd = d; best = m.id; } }
+    return best;
+  }
+
+  /** The point at sea under the pointer. */
+  seaAt(clientX: number, clientY: number): Vec {
+    const p = this.local(clientX, clientY), v = this.view;
+    return { x: v.ox + (p.x - v.cx) / v.k, y: v.oy - (p.y - v.cy) / v.k };
+  }
+
   /** Bearing from own ship to the pointer, for click-to-steer. */
   bearingAt(clientX: number, clientY: number): number | null {
     const p = this.local(clientX, clientY);
@@ -105,6 +124,8 @@ export class Plot {
     for (const t of this.pool) t.visible = false;
     this.used = 0;
     this.markers = [];
+    this.uavMarks = [];
+    this.view = { cx, cy, k, ox: own.x, oy: own.y };
 
     // Grid: range rings and compass rose.
     const gr = this.grid.clear();
@@ -241,7 +262,12 @@ export class Plot {
     // Blackwings: a small aircraft mark, the circle its camera covers, and whether the link is up.
     for (const u of g.uavs) {
       const q = scr(u), aloft = g.t >= u.airAt;
-      const link = g.own.depthT < 0.3 && dist(g.own, u) <= BLACKWING.link;
+      const link = dist(g.own, u) <= blackwingLink(g);
+      this.uavMarks.push({ id: u.id, x: q.x, y: q.y });
+      if (u.id === this.uavSel) {
+        d.circle(q.x, q.y, 13).stroke({ width: 1.5, color: COL.own, alpha: 0.9 });
+        if (!u.target) { const a = scr(u.aim); dashed(d, q, a, 4, 4); d.stroke({ width: 1, color: COL.own, alpha: 0.5 }); d.circle(a.x, a.y, 4).stroke({ width: 1, color: COL.own, alpha: 0.7 }); }
+      }
       const h = ray(u.hdg, 7), hx = h.x - cx, hy = h.y - cy, s = ray(u.hdg + 90, 6), sx = s.x - cx, sy = s.y - cy;
       d.moveTo(q.x + hx, q.y + hy).lineTo(q.x - hx + sx, q.y - hy + sy).lineTo(q.x - hx * 0.4, q.y - hy * 0.4).lineTo(q.x - hx - sx, q.y - hy - sy).closePath()
         .stroke({ width: 1.2, color: COL.own, alpha: aloft ? 0.95 : 0.4 });

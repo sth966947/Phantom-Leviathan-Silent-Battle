@@ -51,6 +51,19 @@ header { grid-area: head; }
   button { padding: 6px 9px; }
   .row + .row { margin-top: 5px; }
 }
+/* Wide screens: the plot moves left and the contacts get a full-height column of their own,
+   between the plot and the weapons and sensors. */
+@media (min-width: 1600px) and (orientation: landscape) {
+  .app {
+    grid-template-columns: 300px minmax(0, 1fr) 330px 330px; grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas: "head head head head" "helm main contacts weapons" "helm main contacts sensors";
+    max-width: 2400px;
+  }
+  .combat { display: contents; }
+  .combat > .contact { grid-area: contacts; min-height: 0; overflow-y: auto; }
+  .combat > .weapons { grid-area: weapons; }
+  .combat > .sensors { grid-area: sensors; align-self: start; max-height: 100%; overflow-y: auto; }
+}
 header {
   grid-column: 1 / -1; display: flex; align-items: baseline; justify-content: space-between;
   gap: 12px; flex-wrap: wrap;
@@ -78,6 +91,7 @@ canvas { display: block; width: 100%; height: 100%; }
   position: absolute; left: 10px; bottom: 8px; font: 12px var(--f-data); color: var(--dim);
   pointer-events: none; z-index: 1;
 }
+.plot-hint.uav { color: var(--own); background: rgba(13, 33, 51, 0.85); padding: 3px 8px; border: 1px solid var(--own); }
 .depth-btn { position: absolute; left: 8px; top: 8px; z-index: 1; }
 /* Depth view: covers the plot column while open, like the solution window. */
 .depthview {
@@ -89,7 +103,18 @@ canvas { display: block; width: 100%; height: 100%; }
 .depth-read { color: var(--dim); font-weight: 400; }
 /* Attack plan: covers the plot column like the depth view. */
 .attack-body { display: grid; grid-template-rows: minmax(0, 1fr) auto auto; gap: 8px; min-height: 0; }
-.attackview .sol-table select { background: #0a1b2b; color: var(--ink); border: 1px solid var(--rule); font: 12px var(--f-body); padding: 2px 4px; }
+.attackview .spin {
+  display: inline-grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: 1fr 1fr; align-items: center;
+  background: #0a1b2b; border: 1px solid var(--rule); font: 12px var(--f-body); color: var(--ink); cursor: ns-resize; user-select: none;
+}
+.attackview .spin:focus-visible, .attackview .spin:focus-within { outline: none; border-color: var(--contact); }
+.attackview .spin span { grid-row: 1 / 3; padding: 2px 8px; white-space: nowrap; text-align: left; }
+.attackview .spin[data-f="type"] { min-width: 170px; }
+.attackview .spin[data-f="n"] { min-width: 54px; }
+.attackview .spin[data-f="n"] span { text-align: center; }
+.attackview .spin button { padding: 0 6px; font-size: 8px; line-height: 1; height: 100%; border: 0; border-left: 1px solid var(--rule); border-radius: 0; background: #12293f; }
+.attackview .spin button + button { border-top: 1px solid var(--rule); }
+.attackview .spin button:hover { background: #1b3a57; }
 .attackview .sol-table tr.on td { background: rgba(255, 176, 64, 0.08); }
 .attackview .sol-table td.how { color: var(--dim); white-space: normal; }
 .attackview .sol-table td.empty { color: var(--dim); white-space: normal; padding: 12px 6px; }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { create, excess, inPeriscope, makeAI, radarTracked, orders, planWave, tick, vesselSL, JATM_PER_CANISTER, MJOLNIR_LAND_HITS, WEAPONS, type Game, type Vessel } from './sim';
+import { blackwingLink, contactFor, create, excess, inPeriscope, makeAI, radarTracked, orders, planWave, tick, vesselSL, JATM_PER_CANISTER, MJOLNIR_LAND_HITS, WEAPONS, type Game, type Vessel } from './sim';
 import { angDiff, offset } from './math';
 import { CLASSES, LIBRARY } from './classes';
 import { matchClasses, signatureView } from './signature';
@@ -622,5 +622,60 @@ describe('Blackwing', () => {
     orders.blackwing(g);
     for (let i = 0; i < 3601; i++) tick(g, 1);
     expect(g.uavs).toHaveLength(0);
+  });
+  it('links out to 50 nm at periscope depth, 30 nm at 150 ft, and not at all deeper', () => {
+    const g = create('bismarck', 5);
+    g.own.depthT = 0;
+    expect(blackwingLink(g)).toBe(50);
+    g.own.depthT = 1;
+    expect(blackwingLink(g)).toBe(30);
+    g.own.depthT = 1.2;
+    expect(blackwingLink(g)).toBe(0);
+    // At 150 ft a ship 35 nm off, under the drone, is out of reach; at periscope depth it isn't.
+    const v = g.vessels.find((x) => x.name.includes('Bismarck'))!;
+    g.vessels.filter((x) => x !== v && x !== g.own).forEach((x) => { x.alive = false; x.gone = true; });
+    g.own.depthT = g.own.ordDepth = 1;
+    orders.blackwing(g);
+    const u = g.uavs[0], at = offset(g.own, 90, 35);
+    for (let i = 0; i < 31; i++) tick(g, 1);
+    Object.assign(u, at, { aim: at }); Object.assign(v, offset(at, 0, 2), { ai: null, spd: 0, ordSpd: 0 });
+    tick(g, 1);
+    expect(g.contacts.find((c) => c.vid === v.id)?.classified ?? null).toBe(null);
+    g.own.depthT = g.own.ordDepth = 0;
+    tick(g, 1);
+    expect(g.contacts.find((c) => c.vid === v.id)?.classified).toBe(v.cls.key);
+  });
+  it('can be steered to a point on the map, or to a ship to follow', () => {
+    const g = create('bismarck', 5);
+    orders.blackwing(g);
+    const u = g.uavs[0], to = offset(g.own, 200, 12);
+    orders.blackwingGo(g, u.id, to.x, to.y);
+    expect(u.target).toBe(null);
+    for (let i = 0; i < 31 + 900; i++) tick(g, 1);
+    expect(Math.hypot(u.x - to.x, u.y - to.y)).toBeLessThan(2);
+    const v = g.vessels.find((x) => x.name.includes('Bismarck'))!, c = contactFor(g, v);
+    c.est = { x: v.x, y: v.y, t: g.t }; c.held = true;
+    orders.blackwingGo(g, u.id, 0, 0, c.id);
+    expect(u.target).toBe(c.id);
+  });
+});
+
+describe('air salvoes', () => {
+  it('fires JATM at an aircraft all at once, from one canister', () => {
+    const g = create('bismarck', 5);
+    g.own.depthT = g.own.ordDepth = 0;
+    const air = g.vessels.find((x) => x.cls.kind === 'air')!, c = contactFor(g, air);
+    c.held = true; c.bearing = 90; c.est = { ...offset(g.own, 90, 20), t: g.t };
+    const plan = planWave(g, 'jatm', [{ target: c.id, n: 4 }]);
+    expect(plan.ok).toBe(true);
+    orders.wave(g, 'jatm', [{ target: c.id, n: 4 }]);
+    expect(g.weapons.filter((w) => w.type === 'jatm')).toHaveLength(4);
+    expect(g.own.jatm).toBe(3);
+    expect(g.own.vls.filter((x) => x > 0)).toHaveLength(1);
+    // Wrong weapons for the target are refused.
+    expect(planWave(g, 'nsm', [{ target: c.id, n: 1 }]).ok).toBe(false);
+    const ship = contactFor(g, g.vessels.find((x) => x.name.includes('Bismarck'))!);
+    ship.held = true; ship.bearing = 0; ship.est = { ...offset(g.own, 0, 10), t: g.t };
+    expect(planWave(g, 'sm6', [{ target: ship.id, n: 1 }]).ok).toBe(false);
   });
 });
