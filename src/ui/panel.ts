@@ -102,7 +102,7 @@ export function updatePanel(g: Game, steerId: number | null = null) {
   setText('bwLink', !reach ? 'none below 150 ft' : `${reach} nm${bw ? ` · #${bw.n} ${dist(o, bw) <= reach ? fmtRng(dist(o, bw)) : 'out of range'}` : ''}`);
   setText('bwMode', bw ? `#${bw.n} ${bw.mode === 'jam' ? 'jamming radar' : 'radar search'}` : '—');
   const dr = g.drones.find((d) => d.id === steerId) ?? g.drones[g.drones.length - 1];
-  setText('wDrones', `${o.drones} aboard${g.drones.length ? ` · ${g.drones.length} out` : ''}`);
+  setText('wDrones', `${o.drones} aboard${g.drones.length ? ` · ${g.drones.length} out` : ''}${o.droneQueue ? ` · ${o.droneQueue} queued` : ''}`);
   const quarry = dr?.target != null ? contactById(g, dr.target) : null;
   setText('uuvLink', dr ? `#${dr.n} ${dist(o, dr) <= DRONE_LINK ? fmtRng(dist(o, dr)) : 'out of range'} · ${dr.home ? 'coming home' : quarry ? `shadowing ${contactLabel(quarry)}` : dr.mode}` : `${DRONE_LINK} nm`);
   setText('wJatm', o.jatm ? `${o.jatm} of ${JATM_PER_CANISTER} left` : `fresh, ${JATM_PER_CANISTER} rounds`);
@@ -119,7 +119,7 @@ export function updatePanel(g: Game, steerId: number | null = null) {
   dis('fireMk96', !ready(o.tubes));
   const mjRange = ship?.est ? (() => { const r = dist(o, ship.est!); return r >= WEAPONS.mjolnir.minRun! && r <= WEAPONS.mjolnir.maxRun; })() : false;
   dis('fireMjolnir', !ready(o.vls) || !depthOk || !mjRange);
-  dis('launchDrone', !ready(o.tubes) || !o.drones);
+  dis('launchDrone', o.drones - o.droneQueue <= 0);
   for (const [id, m] of [['dronePassive', 'passive'], ['droneActive', 'active'], ['droneDecoy', 'decoy']] as const) {
     dis(id, !dr);
     $(id).classList.toggle('on', dr?.mode === m);

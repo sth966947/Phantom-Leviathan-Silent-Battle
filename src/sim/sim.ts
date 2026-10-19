@@ -60,8 +60,8 @@ export interface OwnBoat extends Vessel {
   arraySide: ArraySide;
   /** Rounds left in the JATM canister in the current vertical tube (7 per canister). */
   jatm: number; radar: boolean;
-  /** Sonar drones left aboard. */
-  drones: number;
+  /** Sonar drones left aboard, and launches waiting for a tube to finish reloading. */
+  drones: number; droneQueue: number;
   /** Blackwing drones left aboard. */
   blackwings: number;
 }
@@ -361,7 +361,7 @@ export function create(scenario: ScenarioKey = 'bismarck', seed?: number, carry:
   } as unknown as Game;
 
   const ownV = makeVessel(g, 'virginia', 'USS Tang (SSN-805)', 'us', { x: 0, y: 0 }, 0, 5, 1);
-  g.own = Object.assign(ownV, { tubes: [0, 0, 0, 0], vls: Array(12).fill(0), decoys: 4, arrayStableAt: 0, arraySide: 'with' as ArraySide, jatm: 0, radar: false, drones: DRONES_ABOARD, blackwings: BLACKWING.aboard });
+  g.own = Object.assign(ownV, { tubes: [0, 0, 0, 0], vls: Array(12).fill(0), decoys: 4, arrayStableAt: 0, arraySide: 'with' as ArraySide, jatm: 0, radar: false, drones: DRONES_ABOARD, droneQueue: 0, blackwings: BLACKWING.aboard });
   g.vessels.push(g.own);
   m.build(g, r, carry);
   return g;
@@ -780,16 +780,11 @@ export const orders = {
   launchDrone(g: Game) {
     const o = g.own;
     if (g.over) return;
-    if (o.drones <= 0) return log(g, 'warn', 'No sonar drones left aboard.');
+    if (o.drones - o.droneQueue <= 0) return log(g, 'warn', 'No sonar drones left aboard.');
     const tube = o.tubes.findIndex((x) => x <= 0);
-    if (tube < 0) return log(g, 'warn', 'All torpedo tubes reloading.');
-    o.tubes[tube] = TUBE_RELOAD;
-    o.drones--;
-    const c = targetContact(g);
-    const hdg = norm(Math.round(c?.bearing ?? o.hdg));
-    const n = g.stats.drones = (g.stats.drones ?? 0) + 1;
-    g.drones.push({ id: g.seq++, n, x: o.x, y: o.y, hdg, run: 0, mode: 'passive', battery: DRONE_BATTERY, deep: o.depthT > LAYER_AT, pingT: 0, aim: offset(o, hdg, DRONE_RUN) });
-    log(g, 'good', `Tube ${tube + 1}: sonar drone ${n} away, bearing ${fmtBrg(hdg)}. It will run ${DRONE_RUN} nm and hover, listening, unless you steer it. ${o.drones} left aboard.`, 'launch');
+    // Every tube reloading: the crew loads the drone into the first one to clear and swims it out then.
+    if (tube < 0) { o.droneQueue++; return log(g, 'info', `All torpedo tubes reloading. The drone goes out of the first tube to clear, in ${Math.ceil(Math.min(...o.tubes))} seconds.`); }
+    swimOutDrone(g, tube);
   },
   /** Fire a Blackwing from the signal ejector at the selected contact, or along its bearing, or dead ahead. Any depth. */
   blackwing(g: Game) {
@@ -844,12 +839,12 @@ export const orders = {
     d.aim = { x, y }; d.target = null;
     log(g, 'info', `Drone ${d.n}: running to bearing ${fmtBrg(brg(g.own, d.aim))}, ${fmtRng(dist(g.own, d.aim))} from us.`);
   },
-  /** Call a UUV home: it runs back to the boat and is taken aboard through a free torpedo tube. */
+  /** Call a UUV home: it runs back to the boat and is taken aboard through a torpedo tube, which then reloads. */
   droneHome(g: Game, id?: number) {
     const d = id === undefined ? g.drones[g.drones.length - 1] : g.drones.find((v) => v.id === id);
     if (g.over || !d) return;
     d.home = true; d.mode = 'passive'; d.target = null;
-    log(g, 'info', `Drone ${d.n}: coming home, ${fmtRng(dist(g.own, d))} out. Slow to ${DRONE_RECOVER_SPD} knots or less with a tube free to take it aboard.`);
+    log(g, 'info', `Drone ${d.n}: coming home, ${fmtRng(dist(g.own, d))} out. Slow to ${DRONE_RECOVER_SPD} knots or less to take it aboard.`);
   },
   /** Switch a drone (the newest unless one is named) between passive listening, active pinging and decoy. */
   droneMode(g: Game, mode: DroneMode, id?: number) {
@@ -901,6 +896,18 @@ function pingFrom(g: Game, src: Vec & { hdg: number }, deep: boolean, what: stri
 }
 
 /** Drones swim out, hover, listen, ping or play decoy until their batteries run flat. */
+/** Swim a UUV out of `tube`, toward the selected contact or dead ahead. */
+function swimOutDrone(g: Game, tube: number) {
+  const o = g.own;
+  o.tubes[tube] = TUBE_RELOAD;
+  o.drones--;
+  const c = targetContact(g);
+  const hdg = norm(Math.round(c?.bearing ?? o.hdg));
+  const n = g.stats.drones = (g.stats.drones ?? 0) + 1;
+  g.drones.push({ id: g.seq++, n, x: o.x, y: o.y, hdg, run: 0, mode: 'passive', battery: DRONE_BATTERY, deep: o.depthT > LAYER_AT, pingT: 0, aim: offset(o, hdg, DRONE_RUN) });
+  log(g, 'good', `Tube ${tube + 1}: sonar drone ${n} away, bearing ${fmtBrg(hdg)}. It will run ${DRONE_RUN} nm and hover, listening, unless you steer it. ${o.drones} left aboard.`, 'launch');
+}
+
 function updateDrones(g: Game, dt: number) {
   const o = g.own, aboard = new Set<Drone>();
   for (const d of g.drones) {
@@ -929,14 +936,13 @@ function updateDrones(g: Game, dt: number) {
       d.x += Math.sin(d.hdg * D2R) * step; d.y += Math.cos(d.hdg * D2R) * step; d.run += step;
       if (!d.home && d.target == null && dist(d, d.aim) <= 1e-3) log(g, 'info', `Drone ${d.n} on station, ${fmtRng(dist(o, d))} from us, bearing ${fmtBrg(brg(o, d))}.`);
     }
-    // Recovery: alongside, slow, and a tube to take it into.
+    // Recovery: alongside and slow. It goes into the tube closest to ready, which then cycles
+    // like a fired tube, so recovery never waits on an empty tube.
     if (d.home && dist(d, o) < 0.2 && o.spd <= DRONE_RECOVER_SPD) {
-      const tube = o.tubes.findIndex((x) => x <= 0);
-      if (tube >= 0) {
-        o.tubes[tube] = TUBE_RELOAD; o.drones++; aboard.add(d);
-        log(g, 'good', `Drone ${d.n} recovered into tube ${tube + 1}. It will be recharged for another run. ${o.drones} aboard.`);
-        continue;
-      }
+      const tube = o.tubes.indexOf(Math.min(...o.tubes));
+      o.tubes[tube] = TUBE_RELOAD; o.drones++; aboard.add(d);
+      log(g, 'good', `Drone ${d.n} recovered through tube ${tube + 1}. It will be recharged for another run. ${o.drones} aboard.`);
+      continue;
     }
     // Mine hunting: its high-frequency sonar picks out mines close by, and the network reports them.
     if (dist(d, o) <= DRONE_LINK) for (const m of g.mines) {
@@ -2051,6 +2057,7 @@ export function tick(g: Game, dt = 1) {
   }
   updateWaves(g);
   o.tubes = o.tubes.map((x) => Math.max(0, x - dt));
+  for (let t = o.tubes.findIndex((x) => x <= 0); o.droneQueue > 0 && t >= 0; t = o.tubes.findIndex((x) => x <= 0)) { o.droneQueue--; swimOutDrone(g, t); }
   o.vls = o.vls.map((x) => Math.max(0, x - dt));
   for (const d of g.decoys) d.life -= dt;
   g.decoys = g.decoys.filter((d) => d.life > 0);

@@ -189,6 +189,7 @@ function toggleJam() {
 function steerTo(id: number | null) {
   plot.steerId = id;
   const u = g.uavs.find((x) => x.id === id), d = g.drones.find((x) => x.id === id);
+  if (u || d) droneTab(!!d);
   $('plotHint').textContent = u ? `Steering Blackwing ${u.n} · click water to send it · click a ship to follow it · Esc for the boat`
     : d ? `Steering UUV ${d.n} · click water to send it there · click a ship or sub to shadow it · Esc for the boat`
       : 'Click a contact to select · click water to steer · scroll to zoom';
@@ -228,6 +229,15 @@ function weaponTab(exp: boolean) {
     $(pane).hidden = !on;
   }
 }
+function droneTab(uuv: boolean) {
+  for (const [tab, pane, on] of [['tabBw', 'paneBw', !uuv], ['tabUuv', 'paneUuv', uuv]] as const) {
+    $(tab).classList.toggle('on', on);
+    $(tab).setAttribute('aria-selected', String(on));
+    $(pane).hidden = !on;
+  }
+}
+on('tabBw', () => droneTab(false));
+on('tabUuv', () => droneTab(true));
 on('tabStd', () => weaponTab(false));
 on('tabExp', () => weaponTab(true));
 
@@ -314,6 +324,9 @@ document.addEventListener('keydown', (ev) => {
   if (!act) return;
   ev.preventDefault();
   // Firing from the keyboard brings up the tab that weapon lives on.
+  // Drone keys bring up their tab of the Drones card.
+  if (ev.shiftKey && shifted[k] && 'bdj'.includes(k)) droneTab(false);
+  if ((ev.shiftKey && shifted[k] && 'ur'.includes(k)) || (!ev.shiftKey && k === 'o') || (ev.shiftKey && k === 'o')) droneTab(true);
   if (ev.shiftKey && shifted[k] && 'ftyFTY'.includes(k)) weaponTab(true);
   else if (!ev.shiftKey && 'fhtgjm'.includes(k)) weaponTab(false);
   act();

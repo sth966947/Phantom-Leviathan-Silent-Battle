@@ -183,38 +183,6 @@
         </div>
         <div class="wlabel">Vertical tubes · 150 ft or shallower</div>
         <div class="row">
-          <button class="fire" id="fireMst" title="Maritime Strike Tomahawk, the anti-ship Tomahawk. Long range, retargeted in flight. Surface ships only.">Tomahawk anti-ship <kbd>T</kbd></button>
-          <button class="fire" id="fireAsroc" title="Sub-launched ASROC: flies to the solution 1 to 15 nm out and drops a Mk 54 torpedo there. Submarines, or ships at a pinch.">ASROC <kbd>G</kbd></button>
-        </div>
-        <div class="row">
-          <button class="fire" id="fireJatm" title="AIM-260 JATM, seven rounds to a canister in one vertical tube. For slow sub-hunting aircraft. Fire and forget: flies down the selected air contact's bearing, or straight ahead.">JATM <kbd>J</kbd></button>
-          <button class="fire" id="fireSm6" title="SM-6, longer reach, for incoming missiles and fast jets; also kills aircraft. Fire and forget: flies down the selected air contact's bearing, or straight ahead.">SM-6 <kbd>M</kbd></button>
-        </div>
-        <div class="row" id="tlamRow" hidden>
-          <select id="tlamSite" aria-label="Land-attack target"></select>
-          <button class="fire" id="fireTlam" title="Tomahawk land attack, from a vertical tube at 150 ft or shallower. Flies to a fixed site ashore by terrain matching; no GPS needed.">TLAM <kbd>Y</kbd></button>
-        </div>
-        <div class="row" id="mineRow" hidden>
-          <button class="fire" id="layMine" title="Lay a mine from a torpedo tube where Tang is now, at 12 knots or less. Our mines sink enemy ships that pass over them.">Lay mine <kbd>I</kbd></button>
-        </div>
-      </div>
-      <div id="paneExp" role="tabpanel" hidden>
-        <dl>
-          <dt>Torpedo tubes</dt><dd id="wTubesX">—</dd>
-          <dt>Vertical launch tubes</dt><dd id="wVlsX">—</dd>
-        </dl>
-        <div class="wlabel">Torpedo tubes</div>
-        <div class="row">
-          <button class="fire exp" id="fireMk96" title="Experimental. Mk 96 supercavitating torpedo: swims out at 50 knots on the wire, then lights its rocket when the seeker acquires and runs in at 250 knots. Can't be outrun or decoyed, but very loud, and only 15 nm of fuel.">Mk 96 <kbd>⇧F</kbd></button>
-        </div>
-        <div class="row drones">
-          <button id="launchDrone" title="Experimental. Swim a disposable sonar drone out of a torpedo tube toward the selected contact (or dead ahead). It runs 4 nm and hovers. Passive: extra ears away from the boat, and a cross-fix when both hear a contact. Active: pings every minute, and hunters go for the drone. Decoy: plays our noise to draw torpedoes and hunters.">Launch drone <kbd>O</kbd></button>
-          <button id="dronePassive" class="mode">Passive</button>
-          <button id="droneActive" class="mode">Active</button>
-          <button id="droneDecoy" class="mode">Decoy</button>
-        </div>
-        <div class="wlabel">Vertical tubes · 150 ft or shallower</div>
-        <div class="row">
           <button class="fire exp" id="fireMjolnir" title="Experimental. Mjolnir, sub-launched Precision Strike Missile Increment 2: a ballistic arc to the solution 10 to 1,000 nm out, then down on the ship at Mach 6 with a 1,500 lb penetrating warhead. Air defence can only reach it as it climbs out or dives, and seldom stops it. For targets ashore, use Mjolnir land.">Mjolnir ship <kbd>⇧T</kbd></button>
         </div>
         <div class="row" id="mjLandRow" hidden>
@@ -243,8 +211,12 @@
       </div>
     </section>
     <section class="card drone">
-      <h2>Drones</h2>
-      <div class="wlabel">Blackwing · in the air</div>
+      <div class="wtabs" role="tablist">
+        <h2>Drones</h2>
+        <button role="tab" id="tabBw" class="on" aria-selected="true" aria-controls="paneBw" title="Blackwing: the reconnaissance drone in the air.">Blackwing</button>
+        <button role="tab" id="tabUuv" aria-selected="false" aria-controls="paneUuv" title="UUV: the underwater drone.">UUV</button>
+      </div>
+      <div id="paneBw" role="tabpanel">
       <dl>
         <dt>Blackwings</dt><dd id="wBlackwing">4 aboard</dd>
         <dt>Data link</dt><dd id="bwLink">—</dd>
@@ -259,20 +231,22 @@
         <button id="bwSearch" title="Radar intercept: the drone listens for search radars on ships, surfaced submarines and aircraft out to 60 nm, and works out what each one is and where it is. It has no radar of its own, so nothing can see it doing this.">Radar search</button>
         <button id="bwJam" title="Jam enemy radar within 15 nm of the drone. Ships and aircraft there can't see our periscope or our missile launches on radar, and their radar-guided air defences have half the chance against our missiles flying through. The drone's own radar intercept is off while it jams.">Jam radar <kbd>⇧J</kbd></button>
       </div>
-      <div class="wlabel">UUV · under the sea</div>
+      </div>
+      <div id="paneUuv" role="tabpanel" hidden>
       <dl>
         <dt>Iver4 UUVs</dt><dd id="wDrones">6 aboard</dd>
         <dt>Acoustic link</dt><dd id="uuvLink">—</dd>
       </dl>
       <div class="row" style="margin-top:6px">
-        <button id="launchDrone" title="Swim an Iver4 900 UUV out of a torpedo tube in its TTLR sleeve, toward the selected contact (or dead ahead). Its electric motor is next to silent: passive, nobody hears it. It runs 4 nm and hovers unless you steer it. It talks to us over an acoustic network out to 15 nm, and its high-frequency sonar finds mines within 1 nm.">Launch <kbd>O</kbd></button>
+        <button id="launchDrone" title="Swim an Iver4 900 UUV out of a torpedo tube in its TTLR sleeve, toward the selected contact (or dead ahead). Its electric motor is next to silent: passive, nobody hears it. It runs 4 nm and hovers unless you steer it. It talks to us over an acoustic network out to 15 nm, and its high-frequency sonar finds mines within 1 nm. If every tube is reloading, it goes out of the first one to clear.">Launch <kbd>O</kbd></button>
         <button id="uuvCtl" title="Steer a UUV. While you steer it, clicks on the plot go to the drone: click water to send it there, or a ship or submarine to shadow it. Shadowing, it holds 1.5 nm off and passes back an exact fix, course and speed for targeting. Press again for the next UUV; Esc goes back to the boat. You can also click a UUV on the plot.">Steer <kbd>⇧U</kbd></button>
-        <button id="uuvHome" title="Call the UUV you are steering (or the newest) home. Slow to 8 knots or less with a torpedo tube free and it is taken back aboard, recharged for another run.">Recover <kbd>⇧R</kbd></button>
+        <button id="uuvHome" title="Call the UUV you are steering (or the newest) home. Slow to 8 knots or less and it is taken back aboard through a torpedo tube, recharged for another run. That tube then reloads like after a shot.">Recover <kbd>⇧R</kbd></button>
       </div>
       <div class="row drones">
         <button id="dronePassive" class="mode" title="Passive: silent extra ears away from the boat, and a cross-fix when both hear a contact.">Passive</button>
         <button id="droneActive" class="mode" title="Active: pings every minute. Hunters go for the drone, not us.">Active</button>
         <button id="droneDecoy" class="mode" title="Smart decoy: plays our noise. With a torpedo after it, it runs away from us at 14 knots, towing the seeker along.">Decoy</button>
+      </div>
       </div>
     </section>
   </aside>
