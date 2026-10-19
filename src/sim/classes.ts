@@ -23,13 +23,14 @@ export interface ClassCard {
   blades: number;
   shaftHzPerKt: number;
   emitter?: boolean;       // carries a search radar that our ESM can intercept
+  quiet?: boolean;         // a US nuclear boat: almost silent below 10 kt (see vesselSL)
   friendly?: boolean;      // an ally whatever its nation (modern Japan, say)
 }
 
 export const CLASSES: Record<string, ClassCard> = {
   virginia: {
     key: 'virginia', name: 'Virginia Block V', type: 'SSN', nation: 'US', kind: 'sub',
-    slBase: 91, maxSpd: 32, threshold: 20, hp: 5, tonals: [60, 120], blades: 7, shaftHzPerKt: 0.08,
+    slBase: 79, maxSpd: 32, threshold: 20, hp: 5, tonals: [60, 120], blades: 7, shaftHzPerKt: 0.08, quiet: true,
   },
   yasen: {
     key: 'yasen', name: 'Yasen-M', type: 'SSGN', nation: 'Russia', kind: 'sub',

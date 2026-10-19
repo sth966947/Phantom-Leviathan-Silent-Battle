@@ -3,7 +3,7 @@
 // at any time compression.
 
 import { Application, Container, Graphics, Text } from 'pixi.js';
-import { BAFFLE_HALF, BLACKWING, RADAR, blackwingLink, WEAPONS, arrayActive, isFriendlyClass, type Contact, type Game } from '../sim/sim';
+import { BAFFLE_HALF, BLACKWING, DRONE_LINK, RADAR, blackwingLink, WEAPONS, arrayActive, isFriendlyClass, type Contact, type Game } from '../sim/sim';
 import { CLASSES } from '../sim/classes';
 import { angDiff, dist, fmtBrg, offset, type Vec } from '../sim/math';
 import { visibility } from '../sim/hazards';
@@ -47,8 +47,8 @@ export class Plot {
   private uavMarks: { id: number; x: number; y: number }[] = [];
   /** Screen centre, pixels per nm and own ship's position at the last draw, to turn a click back into sea. */
   private view = { cx: 0, cy: 0, k: 1, ox: 0, oy: 0 };
-  /** The Blackwing the captain is steering, drawn with a ring. */
-  uavSel: number | null = null;
+  /** The Blackwing or UUV the captain is steering, drawn with a ring. */
+  steerId: number | null = null;
 
   async init(host: HTMLElement) {
     await this.app.init({ resizeTo: host, antialias: true, backgroundAlpha: 0, resolution: window.devicePixelRatio || 1, autoDensity: true });
@@ -86,8 +86,8 @@ export class Plot {
     return best;
   }
 
-  /** Blackwing under the pointer, if any. */
-  pickUav(clientX: number, clientY: number): number | null {
+  /** Blackwing or UUV under the pointer, if any. */
+  pickSteer(clientX: number, clientY: number): number | null {
     const p = this.local(clientX, clientY);
     let best: number | null = null, bd = 16;
     for (const m of this.uavMarks) { const d = Math.hypot(m.x - p.x, m.y - p.y); if (d < bd) { bd = d; best = m.id; } }
@@ -254,9 +254,14 @@ export class Plot {
     // Sonar drones: a small square with its mode; active and decoy drones pulse.
     for (const dr of g.drones) {
       const q = scr(dr), loud = dr.mode !== 'passive';
+      this.uavMarks.push({ id: dr.id, x: q.x, y: q.y });
+      if (dr.id === this.steerId) {
+        d.circle(q.x, q.y, 12).stroke({ width: 1.5, color: COL.own, alpha: 0.9 });
+        if (dist(dr, dr.aim) > 0.05) { const a = scr(dr.aim); dashed(d, q, a, 4, 4); d.stroke({ width: 1, color: COL.own, alpha: 0.5 }); }
+      }
       d.rect(q.x - 3.5, q.y - 3.5, 7, 7).stroke({ width: 1.2, color: COL.own, alpha: 0.9 });
       if (loud) d.circle(q.x, q.y, 9 + 4 * pulse).stroke({ width: 1, color: COL.own, alpha: 0.5 * (1 - pulse) + 0.2 });
-      this.label(`drone ${dr.n} · ${dr.mode}`, q.x + 8, q.y - 8, COL.own);
+      this.label(`UUV ${dr.n} · ${dr.home ? "coming home" : dr.mode}${dist(g.own, dr) > DRONE_LINK ? " · no link" : ""}`, q.x + 8, q.y - 8, COL.own);
     }
 
     // Blackwings: a small aircraft mark, the circle its camera covers, and whether the link is up.
@@ -264,7 +269,7 @@ export class Plot {
       const q = scr(u), aloft = g.t >= u.airAt;
       const link = dist(g.own, u) <= blackwingLink(g);
       this.uavMarks.push({ id: u.id, x: q.x, y: q.y });
-      if (u.id === this.uavSel) {
+      if (u.id === this.steerId) {
         d.circle(q.x, q.y, 13).stroke({ width: 1.5, color: COL.own, alpha: 0.9 });
         if (!u.target) { const a = scr(u.aim); dashed(d, q, a, 4, 4); d.stroke({ width: 1, color: COL.own, alpha: 0.5 }); d.circle(a.x, a.y, 4).stroke({ width: 1, color: COL.own, alpha: 0.7 }); }
       }
@@ -272,7 +277,9 @@ export class Plot {
       d.moveTo(q.x + hx, q.y + hy).lineTo(q.x - hx + sx, q.y - hy + sy).lineTo(q.x - hx * 0.4, q.y - hy * 0.4).lineTo(q.x - hx - sx, q.y - hy - sy).closePath()
         .stroke({ width: 1.2, color: COL.own, alpha: aloft ? 0.95 : 0.4 });
       if (aloft) d.circle(q.x, q.y, (g.night ? BLACKWING.viewNight : BLACKWING.view) * visibility(g.env) * k).stroke({ width: 1, color: COL.own, alpha: link ? 0.25 : 0.1 });
-      this.label(`Blackwing ${u.n} · ${!aloft ? 'rising' : link ? `${Math.ceil(u.life / 60)} min` : 'no link'}`, q.x + 9, q.y - 9, COL.own);
+      // Jamming: the reach of the jammer.
+      if (aloft && u.mode === 'jam') { d.circle(q.x, q.y, BLACKWING.jam * k).stroke({ width: 1, color: COL.own, alpha: 0.35 + 0.15 * pulse }); }
+      this.label(`Blackwing ${u.n} · ${!aloft ? 'rising' : `${u.mode === 'jam' ? 'jamming · ' : ''}${link ? `${Math.ceil(u.life / 60)} min` : 'no link'}`}`, q.x + 9, q.y - 9, COL.own);
     }
 
     // Weapons. Own weapons are tracked; enemy torpedoes show as bearings.

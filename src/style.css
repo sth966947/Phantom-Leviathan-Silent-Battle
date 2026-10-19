@@ -43,7 +43,9 @@ header { grid-area: head; }
   .logcard .log { flex: 1 1 auto; max-height: none; }
   .main .plot-wrap { max-width: min(100%, calc(100vh - 136px)); }
   /* Weapons and sensors always stay in view; the contact card gives up space and scrolls inside. */
-  .combat > .contact { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+  .combat > .contact { flex: 1 1 auto; min-height: 200px; overflow-y: auto; }
+  /* With the drones card too there may be more than fits: the column scrolls. */
+  .combat { overflow-y: auto; }
   .combat > section:not(.contact), .helm > section:not(.logcard) { flex: none; }
   section.card { padding: 8px 10px; }
   .card h2 { margin-bottom: 6px; }
@@ -55,14 +57,15 @@ header { grid-area: head; }
    between the plot and the weapons and sensors. */
 @media (min-width: 1600px) and (orientation: landscape) {
   .app {
-    grid-template-columns: 300px minmax(0, 1fr) 330px 330px; grid-template-rows: auto auto minmax(0, 1fr);
-    grid-template-areas: "head head head head" "helm main contacts weapons" "helm main contacts sensors";
+    grid-template-columns: 300px minmax(0, 1fr) 330px 330px; grid-template-rows: auto auto auto minmax(0, 1fr);
+    grid-template-areas: "head head head head" "helm main contacts weapons" "helm main contacts sensors" "helm main contacts drone";
     max-width: 2400px;
   }
   .combat { display: contents; }
   .combat > .contact { grid-area: contacts; min-height: 0; overflow-y: auto; }
   .combat > .weapons { grid-area: weapons; }
-  .combat > .sensors { grid-area: sensors; align-self: start; max-height: 100%; overflow-y: auto; }
+  .combat > .sensors { grid-area: sensors; }
+  .combat > .drone { grid-area: drone; align-self: start; max-height: 100%; min-height: 0; overflow-y: auto; }
 }
 header {
   grid-column: 1 / -1; display: flex; align-items: baseline; justify-content: space-between;

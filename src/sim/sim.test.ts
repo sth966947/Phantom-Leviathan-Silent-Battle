@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { blackwingLink, contactFor, create, excess, inPeriscope, makeAI, radarTracked, orders, planWave, tick, vesselSL, JATM_PER_CANISTER, MJOLNIR_LAND_HITS, WEAPONS, type Game, type Vessel } from './sim';
-import { angDiff, offset } from './math';
+import { blackwingLink, contactFor, create, excess, radarJammed, torpSL, inPeriscope, makeAI, radarTracked, orders, planWave, tick, vesselSL, JATM_PER_CANISTER, MJOLNIR_LAND_HITS, WEAPONS, type Game, type Vessel } from './sim';
+import { angDiff, dist, offset } from './math';
+import { adP } from './kit';
 import { CLASSES, LIBRARY } from './classes';
 import { matchClasses, signatureView } from './signature';
 
@@ -677,5 +678,99 @@ describe('air salvoes', () => {
     const ship = contactFor(g, g.vessels.find((x) => x.name.includes('Bismarck'))!);
     ship.held = true; ship.bearing = 0; ship.est = { ...offset(g.own, 0, 10), t: g.t };
     expect(planWave(g, 'sm6', [{ target: ship.id, n: 1 }]).ok).toBe(false);
+  });
+});
+
+describe('detectability', () => {
+  const duel = () => {
+    const g = create('duel', 4);
+    const kaz = g.vessels.find((v) => v.cls.key === 'yasen')!;
+    g.vessels.filter((v) => v !== kaz && v !== g.own).forEach((v) => { v.alive = false; v.gone = true; });
+    Object.assign(kaz, offset(g.own, 90, 2), { hdg: 0, spd: 0, ordSpd: 0 });
+    kaz.ai!.knows = null; kaz.ai!.mode = 'patrol';
+    return { g, kaz };
+  };
+  it('Tang creeping is all but silent; at flank speed she is heard', () => {
+    const { g, kaz } = duel();
+    g.own.spd = 5;
+    expect(excess(vesselSL(g.own), g.own, kaz, kaz.cls.threshold!)).toBeLessThan(-5);
+    g.own.spd = 10;
+    expect(excess(vesselSL(g.own), g.own, kaz, kaz.cls.threshold!)).toBeLessThan(0);
+    g.own.spd = 25;
+    expect(excess(vesselSL(g.own), g.own, kaz, kaz.cls.threshold!)).toBeGreaterThan(0);
+  });
+  it('a Mk 48 swims out without a launch transient; a missile launch is heard', () => {
+    const { g, kaz } = duel();
+    g.own.depthT = g.own.ordDepth = 1;
+    const c = contactFor(g, kaz); c.held = true; c.est = { x: kaz.x, y: kaz.y, t: g.t }; g.selected = c.id;
+    orders.fire(g, 'mk48');
+    expect(kaz.ai!.knows).toBe(null);
+    const w = g.weapons.find((x) => x.type === 'mk48')!;
+    expect(torpSL(w)).toBeLessThan(110);
+    // Close to the target it goes active and pings: loud.
+    w.enabled = true; Object.assign(w, offset(kaz, 270, 1));
+    expect(torpSL(w)).toBeGreaterThanOrEqual(140);
+    orders.fire(g, 'nsm');
+    expect(kaz.ai!.knows).not.toBe(null);
+  });
+  it('an enemy torpedo launch is heard from far off', () => {
+    const { g, kaz } = duel();
+    Object.assign(kaz, offset(g.own, 90, 25));
+    kaz.ai!.mode = 'attack'; kaz.ai!.knows = { x: g.own.x, y: g.own.y, t: g.t, deep: true }; kaz.ai!.cool = 0;
+    const before = g.events.length;
+    for (let i = 0; i < 30 && !g.weapons.some((w) => w.side === 'enemy'); i++) tick(g, 1);
+    if (g.weapons.some((w) => w.side === 'enemy')) expect(g.events.slice(before).some((e) => e.text.startsWith('Launch transient'))).toBe(true);
+  });
+});
+
+describe('Blackwing electronics', () => {
+  it('locates and identifies enemy radars it hears, and jams them within 15 nm', () => {
+    const g = create('duel', 4);
+    g.own.depthT = g.own.ordDepth = 0;
+    const il = g.vessels.find((v) => v.cls.key === 'il38')!;
+    orders.blackwing(g);
+    for (let i = 0; i < 31; i++) tick(g, 1);
+    const u = g.uavs[0];
+    Object.assign(il, offset(u, 45, 40));
+    tick(g, 1);
+    const c = g.contacts.find((x) => x.vid === il.id)!;
+    expect(c.held).toBe(true);
+    expect(c.classified).toBe('il38');
+    expect(Math.hypot(c.est!.x - il.x, c.est!.y - il.y)).toBeLessThan(3);
+    // Jamming: a radar 10 nm off is blinded, one 20 nm off isn't; and a missile in it is screened.
+    expect(radarJammed(g, offset(u, 0, 10))).toBe(false);
+    orders.blackwingMode(g, 'jam');
+    expect(radarJammed(g, offset(u, 0, 10))).toBe(true);
+    expect(radarJammed(g, offset(u, 0, 20))).toBe(false);
+    expect(adP({ type: 'mst', screened: true }, 0.8)).toBeCloseTo(0.4);
+  });
+});
+
+describe('UUV', () => {
+  it('shadows a contact for targeting, finds mines, and comes home', () => {
+    const g = create('duel', 4);
+    const kaz = g.vessels.find((v) => v.cls.key === 'yasen')!;
+    g.vessels.filter((v) => v !== kaz && v !== g.own).forEach((v) => { v.alive = false; v.gone = true; });
+    Object.assign(kaz, offset(g.own, 90, 5), { ai: null, spd: 4, ordSpd: 4, hdg: 0, ordHdg: 0 });
+    g.own.spd = g.own.ordSpd = 5;
+    orders.launchDrone(g);
+    const d = g.drones[0];
+    const c = contactFor(g, kaz); c.est = { x: kaz.x + 0.5, y: kaz.y, t: g.t }; c.held = true; c.q = 0.3;
+    orders.droneGo(g, d.id, 0, 0, c.id);
+    for (let i = 0; i < 1800; i++) tick(g, 1);
+    expect(dist(d, kaz)).toBeLessThan(2.5);
+    expect(c.classified).toBe('yasen');
+    expect(c.motion).toEqual({ crs: kaz.hdg, spd: kaz.spd });
+    // A mine near the drone is found.
+    g.mines.push({ id: g.seq++, side: 'enemy', found: false, ...offset(d, 0, 0.5) });
+    tick(g, 1);
+    expect(g.mines[g.mines.length - 1].found).toBe(true);
+    // Home and aboard.
+    const aboard = g.own.drones;
+    g.own.tubes = [0, 0, 0, 0]; g.own.spd = g.own.ordSpd = 3;
+    orders.droneHome(g, d.id);
+    for (let i = 0; i < 3600 && g.drones.length; i++) tick(g, 1);
+    expect(g.drones).toHaveLength(0);
+    expect(g.own.drones).toBe(aboard + 1);
   });
 });

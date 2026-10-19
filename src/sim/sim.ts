@@ -67,12 +67,15 @@ export interface OwnBoat extends Vessel {
 }
 
 /**
- * A disposable sonar drone, swum out from a torpedo tube. It runs out along its launch bearing,
- * then hovers. Passive: an extra pair of ears away from the boat. Active: it pings every minute,
- * so whoever hears the ping hunts the drone, not Tang. Decoy: it plays Tang's noise.
+ * An Iver4 900 UUV, swum out of a torpedo tube in a TTLR sleeve. It runs to a point (4 nm down
+ * its launch bearing unless steered) and hovers. Passive: an extra pair of ears away from the boat.
+ * Active: it pings every minute, so whoever hears the ping hunts the drone, not Tang. Decoy: it
+ * plays Tang's noise. Sent after a contact it shadows it, close enough to pass back an exact fix,
+ * course and speed for targeting. In any mode its high-frequency sonar finds mines near it. It talks to the boat
+ * over an acoustic network out to DRONE_LINK nm, and can be called home and recovered into a tube.
  */
 export type DroneMode = 'passive' | 'active' | 'decoy';
-export interface Drone extends Vec { id: number; n: number; hdg: number; run: number; mode: DroneMode; battery: number; deep: boolean; pingT: number }
+export interface Drone extends Vec { id: number; n: number; hdg: number; run: number; mode: DroneMode; battery: number; deep: boolean; pingT: number; aim: Vec; home?: boolean; target?: number | null }
 
 /** An enemy sonobuoy: a small omnidirectional hydrophone, shallow or deep. */
 export interface Buoy extends Vec { id: number; life: number; deep: boolean; heard: boolean; hits: number; est: Vec | null }
@@ -87,7 +90,9 @@ export interface Decoy extends Vec { id: number; side: Side; life: number; deep:
  * the mast up at periscope depth, or BLACKWING.link nm on the buoyant antenna at 150 ft or shallower.
  * Enemies can't find it.
  */
-export interface Uav extends Vec { id: number; n: number; hdg: number; life: number; airAt: number; target: number | null; aim: Vec }
+/** What a Blackwing's electronics are doing: listening for radars (ESM), or jamming them. */
+export type UavMode = 'search' | 'jam';
+export interface Uav extends Vec { id: number; n: number; hdg: number; life: number; airAt: number; target: number | null; aim: Vec; mode: UavMode }
 
 export interface Weapon extends Vec {
   id: number; type: WeaponKey; side: Side; label: string;
@@ -106,6 +111,8 @@ export interface Weapon extends Vec {
   land?: boolean;
   /** Part of an attack wave: the game second it is to arrive, and whether a missile has left its loiter orbit for the target. */
   tot?: number; departed?: boolean; wave?: number;
+  /** Inside a Blackwing's jamming: radar-guided air defences have a harder time with it. */
+  screened?: boolean;
 }
 
 export interface Contact {
@@ -236,9 +243,13 @@ const NSM_MAGAZINE = 3;
 export const DRONES_ABOARD = 6;
 /** Blackwing: aboard, knots, seconds aloft, seconds for the canister to surface, camera range by day and night,
  *  data-link range (nm) at 150 ft or shallower and at periscope depth. */
-export const BLACKWING = { aboard: 4, spd: 55, life: 3600, rise: 30, view: 10, viewNight: 7, link: 30, linkPD: 50 };
+export const BLACKWING = { aboard: 4, spd: 55, life: 3600, rise: 30, view: 10, viewNight: 7, link: 30, linkPD: 50, esm: 60, jam: 15 };
 /** Drone battery, seconds of passive listening; active and decoy run it down three times as fast. */
 const DRONE_BATTERY = 5400, DRONE_RUN = 4, DRONE_SPD = 8, DRONE_DECOY_SL = 122;
+/** UUV acoustic network range (nm), its mine-hunting sonar's reach, and how slow Tang must be to take it back aboard. */
+export const DRONE_LINK = 15, DRONE_MINES = 1, DRONE_RECOVER_SPD = 8;
+/** A shadowing UUV sprints to keep up (knots) and holds this far off its quarry (nm), close enough to fix it exactly. */
+const DRONE_SHADOW_SPD = 14, DRONE_SHADOW = 1.5;
 const AA_CONE = 45;
 const TUBE_RELOAD = 120;
 const VLS_RELOAD = 600;
@@ -266,14 +277,30 @@ const PD_MAX = 0.3; // depthT at or above which masts are out of the water
 
 // ---- Acoustics ---------------------------------------------------------------------
 const SL_TORPEDO = 140;
+/** Mk 48 and Mk 96 swim out of the tube under their own power and run quietly on the wire until
+ *  they go active close to the target. */
+const SL_SWIMOUT = 100;
+/** How close to its aim point a swim-out torpedo starts pinging, as a multiple of its seeker range. */
+const ACTIVE_AT = 1.6;
 const SL_DECOY = 128;
 const SL_LAUNCH = 128;
+/** Enemy torpedo tubes are impulse tubes: a big slug of water, heard a long way off. */
+const SL_ENEMY_LAUNCH = 145;
 const LAYER_LOSS = 9;
 export const BAFFLE_HALF = 30;
 export const ARRAY = { name: 'TB-34 towed array', gain: 3, maxSpd: 12, settle: 90 };
 export const WF_BINS = 180;
 
-export const vesselSL = (v: Vessel) => v.cls.slBase + 1.5 * v.spd;
+/** Radiated noise. A quiet (US) boat barely gets louder up to 10 knots, then flow noise climbs fast. */
+export const vesselSL = (v: Vessel) => v.cls.quiet ? v.cls.slBase + 0.5 * Math.min(v.spd, 10) + 2 * Math.max(0, v.spd - 10) : v.cls.slBase + 1.5 * v.spd;
+/** How loud one of our torpedoes is to the enemy: quiet on the swim out, loud once pinging, and a Mk 96 on its rocket is unmissable. */
+export function torpSL(w: Weapon) {
+  if (w.side !== 'us' || (w.type !== 'mk48' && w.type !== 'mk96')) return SL_TORPEDO;
+  if (w.type === 'mk96' && w.spd >= MK96_SPRINT) return SL_TORPEDO + 10;
+  return pinging(w) ? SL_TORPEDO : SL_SWIMOUT;
+}
+/** A swim-out torpedo has gone active: it is close to the target, or has it on the seeker. */
+export const pinging = (w: Weapon) => !!w.target || (w.enabled && dist(w, w.aim) <= WEAPONS[w.type].seeker * ACTIVE_AT);
 /** Wave and ice noise for the mission under way, set each tick (see hazards.ts). */
 let ambient = 0;
 export const selfNoise = (spd: number) => 70 + ambient + Math.max(0, spd - 5) * 1.2;
@@ -422,8 +449,8 @@ function fireWeapon(g: Game, type: FireKey, opt: Launch = {}): Weapon | void {
   const from = type === 'jatm' ? `JATM canister, ${o.jatm} of ${JATM_PER_CANISTER} left${fromCanister ? '' : `, VLS tube ${tube + 1}`}` : w.vls ? `VLS tube ${tube + 1}` : `Tube ${tube + 1}`;
   const tail = type === 'mk96' ? '. Wire guidance active; rocket lights when the seeker acquires.' : type === 'mjolnir' ? `, ${fmtRng(range)}. Boosting up the arc; impact in about ${Math.round(range / w.spd * 3600)} seconds.` : w.role === 'torpedo' ? '. Wire guidance active.' : w.role === 'asw' ? `, drop point ${fmtRng(range)}.` : aa ? '. Fire and forget, seeker searching.' : `, range ${fmtRng(range)}.`;
   log(g, 'good', `${from} fired. ${label}${at}, bearing ${fmtBrg(hdg)}${tail}`, w.missile ? 'missile' : 'launch');
-  transient(g, o, 'us');
-  if (w.missile) launchSeen(g);
+  // Torpedoes swim out quietly; a missile's launch is a loud transient.
+  if (w.missile) { transient(g, o, 'us'); launchSeen(g); }
   return wpn;
 }
 
@@ -761,8 +788,8 @@ export const orders = {
     const c = targetContact(g);
     const hdg = norm(Math.round(c?.bearing ?? o.hdg));
     const n = g.stats.drones = (g.stats.drones ?? 0) + 1;
-    g.drones.push({ id: g.seq++, n, x: o.x, y: o.y, hdg, run: 0, mode: 'passive', battery: DRONE_BATTERY, deep: o.depthT > LAYER_AT, pingT: 0 });
-    log(g, 'good', `Tube ${tube + 1}: sonar drone ${n} away, bearing ${fmtBrg(hdg)}. It will run ${DRONE_RUN} nm and hover, listening. ${o.drones} left aboard.`, 'launch');
+    g.drones.push({ id: g.seq++, n, x: o.x, y: o.y, hdg, run: 0, mode: 'passive', battery: DRONE_BATTERY, deep: o.depthT > LAYER_AT, pingT: 0, aim: offset(o, hdg, DRONE_RUN) });
+    log(g, 'good', `Tube ${tube + 1}: sonar drone ${n} away, bearing ${fmtBrg(hdg)}. It will run ${DRONE_RUN} nm and hover, listening, unless you steer it. ${o.drones} left aboard.`, 'launch');
   },
   /** Fire a Blackwing from the signal ejector at the selected contact, or along its bearing, or dead ahead. Any depth. */
   blackwing(g: Game) {
@@ -772,7 +799,7 @@ export const orders = {
     if (underIce(g)) return log(g, 'warn', 'Blackwing: ice overhead. The canister can\'t reach open air.');
     o.blackwings--;
     const n = g.stats.blackwings = (g.stats.blackwings ?? 0) + 1;
-    const u: Uav = { id: g.seq++, n, x: o.x, y: o.y, hdg: o.hdg, life: BLACKWING.life, airAt: g.t + BLACKWING.rise, target: null, aim: offset(o, o.hdg, 20) };
+    const u: Uav = { id: g.seq++, n, x: o.x, y: o.y, hdg: o.hdg, life: BLACKWING.life, airAt: g.t + BLACKWING.rise, target: null, aim: offset(o, o.hdg, 20), mode: 'search' };
     uavTask(g, u);
     g.uavs.push(u);
     log(g, 'good', `Signal ejector: Blackwing ${n} away. The canister is rising; it will be flying in ${BLACKWING.rise} seconds. ${o.blackwings} left aboard.`);
@@ -782,6 +809,15 @@ export const orders = {
     const u = id === undefined ? g.uavs[g.uavs.length - 1] : g.uavs.find((x) => x.id === id);
     if (g.over || !u) return;
     uavTask(g, u);
+  },
+  /** Switch a Blackwing (the newest unless one is named) between radar search (ESM) and jamming. */
+  blackwingMode(g: Game, mode: UavMode, id?: number) {
+    const u = id === undefined ? g.uavs[g.uavs.length - 1] : g.uavs.find((x) => x.id === id);
+    if (g.over || !u || u.mode === mode) return;
+    u.mode = mode;
+    log(g, 'info', mode === 'jam'
+      ? `Blackwing ${u.n}: jamming. Enemy radars within ${BLACKWING.jam} nm of it are blinded; its own radar intercept is off while it jams.`
+      : `Blackwing ${u.n}: jammer off, listening for radars again.`);
   },
   /** Fly a Blackwing to a point on the map and circle there, or to a ship or submarine to follow it. */
   blackwingGo(g: Game, id: number, x: number, y: number, contactId: number | null = null) {
@@ -795,9 +831,29 @@ export const orders = {
     u.target = null; u.aim = { x, y };
     log(g, 'info', `Blackwing ${u.n}: flying to bearing ${fmtBrg(brg(g.own, u.aim))}, ${fmtRng(dist(g.own, u.aim))} from us, and circling there.`);
   },
-  /** Switch the newest drone between passive listening, active pinging and decoy. */
-  droneMode(g: Game, mode: DroneMode) {
-    const d = g.drones[g.drones.length - 1];
+  /** Send a UUV to a point and hover there, or after a ship or submarine to shadow it. */
+  droneGo(g: Game, id: number, x: number, y: number, contactId: number | null = null) {
+    const d = g.drones.find((v) => v.id === id);
+    if (g.over || !d) return;
+    d.home = false;
+    const c = contactById(g, contactId);
+    if (c?.est && !c.air) {
+      d.target = c.id; d.aim = { x: c.est.x, y: c.est.y };
+      return log(g, 'info', `Drone ${d.n}: shadowing ${contactLabel(c)}. Close in, it will pass back an exact fix, course and speed.`);
+    }
+    d.aim = { x, y }; d.target = null;
+    log(g, 'info', `Drone ${d.n}: running to bearing ${fmtBrg(brg(g.own, d.aim))}, ${fmtRng(dist(g.own, d.aim))} from us.`);
+  },
+  /** Call a UUV home: it runs back to the boat and is taken aboard through a free torpedo tube. */
+  droneHome(g: Game, id?: number) {
+    const d = id === undefined ? g.drones[g.drones.length - 1] : g.drones.find((v) => v.id === id);
+    if (g.over || !d) return;
+    d.home = true; d.mode = 'passive'; d.target = null;
+    log(g, 'info', `Drone ${d.n}: coming home, ${fmtRng(dist(g.own, d))} out. Slow to ${DRONE_RECOVER_SPD} knots or less with a tube free to take it aboard.`);
+  },
+  /** Switch a drone (the newest unless one is named) between passive listening, active pinging and decoy. */
+  droneMode(g: Game, mode: DroneMode, id?: number) {
+    const d = id === undefined ? g.drones[g.drones.length - 1] : g.drones.find((v) => v.id === id);
     if (g.over || !d || d.mode === mode) return;
     d.mode = mode;
     log(g, mode === 'passive' ? 'info' : 'good', `Drone ${d.n}: ${mode === 'passive' ? 'passive, listening.' : mode === 'active' ? 'active sonar on, pinging every minute. Anyone who hears it will hunt the drone.' : 'decoy on, playing our noise. Torpedoes and hunters should go for it.'}`);
@@ -846,11 +902,47 @@ function pingFrom(g: Game, src: Vec & { hdg: number }, deep: boolean, what: stri
 
 /** Drones swim out, hover, listen, ping or play decoy until their batteries run flat. */
 function updateDrones(g: Game, dt: number) {
+  const o = g.own, aboard = new Set<Drone>();
   for (const d of g.drones) {
-    if (d.run < DRONE_RUN) {
-      const step = DRONE_SPD * KT * dt;
+    if (d.home) d.aim = { x: o.x, y: o.y };
+    // Shadowing: keep station off the quarry, and while the network reaches us, report it exactly.
+    const c = contactById(g, d.target ?? null), quarry = c ? vesselById(g, c.vid) : null;
+    if (c && (!quarry?.alive || quarry.gone)) { d.target = null; log(g, 'info', `Drone ${d.n}: lost its quarry. Hovering.`); }
+    else if (c && quarry) {
+      const near = dist(d, quarry) <= DRONE_SHADOW * 1.5;
+      d.aim = near ? offset(quarry, brg(quarry, d), DRONE_SHADOW) : (c.est ? { x: c.est.x, y: c.est.y } : d.aim);
+      if (near && dist(d, o) <= DRONE_LINK) {
+        if (!c.held) { c.held = true; log(g, 'contact', `Drone ${d.n}: holding ${contactLabel(c)} close aboard.`); }
+        c.lastSeen = g.t; c.bearing = brg(o, quarry); c.q = Math.max(c.q, 0.95); c.bias = 0;
+        c.est = { x: quarry.x, y: quarry.y, t: g.t }; c.estErr = 0.1;
+        c.motion = { crs: quarry.hdg, spd: quarry.spd };
+        if (c.classified !== quarry.cls.key) classifyBy(g, c, quarry, `Drone ${d.n}`);
+      }
+    }
+    // Smart decoy: with an enemy torpedo coming, it runs away from Tang, towing the seeker after it.
+    const chased = d.mode === 'decoy' && !d.home && g.weapons.some((w) => w.side === 'enemy' && !w.dead && !WEAPONS[w.type].missile && dist(w, d) < 3);
+    if (chased) d.aim = offset(d, dist(o, d) > 0.05 ? brg(o, d) : d.hdg, 1);
+    const left = dist(d, d.aim);
+    if (left > 1e-3) {
+      const step = Math.min(left, (d.target != null || chased ? DRONE_SHADOW_SPD : DRONE_SPD) * KT * dt);
+      d.hdg = brg(d, d.aim);
       d.x += Math.sin(d.hdg * D2R) * step; d.y += Math.cos(d.hdg * D2R) * step; d.run += step;
-      if (d.run >= DRONE_RUN) log(g, 'info', `Drone ${d.n} on station, ${fmtRng(dist(g.own, d))} from us, bearing ${fmtBrg(brg(g.own, d))}.`);
+      if (!d.home && d.target == null && dist(d, d.aim) <= 1e-3) log(g, 'info', `Drone ${d.n} on station, ${fmtRng(dist(o, d))} from us, bearing ${fmtBrg(brg(o, d))}.`);
+    }
+    // Recovery: alongside, slow, and a tube to take it into.
+    if (d.home && dist(d, o) < 0.2 && o.spd <= DRONE_RECOVER_SPD) {
+      const tube = o.tubes.findIndex((x) => x <= 0);
+      if (tube >= 0) {
+        o.tubes[tube] = TUBE_RELOAD; o.drones++; aboard.add(d);
+        log(g, 'good', `Drone ${d.n} recovered into tube ${tube + 1}. It will be recharged for another run. ${o.drones} aboard.`);
+        continue;
+      }
+    }
+    // Mine hunting: its high-frequency sonar picks out mines close by, and the network reports them.
+    if (dist(d, o) <= DRONE_LINK) for (const m of g.mines) {
+      if (m.side === 'us' || m.found || dist(d, m) > DRONE_MINES) continue;
+      m.found = true;
+      log(g, 'warn', `Drone ${d.n}: mine-like echo, bearing ${fmtBrg(brg(o, m))} from us, ${fmtRng(dist(o, m))}. Marked on the plot.`);
     }
     d.battery -= dt * (d.mode === 'passive' ? 1 : 3);
     if (d.mode === 'active' && g.t - d.pingT >= 60) {
@@ -865,8 +957,8 @@ function updateDrones(g: Game, dt: number) {
       if (dec) { dec.x = d.x; dec.y = d.y; dec.life = 2; } else g.decoys.push({ id: d.id, side: 'us', x: d.x, y: d.y, life: 2, deep: d.deep });
     }
   }
-  for (const d of g.drones) if (d.battery <= 0) log(g, 'warn', `Drone ${d.n}: battery flat. It has scuttled itself.`);
-  g.drones = g.drones.filter((d) => d.battery > 0);
+  for (const d of g.drones) if (d.battery <= 0 && !aboard.has(d)) log(g, 'warn', `Drone ${d.n}: battery flat. It has scuttled itself.`);
+  g.drones = g.drones.filter((d) => d.battery > 0 && !aboard.has(d));
 }
 
 /** Point a Blackwing at the selected surface contact: at its position if we have one, else 25 nm down its bearing. */
@@ -880,11 +972,15 @@ function uavTask(g: Game, u: Uav) {
 }
 
 /** How far the Blackwing data link reaches at our depth: the mast at periscope depth, the buoyant antenna to 150 ft, nothing deeper. */
+/** An enemy radar inside a jamming Blackwing's reach is blinded. */
+export const radarJammed = (g: Game, v: Vec) => g.uavs.some((u) => u.mode === 'jam' && g.t >= u.airAt && dist(u, v) <= BLACKWING.jam);
 export const blackwingLink = (g: Game) => (g.own.depthT < PD_MAX ? BLACKWING.linkPD : g.own.depthT <= 1.01 ? BLACKWING.link : 0);
 
 function updateUavs(g: Game, dt: number) {
   const o = g.own;
   const link = (u: Uav) => dist(o, u) <= blackwingLink(g);
+  // Our missiles flying through the jamming are hard for radar-guided defences to see.
+  for (const w of g.weapons) if (w.side === 'us') w.screened = WEAPONS[w.type].missile && radarJammed(g, w);
   for (const u of g.uavs) {
     u.life -= dt;
     if (g.t < u.airAt) continue;
@@ -913,6 +1009,25 @@ function updateUavs(g: Game, dt: number) {
       k.motion = { crs: v.hdg, spd: v.spd };
       if (v.cls.kind === 'air') k.radarT = g.t;
       if (k.classified !== v.cls.key) classifyBy(g, k, v, `Blackwing ${u.n}`);
+    }
+    // Radar intercept: every search radar it hears is located and identified by its signal, out
+    // to BLACKWING.esm nm. Ships, surfaced submarines and aircraft alike; not while it jams.
+    if (u.mode !== 'search' || g.era === '1941') continue;
+    for (const v of g.vessels) {
+      if (v === o || !v.alive || v.gone || !v.cls.emitter || v.side !== 'enemy' || dist(u, v) > BLACKWING.esm) continue;
+      if (v.cls.kind === 'sub' && v.depthT > PD_MAX) continue;
+      const k = contactFor(g, v, 'Echo');
+      if (!k.held) {
+        k.held = true;
+        log(g, 'contact', `Blackwing ${u.n}: radar intercept, ${v.cls.name}, bearing ${fmtBrg(brg(o, v))}, range ${fmtRng(dist(o, v))}.`, k.ever ? undefined : 'contact');
+        k.ever = true;
+      }
+      k.lastSeen = g.t; k.bearing = brg(o, v);
+      // A fix from the drone's own bearings as it flies: good, not exact.
+      const e = Math.min(1, dist(u, v) * 0.02);
+      if (!k.est || k.estErr > e) { k.est = { x: v.x + gauss(g.r) * e, y: v.y + gauss(g.r) * e, t: g.t }; k.estErr = e; k.q = Math.max(k.q, 0.8); }
+      if (v.cls.kind === 'air') k.radarT = g.t;
+      if (!k.classified) classifyBy(g, k, v, `Blackwing ${u.n} ESM`);
     }
   }
   for (const u of g.uavs) if (u.life <= 0) log(g, 'warn', `Blackwing ${u.n}: battery flat. It has ditched.`);
@@ -965,7 +1080,7 @@ function transient(g: Game, src: Vec & { depthT?: number; deep?: boolean }, side
         if (v.ai.mode === 'patrol') v.ai.mode = 'attack';
       }
     }
-  } else if (excess(SL_LAUNCH, src, ownEars(g), g.own.cls.threshold!) > 0) {
+  } else if (excess(SL_ENEMY_LAUNCH, src, ownEars(g), g.own.cls.threshold!) > 0) {
     log(g, 'danger', `Launch transient, bearing ${fmtBrg(brg(g.own, src))}!`, 'alarm');
   }
 }
@@ -1297,7 +1412,7 @@ function ownSensors(g: Game, dt: number) {
   const ears = ownEars(g);
   const atPD = o.depthT < 0.3;
   // Passive drones out in the water: extra ears, linked back to the boat.
-  const droneEars: Listener[] = g.drones.filter((d) => d.mode === 'passive').map((d) => ({ x: d.x, y: d.y, hdg: d.hdg, spd: 0, depthT: d.deep ? 2 : 1, array: true }));
+  const droneEars: Listener[] = g.drones.filter((d) => d.mode === 'passive' && dist(d, o) <= DRONE_LINK).map((d) => ({ x: d.x, y: d.y, hdg: d.hdg, spd: 0, depthT: d.deep ? 2 : 1, array: true }));
   for (const v of g.vessels) {
     if (v === o || (v.cls.kind === 'air' && !dipping(v))) continue;
     const exists = g.contacts.find((x) => x.vid === v.id);
@@ -1467,7 +1582,7 @@ function launchSeen(g: Game) {
   for (const v of g.vessels) {
     if (!v.alive || v.side !== 'enemy' || v.cls.kind !== 'air' || !v.ai) continue;
     const r = dist(o, v);
-    if (r > 20) continue;
+    if (r > 20 || radarJammed(g, v)) continue;
     if (v.ai.mode === 'orbit') {
       if (!alerted(g)) log(g, 'danger', `${v.cls.name} has seen our missile launch! ${groupName(g)} is turning away.`, 'alarm');
       alertGroup(g, brg(o, vesselById(g, v.ai.leader!)), 'enemy', v);
@@ -1561,7 +1676,7 @@ function airAI(g: Game, v: Vessel, dt: number) {
   if (ai.mode === 'search' && ai.buoyT! <= 0 && dist(v, ai.center!) < 25) { ai.buoyT = 180; dropBuoy(g, v, v, g.r() < 0.3); }
   // Masts and periscope show on its radar a few miles out; our radar shows on its ESM far out.
   const r = dist(o, v);
-  if (o.depthT < PD_MAX && r < 12 && g.r() < 0.02 * (1 - r / 12)) airDatum(g, v, { x: o.x, y: o.y, t: g.t, deep: false, exact: true }, 'periscope on its radar');
+  if (o.depthT < PD_MAX && r < 12 && !radarJammed(g, v) && g.r() < 0.02 * (1 - r / 12)) airDatum(g, v, { x: o.x, y: o.y, t: g.t, deep: false, exact: true }, 'periscope on its radar');
   if (o.radar && r < RADAR.esm && (!ai.datum || g.t - ai.datum.t > 120)) {
     const e = r * 0.1;
     airDatum(g, v, { x: o.x + gauss(g.r) * e, y: o.y + gauss(g.r) * e, t: g.t, deep: false, exact: r < 10 }, 'our radar on its ESM');
@@ -1820,7 +1935,7 @@ function subAI(g: Game, v: Vessel, dt: number) {
     if (w.side !== 'us' || w.dead || WEAPONS[w.type].missile) continue;
     const d = dist(w, v);
     const closing = Math.abs(angDiff(w.hdg, brg(w, v))) < 50;
-    if (d < 7 && closing && excess(SL_TORPEDO, w, v, v.cls.threshold!) > 0 && (!threat || d < dist(threat, v))) threat = w;
+    if (d < 7 && closing && excess(torpSL(w), w, v, v.cls.threshold!) > 0 && (!threat || d < dist(threat, v))) threat = w;
   }
   if (threat && ai.mode !== 'evade') {
     ai.mode = 'evade'; ai.evadeT = 240;
