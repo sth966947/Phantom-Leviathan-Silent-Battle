@@ -47,6 +47,12 @@ const solution = new Solution(() => g);
 const depthView = new DepthView($('depthCanvas') as HTMLCanvasElement, () => g);
 const attack = new AttackPlan(() => g);
 const toggleAttack = () => { solution.close(); depthView.close(); attack.toggle(); };
+// The game holds still while the attack plan is open, and picks up at the same speed when it closes.
+let attackPaused = false;
+attack.onToggle = (open) => {
+  if (open && timeScale && running && !g.over) { resumeScale = timeScale; timeScale = 0; attackPaused = true; pauseDismissed = true; }
+  else if (!open && attackPaused) { attackPaused = false; if (!timeScale) timeScale = resumeScale; }
+};
 const strikeCam = new StrikeCam();
 let strikesSeen = 0; // land-attack arrivals already handed to the battle camera
 let hitsSeen = 0; // hits on vessels and aircraft already handed to it

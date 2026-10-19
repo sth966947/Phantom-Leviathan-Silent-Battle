@@ -75,9 +75,11 @@ export class AttackPlan {
     sp.setAttribute('aria-valuetext', sp.querySelector('span')!.textContent!);
   }
   private lastRows: Row[] = [];
+  /** Told when the plan opens or closes, so the game can hold still while the captain plans. */
+  onToggle: (open: boolean) => void = () => {};
   toggle() { if (this.open) this.close(); else this.show(); }
-  show() { this.open = true; $('attackView').hidden = false; this.rowKeys = ''; }
-  close() { this.open = false; $('attackView').hidden = true; }
+  show() { if (this.open) return; this.open = true; $('attackView').hidden = false; this.rowKeys = ''; this.onToggle(true); }
+  close() { if (!this.open) return; this.open = false; $('attackView').hidden = true; this.onToggle(false); }
 
   /** Targets for the plan: every enemy or unknown ship and submarine with a solution, every aircraft
    *  we hold a bearing on, and the mission's sites ashore. */
@@ -110,8 +112,11 @@ export class AttackPlan {
   private fire() {
     const g = this.g(), rows = this.rows(g), before = g.waves.length;
     for (const [type, items] of this.salvoes(rows)) orders.wave(g, type, items);
-    if (g.waves.length > before) for (const r of rows) this.picks.get(r.key)!.n = 0;
+    const fired = g.waves.length > before || rows.some((r) => this.picks.get(r.key)!.n > 0 && AIR.includes(this.picks.get(r.key)!.type));
+    if (fired) for (const r of rows) this.picks.get(r.key)!.n = 0;
     this.rowKeys = '';
+    // Salvoes away: back to the battle.
+    if (fired) this.close();
   }
 
   draw(g: Game) {
@@ -153,6 +158,6 @@ export class AttackPlan {
         + (tubeWhy ? `<div class="bad">${esc(tubeWhy)}</div>` : '');
     ($('attackFire') as HTMLButtonElement).disabled = !!g.over || !plans.length || !!tubeWhy || plans.some((x) => !x.plan.ok);
     const live = g.waves.map((w) => mmss(w.tot - g.t)).join(', ');
-    $('attackRead').textContent = live ? `salvoes in the air, hitting in ${live}` : 'each weapon is a salvo that hits together';
+    $('attackRead').textContent = `game paused while you plan · ${live ? `salvoes in the air, hitting in ${live}` : 'each weapon is a salvo that hits together'}`;
   }
 }
