@@ -203,6 +203,7 @@ function nextSteer(kind?: 'air' | 'sea') {
 }
 on('uuvCtl', () => nextSteer('sea'));
 on('uuvHome', () => orders.droneHome(g, uuvId()));
+on('uuvFollow', () => orders.droneFollow(g, uuvId()));
 /** The UUV the buttons act on: the one being steered, else the newest. */
 const uuvId = () => (g.drones.some((d) => d.id === plot.steerId) ? plot.steerId! : undefined);
 on('dronePassive', () => orders.droneMode(g, 'passive', uuvId()));
@@ -316,7 +317,7 @@ document.addEventListener('keydown', (ev) => {
     f: () => orders.fire(g, 'mk96'), t: () => orders.fire(g, 'mjolnir'),
     y: () => orders.strike(g, Number(($('mjSite') as HTMLSelectElement).value), 'mjolnir'),
     o: () => { const d = g.drones.find((x) => x.id === uuvId()) ?? g.drones[g.drones.length - 1]; if (d) orders.droneMode(g, d.mode === 'passive' ? 'active' : d.mode === 'active' ? 'decoy' : 'passive', d.id); },
-    u: () => nextSteer('sea'), r: () => orders.droneHome(g, uuvId()),
+    u: () => nextSteer('sea'), r: () => orders.droneHome(g, uuvId()), w: () => orders.droneFollow(g, uuvId()),
   };
   const k = ev.key.toLowerCase();
   if (k === '`') { ev.preventDefault(); weaponTab($('paneExp').hidden); return; }
@@ -326,7 +327,7 @@ document.addEventListener('keydown', (ev) => {
   // Firing from the keyboard brings up the tab that weapon lives on.
   // Drone keys bring up their tab of the Drones card.
   if (ev.shiftKey && shifted[k] && 'bdj'.includes(k)) droneTab(false);
-  if ((ev.shiftKey && shifted[k] && 'ur'.includes(k)) || (!ev.shiftKey && k === 'o') || (ev.shiftKey && k === 'o')) droneTab(true);
+  if ((ev.shiftKey && shifted[k] && 'urw'.includes(k)) || (!ev.shiftKey && k === 'o') || (ev.shiftKey && k === 'o')) droneTab(true);
   if (ev.shiftKey && shifted[k] && 'ftyFTY'.includes(k)) weaponTab(true);
   else if (!ev.shiftKey && 'fhtgjm'.includes(k)) weaponTab(false);
   act();
