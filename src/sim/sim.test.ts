@@ -756,9 +756,15 @@ describe('UUV', () => {
     orders.launchDrone(g);
     const d = g.drones[0];
     const c = contactFor(g, kaz); c.est = { x: kaz.x + 0.5, y: kaz.y, t: g.t }; c.held = true; c.q = 0.3;
-    orders.droneGo(g, d.id, 0, 0, c.id);
+    g.selected = c.id;
+    orders.droneFollow(g);
+    expect(d.target).toBe(c.id);
     for (let i = 0; i < 1800; i++) tick(g, 1);
-    expect(dist(d, kaz)).toBeLessThan(2.5);
+    expect(dist(d, kaz)).toBeLessThanOrEqual(1);
+    // Trailing astern at her course and depth.
+    expect(d.hdg).toBe(kaz.hdg);
+    expect(d.y).toBeLessThan(kaz.y);
+    expect(d.deep).toBe(kaz.depthT > 1.5);
     expect(c.classified).toBe('yasen');
     expect(c.motion).toEqual({ crs: kaz.hdg, spd: kaz.spd });
     // A mine near the drone is found.

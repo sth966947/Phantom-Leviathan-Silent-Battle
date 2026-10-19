@@ -249,7 +249,7 @@ const DRONE_BATTERY = 5400, DRONE_RUN = 4, DRONE_SPD = 8, DRONE_DECOY_SL = 122;
 /** UUV acoustic network range (nm), its mine-hunting sonar's reach, and how slow Tang must be to take it back aboard. */
 export const DRONE_LINK = 15, DRONE_MINES = 1, DRONE_RECOVER_SPD = 8;
 /** A shadowing UUV sprints to keep up (knots) and holds this far off its quarry (nm), close enough to fix it exactly. */
-const DRONE_SHADOW_SPD = 14, DRONE_SHADOW = 1.5;
+export const DRONE_SHADOW_SPD = 14, DRONE_SHADOW = 0.8, DRONE_ACQUIRE = 2;
 const AA_CONE = 45;
 const TUBE_RELOAD = 120;
 const VLS_RELOAD = 600;
@@ -826,6 +826,14 @@ export const orders = {
     u.target = null; u.aim = { x, y };
     log(g, 'info', `Blackwing ${u.n}: flying to bearing ${fmtBrg(brg(g.own, u.aim))}, ${fmtRng(dist(g.own, u.aim))} from us, and circling there.`);
   },
+  /** Send a UUV (the steered one, else the newest still out) after the selected ship or submarine. */
+  droneFollow(g: Game, id?: number) {
+    const d = (id === undefined ? null : g.drones.find((v) => v.id === id)) ?? [...g.drones].reverse().find((v) => !v.home) ?? g.drones[g.drones.length - 1];
+    const c = contactById(g, g.selected);
+    if (g.over || !d) return;
+    if (!c?.est || c.air) return log(g, 'warn', 'Select a ship or submarine with a position for the UUV to follow.');
+    orders.droneGo(g, d.id, c.est.x, c.est.y, c.id);
+  },
   /** Send a UUV to a point and hover there, or after a ship or submarine to shadow it. */
   droneGo(g: Game, id: number, x: number, y: number, contactId: number | null = null) {
     const d = g.drones.find((v) => v.id === id);
@@ -834,7 +842,7 @@ export const orders = {
     const c = contactById(g, contactId);
     if (c?.est && !c.air) {
       d.target = c.id; d.aim = { x: c.est.x, y: c.est.y };
-      return log(g, 'info', `Drone ${d.n}: shadowing ${contactLabel(c)}. Close in, it will pass back an exact fix, course and speed.`);
+      return log(g, 'info', `Drone ${d.n}: shadowing ${contactLabel(c)}. Once it has her it trails ${DRONE_SHADOW} nm astern at her course, speed and depth, and passes back an exact fix.`);
     }
     d.aim = { x, y }; d.target = null;
     log(g, 'info', `Drone ${d.n}: running to bearing ${fmtBrg(brg(g.own, d.aim))}, ${fmtRng(dist(g.own, d.aim))} from us.`);
@@ -916,8 +924,11 @@ function updateDrones(g: Game, dt: number) {
     const c = contactById(g, d.target ?? null), quarry = c ? vesselById(g, c.vid) : null;
     if (c && (!quarry?.alive || quarry.gone)) { d.target = null; log(g, 'info', `Drone ${d.n}: lost its quarry. Hovering.`); }
     else if (c && quarry) {
-      const near = dist(d, quarry) <= DRONE_SHADOW * 1.5;
-      d.aim = near ? offset(quarry, brg(quarry, d), DRONE_SHADOW) : (c.est ? { x: c.est.x, y: c.est.y } : d.aim);
+      // Within 2 nm its own sonar has the quarry: it takes station astern, matching course,
+      // speed and depth. Further out it runs for our last fix.
+      const near = dist(d, quarry) <= DRONE_ACQUIRE;
+      d.aim = near ? offset(quarry, quarry.hdg + 180, DRONE_SHADOW) : (c.est ? { x: c.est.x, y: c.est.y } : d.aim);
+      if (near) d.deep = deepOf(quarry);
       if (near && dist(d, o) <= DRONE_LINK) {
         if (!c.held) { c.held = true; log(g, 'contact', `Drone ${d.n}: holding ${contactLabel(c)} close aboard.`); }
         c.lastSeen = g.t; c.bearing = brg(o, quarry); c.q = Math.max(c.q, 0.95); c.bias = 0;
@@ -934,6 +945,7 @@ function updateDrones(g: Game, dt: number) {
       const step = Math.min(left, (d.target != null || chased ? DRONE_SHADOW_SPD : DRONE_SPD) * KT * dt);
       d.hdg = brg(d, d.aim);
       d.x += Math.sin(d.hdg * D2R) * step; d.y += Math.cos(d.hdg * D2R) * step; d.run += step;
+      if (quarry && dist(d, d.aim) <= 1e-3) d.hdg = quarry.hdg;
       if (!d.home && d.target == null && dist(d, d.aim) <= 1e-3) log(g, 'info', `Drone ${d.n} on station, ${fmtRng(dist(o, d))} from us, bearing ${fmtBrg(brg(o, d))}.`);
     }
     // Recovery: alongside and slow. It goes into the tube closest to ready, which then cycles

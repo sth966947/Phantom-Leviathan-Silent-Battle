@@ -131,6 +131,7 @@ export function updatePanel(g: Game, steerId: number | null = null) {
   dis('blackwingTo', !g.uavs.length || !sel || sel.air);
   dis('blackwingCtl', !g.uavs.length);
   dis('uuvCtl', !g.drones.length);
+  dis('uuvFollow', !g.drones.length || !sel?.est || sel.air);
   dis('uuvHome', !dr || !!dr.home);
   for (const [id, m] of [['bwSearch', 'search'], ['bwJam', 'jam']] as const) {
     dis(id, !bw);
