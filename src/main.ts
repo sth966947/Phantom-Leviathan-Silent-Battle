@@ -685,4 +685,4 @@ async function boot() {
 }
 void boot();
 // Dev builds expose the game for screenshot checks.
-if (import.meta.env.DEV) Object.assign(window, { game: () => g, strikeCam });
+if (import.meta.env.DEV) Object.assign(window, { game: () => g, strikeCam, startMission: start });

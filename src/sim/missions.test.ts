@@ -125,3 +125,21 @@ describe('missions', () => {
     expect(g.own.hp).toBe(CLASSES.virginia.hp - 1);
   });
 });
+
+describe('Downed Pilots', () => {
+  it('shows the raft on the plot, prompts when close, and picks the crew up', () => {
+    const g = create('P24', 5);
+    const raft = g.marks![0];
+    expect(raft.label).toContain('Raft');
+    // Deep and right under the raft: told to come up.
+    Object.assign(g.own, { x: raft.x, y: raft.y + 0.1, spd: 3, ordSpd: 3, depthT: 2, ordDepth: 2 });
+    tick(g, 1);
+    expect(g.events.some((e) => e.text.includes('Come up to periscope depth'))).toBe(true);
+    // At periscope depth and slow: they come aboard in three minutes.
+    g.own.depthT = 0; orders.depth(g, 0);
+    for (let i = 0; i < 200 && !g.flags.aboard; i++) { Object.assign(g.own, { x: raft.x, y: raft.y + 0.1, spd: 3, ordSpd: 3 }); tick(g, 1); }
+    expect(g.flags.aboard).toBe(1);
+    tick(g, 1);
+    expect(g.marks![0].r).toBe(8);
+  });
+});
