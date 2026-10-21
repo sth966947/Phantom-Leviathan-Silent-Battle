@@ -4,6 +4,17 @@ import { CAMPAIGN, MISSIONS, MODERN, PREQUELS, objectives } from './missions';
 import { MODERN_MISSIONS } from './modern';
 import { CLASSES } from './classes';
 
+describe('mission plot marks', () => {
+  it('marks the places a brief sends the player', () => {
+    const a21 = create('A21', 3);
+    expect(a21.marks?.find((m) => m.label === 'Launch box')?.r).toBe(3);
+    const sister = create('lostsister', 3);
+    expect(sister.marks?.some((m) => m.r === 3 && /Oklahoma/.test(m.label))).toBe(true);
+    const lombok = create('P20', 3);
+    expect(lombok.marks?.some((m) => m.y === -16)).toBe(true);
+  });
+});
+
 describe('missions', () => {
   for (const key of [...CAMPAIGN, ...PREQUELS, ...MODERN, ...Object.keys(MODERN_MISSIONS)]) {
     it(`${key} builds and runs for an hour`, () => {
@@ -141,5 +152,18 @@ describe('Downed Pilots', () => {
     expect(g.flags.aboard).toBe(1);
     tick(g, 1);
     expect(g.marks![0].r).toBe(8);
+  });
+});
+
+describe('Mining zones on the plot', () => {
+  it('rings each zone and counts our mines in it', () => {
+    const g = create('P25', 5);
+    const a = g.marks!.find((m) => m.label.startsWith('Zone A'))!;
+    expect(a.label).toBe('Zone A: 0 of 3 mines');
+    expect(g.marks!.some((m) => m.label === 'Swept channel')).toBe(true);
+    Object.assign(g.own, { x: a.x, y: a.y, spd: 5, ordSpd: 5 });
+    orders.layMine(g);
+    tick(g, 1);
+    expect(a.label).toBe('Zone A: 1 of 3 mines');
   });
 });

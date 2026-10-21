@@ -7,6 +7,7 @@ import { mineField, mineLine } from '../hazards';
 import {
   add, arrive, at, byId, clock, flag, go, ids, isSunk, keepCourse, mins, moored, pointDefence, pressRaids, raid, screen,
   setGoal, skirmish, steer, watch, type Mission, type MissionKey, type ObjectiveFn, type Raid,
+  markAt,
 } from '../kit';
 
 /** A point from Tang's start, by bearing and range: the brief gives every position this way. */
@@ -69,6 +70,7 @@ export const missions: Record<MissionKey, Mission> = {
       const ships: [string, string][] = [['tanker', 'MT Cristóbal Spirit'], ['lng', 'LNG Gatún Star'], ['boxship', 'MV Pacific Hope'], ['tanker', 'MT Bahía Grande'], ['boxship', 'MV Atlantic Dawn']];
       const merchants = ships.map(([cls, name], i) => moored(g, cls, name, 'allied', offset(B1_ANCH, i * 72 + r() * 30, 1 + r() * 1.5), r() * 360));
       const sp = offset(B1_ANCH, 60 + r() * 50, 23 + r() * 3);
+      markAt(g, B1_ANCH, 'Merchants anchored off Colón');
       const sab = add(g, 'type209', 'ARV Sábalo (S-31)', 'enemy', sp, brg(sp, B1_ANCH), 12, { mode: 'raider', decoys: 2, torps: 4 }, 1);
       const hp = offset(g.own, 190 + (r() * 2 - 1) * 30, 6 + r() * 4);
       const hum = add(g, 'riachuelo', 'Humaitá (S41)', 'enemy', hp, r() * 360, 5, { mode: 'patrol', legT: 400, decoys: 2 }, 1);
@@ -90,6 +92,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.timeLimit = 4 * 3600;
       g.env.sea = 6;
       g.own.hdg = g.own.ordHdg = 250;
+      markAt(g, P13_EXIT, 'Turning point', 3);
       const sh = add(g, 'riachuelo', 'Tonelero (S42)', 'enemy', offset(g.own, 70 + (r() * 2 - 1) * 15, 1.5 + r()), 250, 8, { mode: 'patrol', legT: 1e9, decoys: 2 }, 1);
       sh.ai!.knows = { x: 0, y: 0, t: 0, deep: false };
       setGoal(g, { timeout: 'Four hours and we are still short of the Pacific.' });
@@ -127,6 +130,8 @@ export const missions: Record<MissionKey, Mission> = {
       g.startClock = clock(3);
       g.timeLimit = 2.25 * 3600;
       const box = P14_BOX;
+      markAt(g, P14_MOUTH, 'Pearl Harbor entrance');
+      markAt(g, box, 'Mined approaches', 3.5);
       mineField(g, box, 3.5, 8);
       const lay = add(g, 'type093b', 'Changzheng 16', 'enemy', offset(box, r() * 360, 1 + r() * 2), r() * 360, 4, { mode: 'patrol', legT: 1e9, decoys: 2 }, 1);
       let wp = offset(box, r() * 360, r() * 3.5);
@@ -155,6 +160,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.timeLimit = 3 * 3600;
       g.own.hdg = g.own.ordHdg = 300;
       const sp = offset(GUAM, 30 + r() * 150, 8 + r() * 5); // on the far side of the island
+      markAt(g, GUAM, 'Guam');
       const spot = add(g, 'type093b', 'Changzheng 11', 'enemy', sp, r() * 360, 6, { mode: 'patrol', legT: 500, decoys: 2 }, r() < 0.5 ? 2 : 1);
       setGoal(g, { surviveWin: true, win: 'The raids are over and Guam is still in the fight.', timeout: '' });
       const bombers: Bomber[] = [];
@@ -208,6 +214,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.timeLimit = 4 * 3600;
       g.own.hdg = g.own.ordHdg = 0;
       const tg = add(g, 'taigei', 'JS Taigei (SS-513)', 'allied', P(270, 6), 0, 5, undefined, 1);
+      markAt(g, P15_MOUTH, 'Uraga Channel: keep Changzheng 15 out', 1.5);
       const rp = P(185 + (r() * 2 - 1) * 20, 16 + r() * 4);
       const cz15 = add(g, 'type093b', 'Changzheng 15', 'enemy', rp, brg(rp, P15_MOUTH), 9, { mode: 'raider', goal: P15_MOUTH, cruise: 11, decoys: 2 }, 1);
       const cz17 = add(g, 'type093b', 'Changzheng 17', 'enemy', offset(P(260, 12), r() * 360, 2 + r() * 3), r() * 360, 6, { mode: 'patrol', legT: 400, decoys: 2 }, r() < 0.5 ? 2 : 1);
@@ -237,6 +244,8 @@ export const missions: Record<MissionKey, Mission> = {
       g.timeLimit = 4 * 3600;
       g.own.hdg = g.own.ordHdg = 0;
       mineLine(g, P(300, 7), P(60, 7), 16, 'enemy', 0.3);
+      markAt(g, P3_BEACH, 'Landing beach', 2);
+      markAt(g, P(0, 3.5), 'Mine line, about here');
       const course = brg(P3_START, P3_BEACH);
       const lhd = add(g, 'type075', 'Hainan', 'enemy', P3_START, course, 12, go(course, 12, 1e9));
       const lpds = screen(g, lhd, 'type071', ['Wuzhi Shan', 'Siming Shan'], [[150, 1.5], [210, 1.5]]);
@@ -263,6 +272,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.startClock = clock(16);
       g.timeLimit = 2.75 * 3600;
       g.own.hdg = g.own.ordHdg = 270;
+      markAt(g, MAKUNG, 'Makung: their firing line is 22 nm out', 22);
       const ff = ['Huangshan', 'Yiyang'].map((n, i) => add(g, 'type054a', n, 'enemy', P(250 + i * 40 + r() * 20, 8 + r() * 6), r() * 360, 8, { mode: 'patrol', legT: 300 + r() * 300 }));
       interface Fac { v: Vessel; fire: Vec; done: boolean }
       const boats: Fac[] = [];
@@ -303,6 +313,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.startClock = clock(2);
       g.timeLimit = 3.5 * 3600;
       const course = brg({ x: 0, y: 0 }, KAO);
+      markAt(g, KAO, 'Kaohsiung');
       g.own.hdg = g.own.ordHdg = course;
       const ships = ([['tanker', 'MT Kaohsiung Star'], ['lng', 'LNG Formosa Spirit'], ['boxship', 'MV Ever Steady']] as const)
         .map(([cls, n], i) => add(g, cls, n, 'allied', offset(g.own, course + 180, 0.5 + i), course, 12, go(course, 12, 1e9)));
@@ -341,6 +352,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.startClock = clock(13);
       g.timeLimit = 3.5 * 3600;
       g.own.hdg = g.own.ordHdg = 90;
+      markAt(g, SUBIC, 'Subic Bay');
       const yuans = ['Yuan 337', 'Yuan 339'].map((n) => {
         const p = offset(SUBIC, 230 + r() * 80, 2 + r() * 3);
         return { v: add(g, 'type039', n, 'enemy', p, r() * 360, 2, { mode: 'patrol', legT: 1e9, decoys: 2 }, r() < 0.5 ? 2 : 1), hold: p };
@@ -404,6 +416,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.startClock = clock(5);
       g.timeLimit = 3.5 * 3600;
       g.own.hdg = g.own.ordHdg = 330;
+      markAt(g, UOTSURI, 'Uotsuri-jima', 1.5);
       const p = P(295 + (r() * 2 - 1) * 6, 28);
       const course = brg(p, UOTSURI);
       const lpd = add(g, 'type071', 'Yimeng Shan', 'enemy', p, course, 12, go(course, 12, 1e9));
@@ -429,6 +442,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.startClock = clock(6);
       g.timeLimit = 4 * 3600;
       g.own.hdg = g.own.ordHdg = 220;
+      markAt(g, P6_EXIT, 'Exit point', 3);
       const fields: [string, Vec][] = [['Subi Reef airfield', P(255, 24)], ['Fiery Cross Reef airfield', P(215, 38)], ['Mischief Reef airfield', P(185, 28)]];
       fields.forEach(([name, p], i) => g.sites.push({ id: -(i + 1), name, x: p.x, y: p.y, hits: 0 }));
       const mid = P(220, 25);

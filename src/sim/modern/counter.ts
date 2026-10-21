@@ -9,8 +9,9 @@ import {
   setGoal, skirmish, steer, watch, type Carry, type Mission, type MissionKey, type ObjectiveFn, type Raid,
   adP,
   high,
+  markAt,
 } from '../kit';
-import { mineField, mineLine } from '../hazards';
+import { mineField, mineLine, mineZone } from '../hazards';
 
 // ---- Helpers shared with finale.ts ------------------------------------------------------------
 /** The first `n` names not sunk in earlier missions (then the sunk ones, if the list runs out). */
@@ -113,6 +114,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.timeLimit = 4 * 3600;
       g.own.hdg = g.own.ordHdg = 90;
       const south = { x: 0, y: -14 };
+      markAt(g, { x: -20, y: 0 }, 'The line: 20 nm west');
       const allies = [
         add(g, 'nansen', 'HNoMS Fridtjof Nansen', 'allied', offset(south, 270, 3), 90, 6, { mode: 'picket', center: offset(south, 270, 3) }),
         add(g, 'type26', 'HMS Glasgow', 'allied', offset(south, 90, 3), 90, 6, { mode: 'picket', center: offset(south, 90, 3) }),
@@ -157,6 +159,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.own.hdg = g.own.ordHdg = 270;
       const course = 90;
       const lead = add(g, 'type071', 'Kunlunshan', 'enemy', { x: -20, y: (r() * 2 - 1) * 6 }, course, 12, go(course, 12, 1e9));
+      markAt(g, { x: 26, y: 0 }, 'Beachhead at Taichung');
       const sup = [lead,
         ...screen(g, lead, 'type071', ['Changbaishan'], [[180, 1.5]]),
         ...screen(g, lead, 'type901', ['Chaganhu'], [[140, 1.5]]),
@@ -186,6 +189,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.own.hdg = g.own.ordHdg = 345;
       g.flags.minesAboard = 8;
       const A = offset(g.own, 345, 8), B = offset(g.own, 300, 9), open = offset(g.own, 150, 12);
+      markAt(g, open, 'Open water: their way out', 3);
       g.flags.ax = A.x; g.flags.ay = A.y; g.flags.bx = B.x; g.flags.by = B.y;
       mineField(g, offset(g.own, 300, 5), 1.2, 10);
       const tareq = add(g, 'kilo', 'Tareq (901)', 'enemy', offset(g.own, 240 + r() * 40, 14 + r() * 3), r() * 360, 4, { mode: 'patrol', legT: 400, decoys: 2 }, 1);
@@ -205,7 +209,9 @@ export const missions: Record<MissionKey, Mission> = {
         log(gg, 'warn', `Sonar: a submarine is coming out of ${port}, bearing ${Math.round(brg(gg.own, p)).toString().padStart(3, '0')}.`);
       };
       setGoal(g, { targets: [], win: '', timeout: 'Four hours, and Iran\'s ports are still open.' });
+      const zones = [mineZone(g, A, 1, 'Bandar Abbas channel', 3), mineZone(g, B, 1, 'Qeshm channel', 3)];
       g.script = (gg) => {
+        zones.forEach((z) => z());
         for (const [p, k, port] of [[A, 'closedA', 'Bandar Abbas'], [B, 'closedB', 'Qeshm']] as const) {
           if (!gg.flags[k] && closed(gg, p)) { gg.flags[k] = 1; log(gg, 'good', `Three mines down off ${port}. That channel is closed.`); }
         }
@@ -229,6 +235,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.timeLimit = 4 * 3600;
       g.own.hdg = g.own.ordHdg = 170;
       const anch = offset(g.own, 170, 24);
+      markAt(g, anch, 'Clarence Bay anchorage', 4);
       const card = add(g, 'type26', 'HMS Cardiff', 'allied', offset(g.own, 350, 2), 170, 9, go(170, 9, 1e9));
       const convoy = [...screen(g, card, 'tanker', ['RFA Tideforce'], [[180, 1.5]]), ...screen(g, card, 'boxship', ['MV Hurst Point', 'MV Eddystone'], [[150, 2.5], [210, 2.5]])];
       const frig = fresh(carry, ['Tamandaré (F200)', 'Jerônimo de Albuquerque (F201)', 'Cunha Moreira (F202)', 'Mariz e Barros (F203)'], 3)
@@ -267,6 +274,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.timeLimit = 4 * 3600;
       g.own.hdg = g.own.ordHdg = 90;
       const kname = fresh(carry, ['Pyotr Velikiy', 'Admiral Nakhimov'], 1)[0];
+      markAt(g, { x: -30, y: 0 }, 'Stop her before 30 nm west');
       const kirov = add(g, 'kirov', kname, 'enemy', { x: 22, y: (r() * 2 - 1) * 6 }, 270, 16, go(270, 16, 1e9));
       const esc = [...screen(g, kirov, 'udaloy', ['Severomorsk', 'Vice-Admiral Kulakov'], [[45, 3], [315, 3]]), ...screen(g, kirov, 'gorshkov', ['Admiral Golovko'], [[180, 3]])];
       const yasen = add(g, 'yasen', fresh(carry, YASEN, 1)[0], 'enemy', offset(kirov, 270 + (r() * 2 - 1) * 30, 9), 270, 8, { mode: 'patrol', legT: 1e9, decoys: 2 }, 2);
@@ -338,6 +346,8 @@ export const missions: Record<MissionKey, Mission> = {
       g.own.hdg = g.own.ordHdg = 0;
       const dock = site(g, 'Bandar Abbas dry dock', { x: 0, y: 55 }, 'shipyard');
       const pier = site(g, 'Bandar Abbas submarine pier', offset(dock, 90, 1.5));
+      markAt(g, dock, 'Launch from inside 25 nm', 25);
+      markAt(g, { x: 0, y: 28 }, 'Gap in the minefield', 1.5);
       mineLine(g, { x: -9, y: 28 }, { x: -1.6, y: 28 }, 12);
       mineLine(g, { x: 1.6, y: 28 }, { x: 9, y: 28 }, 12);
       const hunters = ([['Sahand', -5], ['Dena', 5]] as const).map(([n, x]) => add(g, 'jamaran', n, 'enemy', { x: x + (r() * 2 - 1) * 2, y: 33 + r() * 4 }, r() * 360, 10, { mode: 'patrol', legT: 500 }));
@@ -396,6 +406,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.own.hdg = g.own.ordHdg = 240;
       const start = { x: -25, y: -6 + (r() * 2 - 1) * 3 };
       const dest = offset(start, course, 45);
+      markAt(g, dest, 'Stop them before here: 45 nm up the coast');
       const lead = add(g, 'tanker', 'Tanker Rômulo Almeida', 'enemy', start, course, 12, go(course, 12, 1e9));
       const tankers = [lead, ...screen(g, lead, 'tanker', ['Tanker Henrique Dias', 'Tanker Zumbi dos Palmares', 'Tanker Marcílio Dias'], [[90, 1.2], [180, 1.5], [135, 2]])];
       const esc = fresh(carry, ['Mariz e Barros (F203)', 'Cunha Moreira (F202)', 'Jerônimo de Albuquerque (F201)', 'Tamandaré (F200)'], 2);

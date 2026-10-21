@@ -5,6 +5,7 @@ import { atPeriscopeDepth, end, excess, log, vesselSL, type Game, type Vessel } 
 import {
   add, at, byId, clock, flag, go, ids, isSunk, keepCourse, mins, screen, setGoal, steer, watch,
   type Mission, type MissionKey, type ObjectiveFn,
+  markAt,
 } from '../kit';
 import { passFix } from './arctic';
 
@@ -24,6 +25,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.startClock = clock(3);
       g.timeLimit = 2.5 * 3600;
       const wreck = offset(g.own, (r() * 2 - 1) * 20, 8);
+      markAt(g, wreck, 'Delaware: keep the hunters out', 1.5);
       // Delaware lies on the bottom: not a vessel in the fight (a seeker can't pick her out of the seabed), just a spot to guard.
       const rescue = add(g, 'rescueship', 'MV Dakota Rescue', 'allied', offset(wreck, (r() < 0.5 ? 90 : 270) + (r() * 2 - 1) * 20, 12), 0, 12);
       const hunt = (cls: string, name: string, a: number) => add(g, cls, name, 'enemy', offset(wreck, a, 6 + r() * 2), 0, 12, { mode: 'patrol', legT: 1e9 });

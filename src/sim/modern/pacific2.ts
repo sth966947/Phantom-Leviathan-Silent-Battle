@@ -3,10 +3,11 @@
 // the Hainan Bastion hub, what follows it, and the north Pacific against Russia.
 import { brg, dist, fmtBrg, KT, norm, offset, type Vec } from '../math';
 import { atPeriscopeDepth, end, excess, log, vesselSL, type Game, type Vessel } from '../sim';
-import { mineLine } from '../hazards';
+import { mineLine, mineZone } from '../hazards';
 import {
   add, arrive, at, baseObjectives, bombed, clock, flag, go, ids, isSunk, keepCourse, mins, named, pointDefence,
   pressRaids, raid, screen, setGoal, skirmish, steer, watch, type Mission, type MissionKey, type ObjectiveFn, type Raid,
+  markAt,
 } from '../kit';
 
 export const missions: Record<MissionKey, Mission> = {};
@@ -68,6 +69,7 @@ missions.P7 = {
     g.startClock = clock(4, 30);
     g.timeLimit = 4 * 3600;
     const beach = mark(g, 'beach', offset(g.own, 200, 14));
+    markAt(g, beach, 'Ranai beaches: stop them before 4 nm', 4);
     const p = offset(g.own, (r() * 2 - 1) * 15, 32 + r() * 4);
     const lead = add(g, 'type071', 'Wuzhi Shan', 'enemy', p, brg(p, beach), 14, go(brg(p, beach), 14));
     const lpds = [lead, ...screen(g, lead, 'type071', ['Siming Shan'], [[180, 1.5]])];
@@ -99,6 +101,7 @@ missions.P19 = {
     g.timeLimit = 3 * 3600;
     g.own.hdg = g.own.ordHdg = 300;
     const wharf = mark(g, 'wharf', offset(g.own, 170, 14));
+    markAt(g, wharf, 'East Arm wharf: keep the Shang out', 6);
     const moored = (cls: string, name: string, b: number) => add(g, cls, name, 'allied', offset(wharf, b, 0.3), 90, 0, go(90, 0, 1e9));
     const ships = [moored('boxship', 'USNS Seay', 0), moored('boxship', 'USNS Pililaau', 120), moored('tanker', 'MT Maersk Peary', 240)];
     const sp = offset(g.own, 290 + (r() * 2 - 1) * 25, 20 + r() * 5);
@@ -154,6 +157,7 @@ missions.P20 = {
       const exit = { x: (r() * 2 - 1) * 4, y: -16 };
       return { v: add(g, 'type039', name, 'enemy', p, brg(p, exit), 8, { mode: 'patrol', legT: 1e9, decoys: 2 }, r() < 0.6 ? 2 : 1), exit };
     });
+    markAt(g, { x: 0, y: -16 }, 'South end of the strait: stop them before here');
     setGoal(g, { targets: boats.map((b) => b.v.id), need: 2, win: 'Two of the Yuans are on the bottom of Lombok Strait. The Indian Ocean stays closed to them.', timeout: 'The Yuans waited us out in the strait.' });
     g.flags.through = 0;
     g.script = (gg) => {
@@ -264,6 +268,7 @@ missions.P22 = {
     g.timeLimit = 4 * 3600;
     g.own.hdg = g.own.ordHdg = 320;
     const beach = mark(g, 'beach', offset(g.own, 110, 16));
+    markAt(g, beach, 'Babeldaob beaches: Guangxi stops at 12 nm', 12);
     const p = offset(g.own, 320 + (r() * 2 - 1) * 15, 38 + r() * 4);
     const lhd = add(g, 'type075', 'Guangxi', 'enemy', p, brg(p, beach), 15, go(brg(p, beach), 15));
     const scr = [
@@ -311,6 +316,8 @@ missions.P9 = {
     g.own.hdg = g.own.ordHdg = 0;
     const mouth = mark(g, 'mouth', { x: 0, y: 22 });
     // The barrier, with the swept gap the Jins use.
+    markAt(g, { x: 2, y: 10 }, 'Swept gap', 1);
+    markAt(g, { x: 0, y: 22 }, 'Yulin harbour mouth');
     mineLine(g, { x: -10, y: 10 }, { x: 0.9, y: 10.2 }, 22);
     mineLine(g, { x: 3.1, y: 9.8 }, { x: 13, y: 10 }, 20);
     for (const [x, y, name] of [[(r() * 2 - 1) * 5, 15, 'Datong'], [4 + r() * 3, 19.5, 'Huizhou']] as const)
@@ -387,6 +394,7 @@ missions.P10 = {
     // The convoy keeps to the far side of the traffic lanes: its track passes 9 to 13 nm from Tang.
     const p = offset(offset(g.own, r() < 0.5 ? 45 : 225, 9 + r() * 4), 315, 20 + r() * 3);
     const exit = mark(g, 'exit', offset(p, course, 34));
+    markAt(g, exit, 'End of the strait', 3);
     const lead = add(g, 'type052d', 'Changsha', 'enemy', p, course, 15, go(course, 15));
     const tankers = screen(g, lead, 'tanker', ['Yuan Chen Hu', 'Yuan Ping Hu', 'Kai Yuan Yang', 'Xin Shun Yang'], [[180, 1.5], [180, 3], [180, 4.5], [180, 6]]);
     const escorts = [lead, ...screen(g, lead, 'type054a', ['Xiangtan', 'Zhoushan'], [[150, 4], [210, 5]])];
@@ -462,6 +470,7 @@ missions.P23 = {
     g.own.hdg = g.own.ordHdg = 270;
     const p = offset(g.own, 270 + (r() * 2 - 1) * 15, 31 + r() * 4);
     const out = mark(g, 'out', offset(p, brg(p, g.own) + (r() < 0.5 ? 1 : -1) * (45 + r() * 12), 32));
+    markAt(g, offset(g.own, 270, 33), 'Last fix, about here: stop her within 32 nm', 32);
     const jin = add(g, 'type094', 'Changzheng 19', 'enemy', p, brg(p, out), 14, { mode: 'raider', goal: out, cruise: 14, decoys: 2 }, 1);
     const ssn = add(g, 'type093b', 'Changzheng 15', 'enemy', offset(jin, jin.hdg, 6), jin.hdg, 10, { mode: 'patrol', legT: 1e9, decoys: 2 }, 2);
     const ff = add(g, 'type054a', 'Hengshui', 'enemy', offset(jin, jin.hdg + 30, 4), jin.hdg, 14, { mode: 'station', leader: jin.id, rel: 30, rng: 4 });
@@ -597,6 +606,7 @@ missions.P12 = {
     g.env.sea = 3;
     g.own.hdg = g.own.ordHdg = 0;
     const box = offset(g.own, (r() * 2 - 1) * 15, 18);
+    markAt(g, { x: 0, y: 18 }, 'Borei patrol box, give or take 5 nm', 10);
     const boreis = ['Knyaz Oleg', 'Generalissimus Suvorov'].map((name, i) => {
       const p = offset(box, i * 180 + (r() * 2 - 1) * 60, 4 + r() * 5);
       return add(g, 'borei', name, 'enemy', p, r() * 360, 5, { mode: 'raider', goal: { ...box }, cruise: 5 }, 1);
@@ -605,6 +615,7 @@ missions.P12 = {
     void kilos;
     add(g, 'il38', 'Il-38N May', 'enemy', offset(box, r() * 360, 60), 0, 230, patrolPlane(box));
     const exit = mark(g, 'exit', offset(box, 125, 30));
+    markAt(g, exit, 'Kuril passes');
     setGoal(g, { targets: ids(boreis), need: 2, win: 'Both Boreis are on the bottom of the Sea of Okhotsk. Russia\'s Pacific deterrent is broken.', timeout: 'The Boreis are still on patrol.' });
     g.script = (gg) => {
       // Each Borei walks a slow circle round the box, and runs from anything that comes at her.
@@ -645,9 +656,11 @@ missions.P25 = {
     const gromky = add(g, 'steregushchiy', 'Gromky', 'enemy', offset(zoneB, 60, 5), 240, 0, go(240, 0, 1e9));
     setGoal(g, { targets: [], timeout: 'Dawn: the mission is incomplete and the gulf is waking up.' });
     const count = (z: Vec) => g.mines.filter((m) => m.side === 'us' && dist(m, z) < 0.6).length;
+    const zoneALabel = mineZone(g, zoneA, 0.6, 'Zone A', 3), zoneBLabel = mineZone(g, zoneB, 0.6, 'Zone B', 3);
+    g.marks!.push({ x: 2.25, y: 4.1, r: 0.75, label: 'Swept channel' });
     g.script = (gg) => {
       const o = gg.own;
-      gg.flags.inA = count(zoneA); gg.flags.inB = count(zoneB);
+      gg.flags.inA = zoneALabel(count(zoneA)); gg.flags.inB = zoneBLabel(count(zoneB));
       for (const [k, n] of [['A', gg.flags.inA], ['B', gg.flags.inB]] as const) if (n >= 3 && !gg.flags[`done${k}`]) { gg.flags[`done${k}`] = 1; log(gg, 'good', `Zone ${k} is seeded: ${n} mines down.`); }
       // The coastal radars watch for masts close inshore; a sighting, or our shooting, puts the Ka-27 up from the shore.
       const seen = atPeriscopeDepth(gg) && batteries.some((b) => dist(o, b) < 10) && gg.r() < 0.006;

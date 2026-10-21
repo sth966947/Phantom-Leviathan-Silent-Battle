@@ -4,12 +4,13 @@
 import { brg, dist, fmtBrg, gauss, norm, offset, type Vec } from '../math';
 import type { ClassCard } from '../classes';
 import { atPeriscopeDepth, depthT, end, log, shellfire, type Game, type Vessel } from '../sim';
-import { mineLine, type Mine } from '../hazards';
+import { mineLine, mineZone, type Mine } from '../hazards';
 import {
   add, arrive, at, baseObjectives, byId, clock, flag, go, ids, isSunk, keepCourse, mins, missileSalvo, moored, pointDefence,
   screen, setGoal, skirmish, steer, watch, type Mission, type MissionKey, type ObjectiveFn,
   adP,
   high,
+  markAt,
 } from '../kit';
 
 // ---- Helpers -----------------------------------------------------------------------------------
@@ -86,6 +87,7 @@ export const missions: Record<MissionKey, Mission> = {
       const p = offset(mouth, lane, 6 + r() * 3);
       const volk = add(g, 'akula', 'Akula (Volk)', 'enemy', offset(p, r() < 0.5 ? 0 : 180, 0.3), 90, 5, { mode: 'patrol', legT: 1e9, decoys: 2 }, 1);
       const sea = offset(g.own, 60 + r() * 30, 35);
+      markAt(g, mouth, 'Channel starts'); markAt(g, offset(mouth, lane, len), 'Cape Henry: channel ends');
       g.flags.total = chan.size;
       g.flags.cleared = 0;
       g.script = (gg) => {
@@ -128,6 +130,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.timeLimit = 2.5 * 3600;
       g.own.hdg = g.own.ordHdg = 270;
       const inlet = offset(g.own, 270, 14);
+      markAt(g, inlet, 'St Marys Inlet');
       const lair = offset(inlet, 90 + (r() * 2 - 1) * 45, 7 + r() * 4);
       const ys = add(g, 'yasen', 'Arkhangelsk (K-564)', 'enemy', offset(lair, r() * 360, 2), r() * 360, 5, { mode: 'patrol', legT: 1e9, decoys: 2 }, r() < 0.5 ? 2 : 1);
       const spy = offset(g.own, r() * 360, 6 + r() * 4);
@@ -204,6 +207,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.startClock = clock(6);
       g.timeLimit = 4 * 3600;
       const isle = offset(g.own, 80, 10);
+      markAt(g, isle, 'Ascension: stop them before 3 nm', 3);
       const from = 245 + (r() * 2 - 1) * 15;
       const start = offset(isle, from, 42);
       const course = brg(start, isle);
@@ -235,6 +239,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.timeLimit = 4 * 3600;
       g.own.hdg = g.own.ordHdg = 300;
       const beach = offset(g.own, 200, 18);
+      markAt(g, beach, 'Landing beaches', 3);
       const start = offset(g.own, 305 + (r() * 2 - 1) * 15, 26);
       const course = brg(start, beach);
       const frig = frigates(g, 'tamandare', ['Cunha Moreira (F202)', 'Mariz e Barros (F203)'], start, course, 11, [[-50, 3], [50, 3]]);
@@ -309,6 +314,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.timeLimit = 3.5 * 3600;
       g.own.hdg = g.own.ordHdg = 270;
       const bonny = offset(g.own, 345, 16), course = 220, out = offset(bonny, course, 45);
+      markAt(g, bonny, 'Bonny terminal');
       const names = ['MT Bonny Light', 'LNG Rivers', 'MT Front Altair', 'LNG Bonny Gas', 'MT Brass River', 'MT Forcados'];
       const merch: Vessel[] = [];
       const sail = (gg: Game, i: number, along: number) => {
@@ -386,6 +392,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.timeLimit = 3.5 * 3600;
       g.own.hdg = g.own.ordHdg = 20;
       const mouth = offset(g.own, 200, 4);
+      markAt(g, mouth, 'Colón breakwater', 0.5);
       ['MT Pacific Jewel', 'LNG Gatun', 'MV Cristobal Express', 'MT Chagres', 'LNG Colón'].forEach((n, i) =>
         moored(g, i % 2 ? 'lng' : n.startsWith('MV') ? 'boxship' : 'tanker', n, 'allied', offset(mouth, 270 + i * 10 + r() * 8, 4 + r() * 3), r() * 360));
       const subs = ['Ghadir 1', 'Ghadir 2', 'Ghadir 3', 'Ghadir 4', 'Ghadir 5'].map((n, i) => {
@@ -423,7 +430,9 @@ export const missions: Record<MissionKey, Mission> = {
       const fr = moored(g, 'tamandare', 'Tamandaré (F200)', 'enemy', offset(mouth, 0, 3), 180);
       void subs;
       setGoal(g, { timeout: 'Dawn found us still at it. The blockade is not in place.' });
+      const zone = mineZone(g, mouth, 1, 'Bay entrance', 4);
       g.script = (gg) => {
+        zone();
         at(gg, 150 * 60, 'sortie', () => {
           if (!fr.alive) return;
           Object.assign(fr.ai!, go(180, 14));
@@ -446,6 +455,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.timeLimit = 3 * 3600;
       g.own.hdg = g.own.ordHdg = 270;
       const isle = offset(g.own, 270, 70);
+      markAt(g, isle, 'ESM finds the radar inside 45 nm', 45);
       const runway = { id: -1, name: 'Noronha runway', ...offset(isle, 0, 0.3), hits: 0 };
       const fuel = { id: -2, name: 'Noronha fuel farm', ...offset(isle, 120, 1), hits: 0 };
       g.sites.push(runway, fuel);

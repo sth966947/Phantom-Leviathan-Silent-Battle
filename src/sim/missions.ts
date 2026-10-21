@@ -8,6 +8,7 @@ import {
   add, alive, arrive, at, baseObjectives, byId, clock, go, held, ids, isSunk, JP_DD, keepCourse, launchStrike, melee, missileSalvo,
   mins, moored, named, flag, pointDefence, pressRaids, raid, RING, screen, setGoal, watch,
   type Carry, type Mission, type MissionKey, type Objective, type ObjectiveFn, type Raid,
+  markAt,
 } from './kit';
 import { MODERN_EXTRA, MODERN_MISSIONS } from './modern';
 
@@ -56,6 +57,7 @@ const BUILT: Record<MissionKey, Mission> = {
       g.startClock = clock(3);
       g.timeLimit = 4 * 3600;
       const mouth = offset(g.own, 0, 6);
+      markAt(g, mouth, 'Pearl Harbor entrance', 0.5);
       g.own.hdg = g.own.ordHdg = 180;
       add(g, 'wickes', 'USS Ward', 'allied', offset(mouth, 200, 2), 270, 8, { mode: 'picket', center: offset(mouth, 190, 2.5) }).ai!.reportT = undefined;
       const midgets: Vessel[] = [];
@@ -230,6 +232,7 @@ const BUILT: Record<MissionKey, Mission> = {
         ...screen(g, atl, 'fletcher', ['USS Fletcher', 'USS O\'Bannon', 'USS Laffey', 'USS Sterett'], [[0, 2], [0, 1], [180, 5], [180, 6]]),
       ];
       const lunga = offset(lead, course, 30);
+      markAt(g, lunga, 'Lunga Point: Henderson Field', 8);
       setGoal(g, {
         targets: ids(bbs), need: bbs.length, protect: ids(usShips), maxLosses: 3,
         win: 'Both battleships are sinking off Savo Island. Henderson Field will fly in the morning.',
@@ -364,6 +367,7 @@ const BUILT: Record<MissionKey, Mission> = {
       if (flagName) screen(g, flag, 'agano', ['Yahagi'], [[0, 3]]);
       screen(g, flag, 'kagero', ['Isokaze', 'Hamakaze', 'Yukikaze', 'Asashimo', 'Kasumi', 'Hatsushimo', 'Fuyuzuki', 'Suzutsuki'], RING);
       const okinawa = offset(lead, course, 70);
+      markAt(g, okinawa, 'Okinawa', 10);
       setGoal(g, { targets: [flag.id], need: 1, win: `${flag.name} has gone down. The last sortie of the Imperial Navy is over.`, timeout: `${flag.name} is still afloat as the day ends.` });
       g.script = (gg) => { if (flag.alive && dist(flag, okinawa) < 10) end(gg, false, `${flag.name} reached Okinawa and beached herself as a fortress.`); };
     },
@@ -823,6 +827,7 @@ const BUILT: Record<MissionKey, Mission> = {
       g.own.hdg = g.own.ordHdg = 180;
       const start = { x: g.own.x, y: g.own.y };
       const box = offset(start, 180, 15);
+      markAt(g, offset(start, 180, 30), 'Get 30 nm south: this far');
       const plane = (cls: string, name: string, b: number) => add(g, cls, name, 'enemy', offset(box, b, 30 + r() * 20), norm(b + 180), 230,
         { mode: 'search', center: box, wp: offset(box, r() * 360, 6), buoyT: 0, torps: 2, datum: null });
       const il = plane('il38', 'Il-38N May', r() * 360);
@@ -923,6 +928,7 @@ const BUILT: Record<MissionKey, Mission> = {
       g.timeLimit = 3 * 3600;
       g.own.hdg = g.own.ordHdg = 270;
       const site = offset(g.own, 260 + r() * 20, 15 + r() * 3);
+      markAt(g, site, 'Trunk cables');
       const yantar = add(g, 'yantar', 'Yantar', 'enemy', offset(site, r() * 360, 1.5), r() * 360, 3, { mode: 'wander', center: site, rng: 3, cruise: 5 });
       void yantar;
       const ds = add(g, 'deepsub', 'AS-31 Losharik', 'enemy', offset(site, r() * 360, 3), 0, 3, { mode: 'raider', goal: site, cruise: 3 }, 2);
@@ -962,12 +968,13 @@ const BUILT: Record<MissionKey, Mission> = {
   lostsister: {
     key: 'lostsister', title: 'Lost Sister', era: '2029', place: 'Reykjanes Ridge', date: 'April 2029, 0800',
     library: ['akula', 'virginia'],
-    brief: 'USS Oklahoma has gone quiet on the Reykjanes Ridge. She is lying on the bottom about 10 nm northeast of you, flooded aft but with crew alive. A rescue vehicle is on its way and needs 90 minutes on site once Tang is guarding it. An Akula is heading for the wreck. Keep it more than 2 nm away from Oklahoma, or sink it.',
+    brief: 'USS Oklahoma has gone quiet on the Reykjanes Ridge. She is lying on the bottom about 10 nm northeast of you, flooded aft but with crew alive. A rescue vehicle is on its way and needs 90 minutes on site once Tang is guarding it, within 3 nm of her. An Akula is heading for the wreck. Keep it more than 2 nm away from Oklahoma, or sink it.',
     build(g, r) {
       g.startClock = clock(8);
       g.timeLimit = 4 * 3600;
       g.own.hdg = g.own.ordHdg = 45;
       const wreck = offset(g.own, 35 + r() * 20, 9 + r() * 2);
+      markAt(g, wreck, 'Oklahoma: guard within 3 nm', 3);
       const ok = makeVessel(g, 'virginia', 'USS Oklahoma (SSN-802)', 'allied', wreck, r() * 360, 0, 2);
       g.vessels.push(ok);
       const ap = offset(wreck, r() * 360, 22 + r() * 4);

@@ -190,14 +190,27 @@ export class Plot {
         .stroke({ width: 1.2, color: m.side === 'us' ? COL.friend : COL.threat, alpha: m.found ? 0.9 : 0.45 });
     }
 
-    // Mission marks: a raft, a rendezvous. A cross, its name, and a ring where one is given.
-    for (const m of g.marks ?? []) {
-      const q = scr(m), s = 5;
-      d.moveTo(q.x - s, q.y - s).lineTo(q.x + s, q.y + s).moveTo(q.x + s, q.y - s).lineTo(q.x - s, q.y + s)
+    // Mission marks and land targets. Off the edge of the plot, a pointer on the rim with the
+    // name and range, so a far objective still shows which way to go.
+    const rim: P[] = [];
+    const pin = (p: Vec, label: string, col: number, draw: (q: P) => void, ring?: number) => {
+      const off = dist(own, p) * k;
+      if (ring && off - ring * k < R) d.circle(scr(p).x, scr(p).y, Math.max(3, ring * k)).stroke({ width: 1, color: col, alpha: 0.5 });
+      if (off <= R) { const q = scr(p); draw(q); this.label(label, q.x + 8, q.y - 6, col); return; }
+      const b = Math.atan2(p.x - own.x, p.y - own.y) * 180 / Math.PI;
+      const tip = ray(b, R - 2), l = ray(b - 2.2, R - 14), r = ray(b + 2.2, R - 14);
+      d.moveTo(tip.x, tip.y).lineTo(l.x, l.y).lineTo(r.x, r.y).closePath().fill({ color: col, alpha: 0.85 });
+      const t = ray(b, R - 26), right = t.x >= cx;
+      // Several targets the same way: stack their labels rather than print them over each other.
+      while (rim.some((u) => Math.abs(u.x - t.x) < 160 && Math.abs(u.y - t.y) < 16)) t.y += 16;
+      rim.push({ ...t });
+      this.label(`${label} · ${Math.round(dist(own, p))} nm`, t.x + (right ? -6 : 6), t.y - 6, col, right ? 1 : 0);
+    };
+    for (const m of g.marks ?? []) pin(m, m.label, COL.friend, (q) => {
+      d.moveTo(q.x - 5, q.y - 5).lineTo(q.x + 5, q.y + 5).moveTo(q.x + 5, q.y - 5).lineTo(q.x - 5, q.y + 5)
         .stroke({ width: 1.5, color: COL.friend, alpha: 0.9 });
-      if (m.r) d.circle(q.x, q.y, Math.max(3, m.r * k)).stroke({ width: 1, color: COL.friend, alpha: 0.5 });
-      this.label(m.label, q.x + 8, q.y - 6, COL.friend);
-    }
+    }, m.r);
+    for (const t of g.sites) pin(t, t.name, COL.threat, (q) => d.rect(q.x - 4, q.y - 4, 8, 8).stroke({ width: 1.5, color: COL.threat, alpha: 0.85 }));
 
     // Baffles, or the towed array astern when it is working.
     if (arrayActive(g)) {
