@@ -143,3 +143,16 @@ describe('Downed Pilots', () => {
     expect(g.marks![0].r).toBe(8);
   });
 });
+
+describe('Mining zones on the plot', () => {
+  it('rings each zone and counts our mines in it', () => {
+    const g = create('P25', 5);
+    const a = g.marks!.find((m) => m.label.startsWith('Zone A'))!;
+    expect(a.label).toBe('Zone A: 0 of 3 mines');
+    expect(g.marks!.some((m) => m.label === 'Swept channel')).toBe(true);
+    Object.assign(g.own, { x: a.x, y: a.y, spd: 5, ordSpd: 5 });
+    orders.layMine(g);
+    tick(g, 1);
+    expect(a.label).toBe('Zone A: 1 of 3 mines');
+  });
+});

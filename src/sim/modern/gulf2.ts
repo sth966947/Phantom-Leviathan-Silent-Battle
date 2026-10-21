@@ -8,8 +8,9 @@ import {
   screen, setGoal, skirmish, steer, watch, type Carry, type Mission, type MissionKey, type Objective, type ObjectiveFn,
   adP,
   high,
+  markAt,
 } from '../kit';
-import { mineField, mineLine } from '../hazards';
+import { mineField, mineLine, mineZone } from '../hazards';
 
 export const missions: Record<MissionKey, Mission> = {};
 export const extras: Record<MissionKey, ObjectiveFn> = {};
@@ -514,8 +515,10 @@ missions.I22 = {
     const [kn] = kilos(carry, 1);
     add(g, 'kilo', kn, 'enemy', offset(mouth, r() < 0.5 ? 120 + r() * 20 : 220 + r() * 20, 9 + r() * 2), r() * 360, 4, { mode: 'patrol', legT: 600, decoys: 2 }, 1);
     setGoal(g, { timeout: 'Chabahar is still open.' });
+    const zone = mineZone(g, mouth, 1.5, 'Channel mouth', 6);
     g.script = (gg) => {
       lightweights(gg); noBlueHunt(gg);
+      zone(flag(gg, 'laid'));
       shallow(gg, 250);
       frigates.forEach((f, i) => keepCourse(f, norm(brg(mouth, f) + (i ? -1 : 1) * (90 + (dist(mouth, f) - 5) * 20)), 12));
       for (const m of gg.mines) if (m.side === 'us' && dist(m, mouth) < 1.5 && !gg.flags[`ch${m.id}`]) {

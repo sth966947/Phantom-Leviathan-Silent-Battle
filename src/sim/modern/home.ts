@@ -4,12 +4,13 @@
 import { brg, dist, fmtBrg, gauss, norm, offset, type Vec } from '../math';
 import type { ClassCard } from '../classes';
 import { atPeriscopeDepth, depthT, end, log, shellfire, type Game, type Vessel } from '../sim';
-import { mineLine, type Mine } from '../hazards';
+import { mineLine, mineZone, type Mine } from '../hazards';
 import {
   add, arrive, at, baseObjectives, byId, clock, flag, go, ids, isSunk, keepCourse, mins, missileSalvo, moored, pointDefence,
   screen, setGoal, skirmish, steer, watch, type Mission, type MissionKey, type ObjectiveFn,
   adP,
   high,
+  markAt,
 } from '../kit';
 
 // ---- Helpers -----------------------------------------------------------------------------------
@@ -423,7 +424,9 @@ export const missions: Record<MissionKey, Mission> = {
       const fr = moored(g, 'tamandare', 'Tamandaré (F200)', 'enemy', offset(mouth, 0, 3), 180);
       void subs;
       setGoal(g, { timeout: 'Dawn found us still at it. The blockade is not in place.' });
+      const zone = mineZone(g, mouth, 1, 'Bay entrance', 4);
       g.script = (gg) => {
+        zone();
         at(gg, 150 * 60, 'sortie', () => {
           if (!fr.alive) return;
           Object.assign(fr.ai!, go(180, 14));

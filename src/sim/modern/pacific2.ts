@@ -3,10 +3,11 @@
 // the Hainan Bastion hub, what follows it, and the north Pacific against Russia.
 import { brg, dist, fmtBrg, KT, norm, offset, type Vec } from '../math';
 import { atPeriscopeDepth, end, excess, log, vesselSL, type Game, type Vessel } from '../sim';
-import { mineLine } from '../hazards';
+import { mineLine, mineZone } from '../hazards';
 import {
   add, arrive, at, baseObjectives, bombed, clock, flag, go, ids, isSunk, keepCourse, mins, named, pointDefence,
   pressRaids, raid, screen, setGoal, skirmish, steer, watch, type Mission, type MissionKey, type ObjectiveFn, type Raid,
+  markAt,
 } from '../kit';
 
 export const missions: Record<MissionKey, Mission> = {};
@@ -645,9 +646,11 @@ missions.P25 = {
     const gromky = add(g, 'steregushchiy', 'Gromky', 'enemy', offset(zoneB, 60, 5), 240, 0, go(240, 0, 1e9));
     setGoal(g, { targets: [], timeout: 'Dawn: the mission is incomplete and the gulf is waking up.' });
     const count = (z: Vec) => g.mines.filter((m) => m.side === 'us' && dist(m, z) < 0.6).length;
+    const zoneALabel = mineZone(g, zoneA, 0.6, 'Zone A', 3), zoneBLabel = mineZone(g, zoneB, 0.6, 'Zone B', 3);
+    g.marks!.push({ x: 2.25, y: 4.1, r: 0.75, label: 'Swept channel' });
     g.script = (gg) => {
       const o = gg.own;
-      gg.flags.inA = count(zoneA); gg.flags.inB = count(zoneB);
+      gg.flags.inA = zoneALabel(count(zoneA)); gg.flags.inB = zoneBLabel(count(zoneB));
       for (const [k, n] of [['A', gg.flags.inA], ['B', gg.flags.inB]] as const) if (n >= 3 && !gg.flags[`done${k}`]) { gg.flags[`done${k}`] = 1; log(gg, 'good', `Zone ${k} is seeded: ${n} mines down.`); }
       // The coastal radars watch for masts close inshore; a sighting, or our shooting, puts the Ka-27 up from the shore.
       const seen = atPeriscopeDepth(gg) && batteries.some((b) => dist(o, b) < 10) && gg.r() < 0.006;

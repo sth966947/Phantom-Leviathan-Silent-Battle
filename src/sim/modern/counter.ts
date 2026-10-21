@@ -9,8 +9,9 @@ import {
   setGoal, skirmish, steer, watch, type Carry, type Mission, type MissionKey, type ObjectiveFn, type Raid,
   adP,
   high,
+  markAt,
 } from '../kit';
-import { mineField, mineLine } from '../hazards';
+import { mineField, mineLine, mineZone } from '../hazards';
 
 // ---- Helpers shared with finale.ts ------------------------------------------------------------
 /** The first `n` names not sunk in earlier missions (then the sunk ones, if the list runs out). */
@@ -205,7 +206,9 @@ export const missions: Record<MissionKey, Mission> = {
         log(gg, 'warn', `Sonar: a submarine is coming out of ${port}, bearing ${Math.round(brg(gg.own, p)).toString().padStart(3, '0')}.`);
       };
       setGoal(g, { targets: [], win: '', timeout: 'Four hours, and Iran\'s ports are still open.' });
+      const zones = [mineZone(g, A, 1, 'Bandar Abbas channel', 3), mineZone(g, B, 1, 'Qeshm channel', 3)];
       g.script = (gg) => {
+        zones.forEach((z) => z());
         for (const [p, k, port] of [[A, 'closedA', 'Bandar Abbas'], [B, 'closedB', 'Qeshm']] as const) {
           if (!gg.flags[k] && closed(gg, p)) { gg.flags[k] = 1; log(gg, 'good', `Three mines down off ${port}. That channel is closed.`); }
         }

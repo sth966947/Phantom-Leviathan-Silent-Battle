@@ -2,12 +2,13 @@
 // Act 1, March to May 2029: the North Atlantic, the Arctic and Russia's Northern Fleet, then the Baltic and the Mediterranean.
 import { brg, dist, fmtBrg, gauss, norm, offset, type Vec } from '../math';
 import { atPeriscopeDepth, end, excess, log, vesselSL, type Game, type Vessel } from '../sim';
-import { mineField, mineLine, underIce } from '../hazards';
+import { mineField, mineLine, mineZone, underIce } from '../hazards';
 import {
   add, arrive, at, byId, clock, flag, go, held, ids, isSunk, keepCourse, mins, missileSalvo, pointDefence, screen, setGoal, watch,
   type Mission, type MissionKey, type Objective, type ObjectiveFn,
   adP,
   high,
+  markAt,
 } from '../kit';
 
 // ---- Local helpers -----------------------------------------------------------------------------
@@ -633,6 +634,7 @@ export const missions: Record<MissionKey, Mission> = {
       add(g, 'ka27', 'Ka-27PL Helix', 'enemy', offset(mouth, app, 1), app, 120, { mode: 'search', center: box, wp: offset(box, app, 4), torps: 1, datum: null, hits: 0, dipT: 0 });
       setGoal(g, { targets: [], need: 1, win: 'The approach to Baltiysk is mined and we are clear. The Baltic Fleet is bottled up in port.', timeout: 'Time is up and the approach is still open.' });
       g.flags.seenT = 0;
+      const zone = mineZone(g, box, 1.5, 'Mining point', 6);
       g.script = (gg) => {
         if (corv.alive && corv.ai!.mode === 'patrol' && dist(corv, box) > 8) { corv.ordHdg = brg(corv, box); corv.ordSpd = 10; }
         if (kilo.alive && kilo.ai!.mode === 'patrol' && dist(kilo, mouth) > 5) { kilo.ordHdg = brg(kilo, mouth); }
@@ -651,7 +653,7 @@ export const missions: Record<MissionKey, Mission> = {
         if (atBox !== !!gg.flags.atBox) { gg.flags.atBox = atBox ? 1 : 0; log(gg, 'info', atBox ? 'Navigator: we are on the mining point. Mines laid here will count.' : 'Navigator: we are off the mining point.'); }
         // A mine that has already sunk a ship still counts as laid.
         for (const m of gg.mines) if (m.side === 'us' && dist(m, box) <= 1.5 && !gg.flags[`mb${m.id}`]) { gg.flags[`mb${m.id}`] = 1; gg.flags.laid = flag(gg, 'laid') + 1; }
-        const laid = flag(gg, 'laid');
+        const laid = zone(flag(gg, 'laid'));
         if (laid >= 6 && dist(gg.own, mouth) >= 14) end(gg, true, gg.goal.win);
       };
     },

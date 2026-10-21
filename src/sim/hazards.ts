@@ -51,6 +51,22 @@ export function mineField(g: Game, c: Vec, rad: number, n: number, side: Side = 
   return out;
 }
 
+/**
+ * Ring a zone Tang has to mine on the plot, labelled with how many of our mines are in it.
+ * Call the returned function from the mission script to keep the count current; pass `n` to
+ * show a count the mission keeps itself (mines that went off still count there).
+ */
+export function mineZone(g: Game, at: Vec, r: number, name: string, need: number) {
+  const m = { x: at.x, y: at.y, r, label: '' };
+  (g.marks ??= []).push(m);
+  const update = (n = g.mines.filter((x) => x.side === 'us' && dist(x, at) <= r).length) => {
+    m.label = `${name}: ${Math.min(n, need)} of ${need} mines`;
+    return n;
+  };
+  update();
+  return update;
+}
+
 /** True when Tang is under the pack, away from open water. */
 export function underIce(g: Game, at: Vec = g.own) {
   return g.env.ice && !g.env.polynyas.some((p) => dist(p, at) < p.r);
