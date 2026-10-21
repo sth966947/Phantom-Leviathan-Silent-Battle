@@ -10,6 +10,7 @@ import {
   type Mission, type MissionKey, type ObjectiveFn,
   adP,
   high,
+  markAt,
 } from '../kit';
 
 // ---- Local helpers -----------------------------------------------------------------------------
@@ -74,6 +75,7 @@ export const missions: Record<MissionKey, Mission> = {
       const fr = [frig('SAS Amatola (F145)', 4 + r() * 4), frig('SAS Spioenkop (F147)', -4 - r() * 4)];
       const boat = (name: string, y: number) => add(g, 'type209', name, 'enemy', { x: 23 + r() * 4, y }, r() * 360, 3, { mode: 'patrol', legT: 1e9, decoys: 1 }, r() < 0.5 ? 2 : 1);
       const subs = [boat('SAS Manthatisi (S101)', 2 + r() * 6), boat('SAS Queen Modjadji I (S103)', -2 - r() * 6)];
+      markAt(g, { x: 36, y: 0 }, 'Past Cape Agulhas: 36 nm east');
       setGoal(g, { targets: [], win: 'We are round Cape Agulhas and into the Indian Ocean.', timeout: 'The gale blew out and we are still west of Agulhas. The Cape is closed to us.' });
       g.script = (gg) => {
         // The frigates sweep their lines north and south; the boats creep about on their stations.
@@ -123,8 +125,10 @@ export const missions: Record<MissionKey, Mission> = {
       g.timeLimit = 4 * 3600;
       g.own.hdg = g.own.ordHdg = 270;
       const base = offset(g.own, 268 + r() * 4, 36);
+      markAt(g, base, 'Tender at Djibouti: get within 3 nm', 3);
       const tender = moored(g, 'tender', 'USS Emory S. Land (AS-39)', 'allied', base, 90);
       const lx = -26 + (r() * 2 - 1) * 1.5;
+      markAt(g, { x: -26, y: 0 }, 'Jamaran\'s mine line, about here');
       const a = { x: lx, y: 7 + r() * 2 }, b = { x: lx, y: -7 - r() * 2 };
       const jp = offset(a, 10 + r() * 40, 4 + r() * 3);
       // She hunts with her hull sonar as she goes: if she hears us, she stops laying and comes after us.
@@ -197,6 +201,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.startClock = clock(6);
       g.timeLimit = 4 * 3600;
       const lagoon = offset(g.own, 0, 12);
+      markAt(g, lagoon, 'Diego Garcia lagoon');
       const ships = [0, 1, 2].map((i) => moored(g, 'boxship', ['USNS Seay', 'USNS Pililaau', 'USNS Bob Hope'][i], 'allied', offset(lagoon, i * 120, 0.8), i * 120));
       const kal = ['INS Vagsheer (S26)', 'INS Karanj (S23)'].map((n, i) => {
         const from = norm((i ? 70 : 290) + (r() * 2 - 1) * 25);
@@ -276,6 +281,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.startClock = clock(16);
       g.timeLimit = 4 * 3600;
       const victoria = offset(g.own, 180, 15);
+      markAt(g, victoria, 'Port Victoria: keep the frigates out', 6);
       const fp = offset(g.own, 35 + r() * 30, 23 + r() * 4);
       const frig = ['INS Trishul (F43)', 'INS Tabar (F44)'].map((n, i) => add(g, 'talwar', n, 'enemy', offset(fp, brg(fp, victoria) + 90, i ? 3 : -3), brg(fp, victoria), 12, { mode: 'patrol', legT: 1e9 }));
       const kp = offset(fp, brg(fp, victoria), 12 + r() * 4);
@@ -308,6 +314,7 @@ export const missions: Record<MissionKey, Mission> = {
       const course = 135;
       const vp = offset(g.own, 300 + r() * 30, 23 + r() * 5);
       const vik = add(g, 'vikrant', 'INS Vikrant (R11)', 'enemy', vp, course, 16, go(course, 16));
+      markAt(g, offset(vp, course, 55), 'Turn her back before here');
       // The destroyers keep their screen stations, listening: they hunt with their own sonar and torpedoes.
       const spots = [40, 320];
       const dd = ['INS Kolkata (D63)', 'INS Chennai (D65)'].map((n, i) => add(g, 'kolkata', n, 'enemy', offset(vik, course + spots[i], 3), course, 16, { mode: 'patrol', legT: 1e9 }));
@@ -335,6 +342,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.startClock = clock(13);
       g.timeLimit = 3.5 * 3600;
       const karachi = offset(g.own, 22, 36);
+      markAt(g, karachi, 'Karachi');
       const course = brg(g.own, karachi);
       g.own.hdg = g.own.ordHdg = course;
       const lead = add(g, 'tanker', 'MT Pakistan Pride', 'allied', offset(g.own, course + 180, 2), course, 14, go(course, 14, 1e9));
@@ -447,6 +455,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.startClock = clock(1);
       g.timeLimit = 4 * 3600;
       const beach = offset(g.own, 240 + r() * 20, 17 + r() * 3);
+      markAt(g, beach, 'Landing beaches', 2);
       const gp = offset(g.own, 55 + r() * 25, 16 + r() * 4);
       const course = brg(gp, beach);
       const lead = add(g, 'type075', 'Guangxi (32)', 'enemy', gp, course, 13, go(course, 13));
@@ -476,6 +485,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.timeLimit = 3 * 3600;
       g.own.hdg = g.own.ordHdg = 90;
       const anch = offset(g.own, 85 + r() * 10, 16);
+      markAt(g, offset(g.own, 90, 10), 'Mined channel, about here');
       const jal = moored(g, 'jalashwa', 'INS Jalashwa (L41)', 'enemy', anch, r() * 360);
       const dd = add(g, 'kolkata', 'INS Chennai (D65)', 'enemy', offset(anch, 270, 3), 0, 8, { mode: 'patrol', legT: 1e9 });
       const mx = anch.x - 6 - r() * 1.5;

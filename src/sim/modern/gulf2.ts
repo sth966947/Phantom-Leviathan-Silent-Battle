@@ -151,6 +151,7 @@ missions.I5 = {
     const course = 120;
     g.own.hdg = g.own.ordHdg = course; g.own.depthT = g.own.ordDepth = 1;
     const c0 = offset(g.own, course + 180, 3), exit = offset(c0, course, 24);
+    markAt(g, c0, 'Lane starts'); markAt(g, exit, 'End of the lane', 2);
     const lead = add(g, 'tanker', 'MT Ocean Pride', 'allied', c0, course, 0, go(course, 0, 1e9));
     const tankers = [lead, ...screen(g, lead, 'tanker', ['MT Hellas Glory', 'MT Nordic Breeze', 'MT Basra Star'], [[180, 1], [180, 2], [180, 3]])];
     const denton = add(g, 'arleigh', 'USS Jeremiah Denton', 'allied', offset(lead, course + 60, 2), course, 0, { mode: 'station', leader: lead.id, rel: 60, rng: 2 });
@@ -211,6 +212,7 @@ missions.I7 = {
     g.timeLimit = 2.5 * 3600;
     g.own.hdg = g.own.ordHdg = 20; g.own.depthT = g.own.ordDepth = 1;
     const kharg = offset(g.own, 20, 32);
+    markAt(g, kharg, 'Launch from within 20 nm of Kharg', 20);
     site(g, 'Kharg air-defence radar', offset(kharg, 300, 2));
     site(g, 'Kharg T-jetty', offset(kharg, 90, 1.5));
     site(g, 'Sea Island terminal', offset(kharg, 250, 2.5));
@@ -261,6 +263,7 @@ missions.I18 = {
     g.timeLimit = 2.5 * 3600;
     g.own.hdg = g.own.ordHdg = 45; g.own.depthT = g.own.ordDepth = 1;
     const mouth = offset(g.own, 250, 8);
+    markAt(g, mouth, 'Mina Salman channel');
     const port = [moored(g, 'tender', 'USS Emory S. Land', 'allied', offset(mouth, 250, 1.5), 70), moored(g, 'arleigh', 'USS Thad Cochran', 'allied', offset(mouth, 235, 1.8), 70),
       moored(g, 'boxship', 'USNS Charlton', 'allied', offset(mouth, 265, 1.8), 70)];
     const nunn = add(g, 'arleigh', 'USS Sam Nunn', 'allied', offset(mouth, 170, 2), 0, 6, { mode: 'picket', center: offset(mouth, 160, 2) });
@@ -304,6 +307,8 @@ missions.I19 = {
     const course = 60;
     g.own.hdg = g.own.ordHdg = course; g.own.depthT = g.own.ordDepth = 1;
     const c0 = offset(g.own, course + 180, 3), exit = offset(c0, course, 28);
+    markAt(g, exit, 'Safe water off the Emirates', 2);
+    markAt(g, offset(c0, course, 13), 'Minefield reported, about here', 1.5);
     const lead = add(g, 'lng', 'Mozah', 'allied', c0, course, 10, go(course, 10, 1e9));
     const ships = [lead, ...screen(g, lead, 'lng', ['Al Mayeda', 'Rasheeda'], [[180, 1.2], [180, 2.4]])];
     const glasgow = add(g, 'type26', 'HMS Glasgow', 'allied', offset(lead, course - 50, 2), course, 10, { mode: 'station', leader: lead.id, rel: -50, rng: 2 });
@@ -406,6 +411,7 @@ missions.I20 = {
     g.timeLimit = 4.5 * 3600;
     g.own.hdg = g.own.ordHdg = 270;
     const haifa = offset(g.own, 80 + r() * 20, 12 + r() * 2);
+    markAt(g, haifa, 'Haifa: stop it before 3 nm', 3);
     const kp = offset(g.own, 240 + r() * 60, 17 + r() * 3);
     const [kn] = kilos(carry, 1);
     const kilo = add(g, 'kilo', kn, 'enemy', kp, brg(kp, haifa), 6, { mode: 'patrol', legT: 1e9, decoys: 2 }, 1);
@@ -441,6 +447,8 @@ missions.I21 = {
     const axis = 25;
     g.own.hdg = g.own.ordHdg = axis + 180;
     const eilat = offset(g.own, axis, 12);
+    markAt(g, eilat, 'Eilat');
+    markAt(g, offset(g.own, axis + 90, 6), 'Saudi waters beyond here'); markAt(g, offset(g.own, axis - 90, 6), 'Egyptian waters beyond here');
     const port = [moored(g, 'boxship', 'MV Zim Eilat', 'allied', offset(eilat, 300, 0.6), 200), moored(g, 'tanker', 'MT Eilat Star (EAPC terminal)', 'allied', offset(eilat, 160, 1.5), 200)];
     const jamaran = add(g, 'jamaran', 'IRIS Jamaran', 'enemy', offset(g.own, axis + 180, 34 + r() * 4), axis, 12, { mode: 'patrol', legT: 1e9 });
     const stand = offset(eilat, axis + 180, 44 + r() * 4);
@@ -479,6 +487,7 @@ missions.I11 = {
     g.timeLimit = 4 * 3600;
     g.own.hdg = g.own.ordHdg = 320;
     const start = offset(g.own, 320, 20), out = offset(start, 130, 40);
+    markAt(g, out, 'Open water: stop them before here', 5);
     const boats = kilos(carry, 2).map((n, i) => {
       const p = offset(start, 40 + i * 180, 1.5 + r());
       return { v: add(g, 'kilo', n, 'enemy', p, 130, 10, { mode: 'patrol', legT: 1e9, decoys: 2 }, 1), lane: offset(out, 40 + i * 180 + (r() * 2 - 1) * 30, 2) };
@@ -545,6 +554,7 @@ missions.I23 = {
     g.timeLimit = 3.5 * 3600;
     g.own.hdg = g.own.ordHdg = 230;
     const gwadar = offset(g.own, 0, 28);
+    markAt(g, gwadar, 'Gwadar breakwater', 2);
     const p = offset(g.own, 210 + r() * 30, 13 + r() * 3);
     const lhd = add(g, 'type071', 'Wuzhishan', 'enemy', p, brg(p, gwadar), 13, go(brg(p, gwadar), 13));
     const escorts = screen(g, lhd, 'type054a', ['Xuchang', 'Yulin'], [[50, 2.5], [310, 2.5]]);
@@ -581,6 +591,7 @@ missions.I10 = {
     g.timeLimit = 3 * 3600;
     g.own.hdg = g.own.ordHdg = 340; g.own.depthT = g.own.ordDepth = 1;
     const canal = offset(g.own, 340, 22);
+    markAt(g, canal, 'Port Tewfik: not within 4 nm', 4);
     const anch = offset(g.own, 345, 12);
     // Neutrals (allied side): sinking one with our own weapon ends the mission.
     [['tanker', 'MT Stena Imperial'], ['boxship', 'MV CMA CGM Tage'], ['tanker', 'MT Minerva Libra'], ['lng', 'Methane Princess'], ['tanker', 'MT Kriti Ruby']]
@@ -626,6 +637,7 @@ missions.I24 = {
     const kilo = add(g, 'kilo', kn, 'enemy', offset(bay, 210, 0.15), 300, 0, { mode: 'patrol', legT: 1e9, decoys: 2 }, 0);
     const guard = (['Joshan', 'Zoubin'] as const).map((n, i) => add(g, 'fac', n, 'enemy', offset(bay, 200 + i * 60, 3), 0, 8, go(0, 8, 1e9)));
     const away = offset(bay, 0, 25);
+    markAt(g, bay, 'Chaganhu is gone 25 nm out', 25);
     setGoal(g, { timeout: 'The supply base is still working.' });
     g.script = (gg) => {
       lightweights(gg); noBlueHunt(gg);

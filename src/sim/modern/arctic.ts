@@ -9,6 +9,7 @@ import {
   type Carry, type Mission, type MissionKey, type Objective, type ObjectiveFn,
   adP,
   high,
+  markAt,
 } from '../kit';
 
 // ---- Names: the first of each list that earlier missions haven't sunk ---------------------------
@@ -169,6 +170,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.env.sea = 3;
       g.own.hdg = g.own.ordHdg = 180;
       const taigei = jp(g, 'JS Taigei', { x: 5, y: 0 }, 180);
+      markAt(g, { x: 0, y: 12 }, 'Diomede Islands: stop them before here');
       // The Kilo is loaded with mines for the Chukchi approaches and only runs; the 093B rides shotgun and fights.
       const runner = (cls: string, name: string, spd: number, fights: boolean) => {
         const p = offset(g.own, 150 + r() * 60, 14 + r() * 4);
@@ -205,6 +207,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.startClock = clock(10);
       g.timeLimit = 3 * 3600;
       const camp = { x: 0, y: 5 };
+      markAt(g, camp, 'Ice Camp Nautilus: keep the 095 out', 2);
       pack(g, [hole({ x: 0.5, y: 5.4 }, 0.7), hole(offset(camp, 240 + r() * 60, 9), 0.8)]);
       const ks = [...[0, 70, 140, 215, 290].map((b) => keel(offset(camp, b + r() * 30, 2.3 + r()), 0.4, 300 + r() * 100)), ...keelField(r, 6, -14, 14, -6, 18)];
       const a = norm(220 + r() * 280);
@@ -264,6 +267,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.own.hdg = g.own.ordHdg = 180;
       pack(g);
       const near = offset(g.own, 115, 12), far = offset(g.own, 225, 16);
+      markAt(g, near, 'Lead seen yesterday, may have moved'); markAt(g, far, 'Lead seen yesterday, may have moved');
       const a = hole(offset(near, r() * 360, 1 + r() * 2), 0.8), b = hole(offset(far, r() * 360, 1 + r() * 2), 1);
       const c = hole(offset(g.own, r() * 360, 9 + r() * 6), 0.5);
       const leads = [a, b, c];
@@ -325,6 +329,8 @@ export const missions: Record<MissionKey, Mission> = {
       g.timeLimit = 3 * 3600;
       pack(g);
       const crest = (p: Vec) => (p.y > 6 && p.y < 15 ? 480 + 120 * Math.abs(Math.sin(p.x * 0.6)) : null);
+      markAt(g, { x: 0, y: 10 }, 'Hydrophone line, 8 to 12 nm: under 6 knots');
+      markAt(g, { x: 0, y: 20 }, 'Open basin: 20 nm north');
       const ks = keelField(r, 14, -9, 9, 6, 15, 340, 420);
       const lurk = [offset({ x: -4, y: 10 }, r() * 360, r() * 2.5), offset({ x: 4, y: 10 }, r() * 360, r() * 2.5)];
       const foes = [add(g, 'yasen', pick(carry, YASEN, 2), 'enemy', lurk[0], 180, 2, { mode: 'patrol', legT: 1e9, decoys: 2 }, 1),
@@ -388,6 +394,8 @@ export const missions: Record<MissionKey, Mission> = {
       pack(g, [edgeSouth(-6)], 3);
       const ks = keelField(r, 8, -14, 14, 2, 20);
       const patches = [[-8, 11], [0, 10], [8, 11]].map(([x, y]) => ({ x: x + (r() * 2 - 1), y: y + (r() * 2 - 1) }));
+      for (const [x, y] of [[-8, 11], [0, 10], [8, 11]]) markAt(g, { x, y }, 'Young ice, about here');
+      markAt(g, { x: 0, y: -6 }, 'Ice edge');
       const goal = patches[Math.floor(r() * 3)];
       const bp = { x: (r() < 0.5 ? -1 : 1) * (5 + r() * 3), y: -3 - r() * 2 };
       // A missile boat runs from a fight rather than joining it: raider mode makes for the goal and flees our torpedoes.
@@ -503,6 +511,8 @@ export const missions: Record<MissionKey, Mission> = {
       pack(g, [edgeSouth(-10)], 3);
       const ks = keelField(r, 6, -12, 12, -8, 10);
       const patches = [{ x: (r() * 2 - 1), y: 3 }, { x: 4, y: (r() * 2 - 1) }, { x: -5, y: (r() * 2 - 1) }];
+      for (const p of [{ x: 0, y: 3 }, { x: 4, y: 0 }, { x: -5, y: 0 }]) markAt(g, p, 'Thin ice, give or take a mile', 1);
+      markAt(g, { x: 0, y: -10 }, 'Ice edge');
       const base = offset(g.own, 200, 45);
       ['Nagurskoye runway', 'Nagurskoye fighter shelters', 'Nagurskoye fuel depot'].forEach((name, i) => {
         const p = offset(base, i * 120, 0.6);
@@ -561,6 +571,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.startClock = clock(18);
       g.timeLimit = 4 * 3600;
       g.env.sea = 5;
+      markAt(g, { x: 0, y: -16 }, 'The Pacific: stop them before here');
       const boats = [['type093b', pick(carry, SHANG, 2), 12, 0], ['kilo', pick(carry, KILO, 1), 9, 25], ['type095', pick(carry, T095, 3), 11, 50]].map(([cls, name, spd, late]) => {
         const p = { x: (r() * 2 - 1) * 5, y: 16 + (spd as number) * (late as number) / 60 };
         const exit = { x: (r() * 2 - 1) * 8, y: -16 };

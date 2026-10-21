@@ -4,6 +4,17 @@ import { CAMPAIGN, MISSIONS, MODERN, PREQUELS, objectives } from './missions';
 import { MODERN_MISSIONS } from './modern';
 import { CLASSES } from './classes';
 
+describe('mission plot marks', () => {
+  it('marks the places a brief sends the player', () => {
+    const a21 = create('A21', 3);
+    expect(a21.marks?.find((m) => m.label === 'Launch box')?.r).toBe(3);
+    const sister = create('lostsister', 3);
+    expect(sister.marks?.some((m) => m.r === 3 && /Oklahoma/.test(m.label))).toBe(true);
+    const lombok = create('P20', 3);
+    expect(lombok.marks?.some((m) => m.y === -16)).toBe(true);
+  });
+});
+
 describe('missions', () => {
   for (const key of [...CAMPAIGN, ...PREQUELS, ...MODERN, ...Object.keys(MODERN_MISSIONS)]) {
     it(`${key} builds and runs for an hour`, () => {

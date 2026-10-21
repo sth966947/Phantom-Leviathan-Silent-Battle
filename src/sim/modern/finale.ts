@@ -5,6 +5,7 @@ import { end, log, type Game, type Vessel } from '../sim';
 import {
   add, at, clock, flag, go, ids, isSunk, keepCourse, mins, missileSalvo, pointDefence, pressRaids, raid, screen, setGoal, skirmish, steer, watch,
   type Mission, type MissionKey, type ObjectiveFn, type Raid,
+  markAt,
 } from '../kit';
 import { CRUISE, cruiseMissiles, enemyTorpedo, fresh, site } from './counter';
 
@@ -117,6 +118,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.startClock = clock(5);
       g.timeLimit = 4 * 3600;
       const launch = offset(g.own, 120 + (r() * 2 - 1) * 15, 14);
+      markAt(g, launch, 'Yasen launch position');
       const ys = offset(g.own, 10 + (r() * 2 - 1) * 15, 16);
       const yasen = add(g, 'yasen', fresh(carry, ['Krasnoyarsk (K-571)', 'Novosibirsk (K-573)', 'Arkhangelsk (K-564)', 'Perm (K-575)'], 1)[0], 'enemy', ys, brg(ys, launch), 9, { mode: 'patrol', legT: 1e9, decoys: 2 }, 2);
       const ak = add(g, 'akula', fresh(carry, ['Akula (Volk)', 'Akula (Samara)', 'Akula (Leopard)'], 1)[0], 'enemy', offset(yasen, brg(ys, launch), 6), brg(ys, launch), 7, { mode: 'patrol', legT: 500, decoys: 2 }, 1);
@@ -162,6 +164,7 @@ export const missions: Record<MissionKey, Mission> = {
           drone = add(gg, 'poseidon', 'Poseidon drone', 'enemy', { x: kh.x, y: kh.y }, kh.hdg, 10, undefined, 2);
           drone.ordSpd = 35; drone.ordHdg = course; drone.ordDepth = 2;
           gg.flags.lx = kh.x; gg.flags.ly = kh.y; gg.flags.launched = gg.t;
+          markAt(gg, kh, 'Poseidon launch: catch it inside 60 nm', 60);
           // Her work done, Khabarovsk turns north for home.
           kh.ai = { ...kh.ai!, mode: 'raider', goal: offset(kh, 20, 80), cruise: 14 };
           gg.goal.targets = [drone.id]; gg.goal.win = 'The Poseidon drone is broken open on the bottom of the Atlantic. The coast will never know.';
@@ -188,6 +191,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.timeLimit = 3 * 3600;
       g.flags.jammed = 1;
       const lanes = offset(g.own, 220, 30);
+      markAt(g, lanes, 'Convoy lanes');
       const op = offset(g.own, 30 + r() * 30, 14);
       const oscar = add(g, 'oscar', fresh(carry, ['Oscar II (Voronezh)', 'Oscar II (Orel)', 'Oscar II (Tver)'], 1)[0], 'enemy', op, brg(op, lanes), 8, { mode: 'raider', goal: lanes, cruise: 8, decoys: 2 }, 1);
       const oiler = add(g, 'tanker', 'Akademik Pashin', 'enemy', offset(g.own, 170 + r() * 20, 14), 90, 8, go(90, 8, 900));
@@ -215,6 +219,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.timeLimit = 3.5 * 3600;
       g.own.hdg = g.own.ordHdg = 230;
       const safe = offset(g.own, 230, 25);
+      markAt(g, safe, 'HNoMS Thor Heyerdahl: bring her here');
       const kol = add(g, 'kilo', 'Kolpino (B-271)', 'allied', offset(g.own, 90, 1), 230, 8, undefined, 1);
       const heyer = add(g, 'nansen', 'HNoMS Thor Heyerdahl', 'allied', safe, 50, 4, { mode: 'picket', center: safe });
       const ak = add(g, 'akula', fresh(carry, ['Akula (Leopard)', 'Akula (Volk)', 'Akula (Samara)'], 1)[0], 'enemy', offset(g.own, 40 + r() * 20, 14 + r() * 3), 230, 12, { mode: 'transit', legT: 1e9, decoys: 2 }, 2);
@@ -260,6 +265,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.own.hdg = g.own.ordHdg = 250;
       const course = 250;
       const meet = offset(g.own, course, 24);
+      markAt(g, meet, 'Signing rendezvous');
       const nansen = add(g, 'nansen', 'HNoMS Fridtjof Nansen', 'allied', offset(g.own, 0, 2), course, 9, go(course, 9, 1e9));
       const rogues = [
         add(g, 'kilo', fresh(carry, ['Kaluga (B-800)', 'Vladikavkaz (B-459)', 'Magnitogorsk (B-471)'], 1)[0], 'enemy', offset(offset(g.own, course, 9 + r() * 2), course + (r() < 0.5 ? 90 : -90), 2 + r() * 2), r() * 360, 3, { mode: 'transit', legT: 1e9, decoys: 2 }, 1),
@@ -345,6 +351,7 @@ export const missions: Record<MissionKey, Mission> = {
       const course = 260;
       g.own.hdg = g.own.ordHdg = course;
       const open = offset(g.own, course, 28);
+      markAt(g, open, 'Open sea');
       const heyer = add(g, 'nansen', 'HNoMS Thor Heyerdahl', 'allied', offset(g.own, 90, 2), course, 10, go(course, 10, 1e9));
       const ships = screen(g, heyer, 'boxship', ['MV Vesterålen', 'MV Lofoten', 'MV Nordkapp', 'MV Saltstraumen', 'MV Polarlys'], [[150, 1.5], [210, 1.5], [180, 3], [140, 3.2], [220, 3.2]]);
       const kp = offset(g.own, course + (r() * 2 - 1) * 30, 8 + r() * 4);

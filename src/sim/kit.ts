@@ -36,6 +36,13 @@ export function screen(g: Game, lead: Vessel, cls: string, names: string[], spot
 }
 export const RING: [number, number][] = [[0, 3], [60, 3], [120, 3], [180, 3], [240, 3], [300, 3], [30, 5], [330, 5]];
 export const setGoal = (g: Game, o: Partial<Goal>) => Object.assign(g.goal, o);
+/** Mark a point the briefing names on the plot, with an optional ring of radius `r` nm. Change the
+ *  returned mark's label or ring from the script when the stage changes. */
+export function markAt(g: Game, p: Vec, label: string, r?: number) {
+  const m = { x: p.x, y: p.y, label, r };
+  (g.marks ??= []).push(m);
+  return m;
+}
 export const alive = (carry: Carry, name: string) => !carry.sunk.includes(name);
 export const ids = (vs: Vessel[]) => vs.map((v) => v.id);
 export const clock = (h: number, m = 0) => h * 3600 + m * 60;

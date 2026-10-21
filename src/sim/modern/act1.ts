@@ -76,6 +76,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.timeLimit = 3 * 3600;
       g.flags.jammed = 1;
       const beach = offset(g.own, 75 + r() * 20, 13 + r() * 2);
+      markAt(g, beach, 'Landing beach', 1.5);
       const p0 = offset(g.own, 300 + r() * 30, 14 + r() * 2);
       const crs = brg(p0, beach);
       g.own.hdg = g.own.ordHdg = norm(crs + 180 + 40);
@@ -109,6 +110,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.startClock = clock(11);
       g.timeLimit = 3 * 3600;
       const fsp = offset(g.own, 305 + r() * 25, 14 + r() * 3);
+      markAt(g, fsp, 'Fire support position', 2);
       const p = offset(g.own, 70 + r() * 30, 28 + r() * 4);
       const crs = brg(p, fsp);
       g.own.hdg = g.own.ordHdg = norm(brg(g.own, p));
@@ -139,6 +141,8 @@ export const missions: Record<MissionKey, Mission> = {
       g.timeLimit = 3 * 3600;
       const base = offset(g.own, 110 + r() * 20, 35);
       const launch = offset(g.own, 350 + r() * 30, 19 + r() * 3);
+      markAt(g, base, 'Keflavik');
+      markAt(g, launch, 'Oscar launch position', 2);
       const op = offset(launch, 345 + r() * 30, 18 + r() * 3);
       const oscar = add(g, 'oscar', 'Oscar II (Voronezh)', 'enemy', op, brg(op, launch), 10, { mode: 'raider', goal: launch, cruise: 10, decoys: 2 }, 1);
       add(g, 'tu142', 'Tu-142MK Bear-F', 'enemy', offset(g.own, r() * 360, 50), 0, 230, { mode: 'search', center: { x: g.own.x, y: g.own.y }, wp: { x: g.own.x, y: g.own.y }, buoyT: 0, torps: 2, datum: null });
@@ -188,6 +192,7 @@ export const missions: Record<MissionKey, Mission> = {
       const box = offset(g.own, 85 + r() * 20, 10);
       g.own.hdg = g.own.ordHdg = brg(g.own, box);
       g.flags.boxX = box.x * 1000; g.flags.boxY = box.y * 1000;
+      markAt(g, box, 'Launch box', 3);
       const names = ['Pechenga air-defence radar', 'Zapolyarny early-warning radar', 'Rybachy coastal battery radar', 'Titovka radar site'];
       names.forEach((n, i) => site(g, n, offset(g.own, 120 + i * 9 + r() * 6, 45 + r() * 20)));
       const corvs = ['Retivy', 'Strogiy'].map((n, i) => add(g, 'steregushchiy', n, 'enemy', offset(box, i * 180 + r() * 90, 2 + r() * 2), r() * 360, 10, { mode: 'patrol', legT: 300 }));
@@ -224,6 +229,8 @@ export const missions: Record<MissionKey, Mission> = {
       const borei = boat(g, 'borei', 'Knyaz Pozharsky', offset(bc, r() * 360, 1.5), r() * 360, 5);
       // Each Akula beats up and down its own half of the barrier line. Where the halves meet there is a gap.
       const bar = offset(offset(start, axis, 6), axis + 90, (r() * 2 - 1) * 1.5);
+      markAt(g, offset(start, axis, 6), 'Akula barrier line, about here');
+      const home = markAt(g, start, 'Start');
       const ends = [-1, 1].map((sd) => [offset(bar, axis + sd * 90, 2.5), offset(bar, axis + sd * 90, 8)]);
       const akulas = ['Akula (Samara)', 'Akula (Volk)'].map((n, i) => boat(g, 'akula', n, offset(bar, axis + (i ? 90 : -90), 3 + r() * 4), axis + (i ? 90 : -90), 6, i ? 1 : 2));
       const kazan = boat(g, 'yasen', 'Kazan (K-561)', offset(borei, r() * 360, 3), r() * 360, 6);
@@ -261,6 +268,7 @@ export const missions: Record<MissionKey, Mission> = {
         if (gg.flags.trail >= 1200 && !gg.flags.ready) {
           gg.flags.ready = 1;
           log(gg, 'good', 'XO: We have twenty minutes on the Borei: her full signature and her patrol box. Now get us out of here, back past the barrier.');
+          home.label = 'Get back within 8 nm'; home.r = 8;
           log(gg, 'danger', 'Sonar: Kazan has turned toward us and is coming up to speed. The Bastion knows we are here.', 'alarm');
           if (!gg.flags.kazanHit) cue(gg, kazan, 2);
         }
@@ -288,6 +296,7 @@ export const missions: Record<MissionKey, Mission> = {
         for (const v of dds) if (v.alive && v.ai!.mode === 'patrol' && dist(v, hunt) > 10) { v.ordHdg = brg(v, hunt); v.ordSpd = 14; }
         if (newLaunches(gg, 'land').length && !gg.flags.fired) {
           gg.flags.fired = 1; gg.flags.lx = gg.own.x * 1000; gg.flags.ly = gg.own.y * 1000;
+          markAt(gg, gg.own, 'Launch point: get 20 nm clear', 20);
           log(gg, 'warn', 'Radio intercepts: the coast has seen our launch. The Udaloys are turning toward the launch point and an Il-38 is scrambling.');
           for (const v of dds) cue(gg, v, 2.5);
           helo.ai!.center = { x: gg.own.x, y: gg.own.y };
@@ -413,6 +422,8 @@ export const missions: Record<MissionKey, Mission> = {
       g.timeLimit = 4 * 3600;
       g.own.hdg = g.own.ordHdg = 180;
       const exitY = -16;
+      markAt(g, { x: 0, y: -3 }, 'Mine lane starts');
+      markAt(g, { x: 0, y: exitY }, 'End of the mine lane');
       mineLine(g, { x: 0, y: -4 }, { x: 0, y: -14 }, 9, 'enemy', 0.12);
       mineField(g, { x: 0, y: -9 }, 4, 16);
       g.mines = g.mines.filter((m) => Math.abs(m.x) > 0.3 || m.y < -3.5); // nothing on Tang's doorstep
@@ -483,6 +494,7 @@ export const missions: Record<MissionKey, Mission> = {
       const kilo = boat(g, 'kilo', 'Kilo (Vologda)', offset(offset(pts[2], legs[2], 2 + r() * 2), legs[2] + (r() < 0.5 ? 90 : -90), 2 + r()), r() * 360, 3, 1);
       void kilo;
       g.flags.ex = pts[3].x * 1000; g.flags.ey = pts[3].y * 1000;
+      markAt(g, pts[3], 'End of the channel', 1);
       setGoal(g, { targets: [], need: 1, win: 'We are through the trench and into deep water, with the field behind us.', timeout: 'We are still inside the minefield.' });
       g.script = (gg) => {
         const xt = xtrack(pts, gg.own);
@@ -515,6 +527,7 @@ export const missions: Record<MissionKey, Mission> = {
       const ships = screen(g, lead, 'boxship', ['MS Finnmaid', 'MS Finnswan', 'MV Baltic Bright', 'MV Hansa Carrier'], [[160, 1.5], [200, 1.5], [170, 3], [190, 3]]);
       // Last night's mines across the route.
       const mid = offset(lead, crs, 15 + r() * 3);
+      markAt(g, mid, 'Mines reported across the route', 1.5);
       mineLine(g, offset(mid, crs + 90, 1.5), offset(mid, crs - 90, 1.5), 6, 'enemy', 0.25);
       const ep = offset(lead, 105 + r() * 30, 38);
       const corvs = ['Soobrazitelny', 'Boikiy'].map((n, i) => add(g, 'steregushchiy', n, 'enemy', offset(ep, 90 * i, 3), brg(ep, lead), 20, go(brg(ep, lead), 20, 1e9)));
@@ -551,6 +564,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.startClock = clock(23);
       g.timeLimit = 4 * 3600;
       const exit = offset(g.own, 180 + (r() * 2 - 1) * 15, 14);
+      markAt(g, exit, 'Their way out: stop them before here', 2);
       const kilos = ['Kilo (Krasnodar)', 'Kilo (Kolpino)'].map((n, i) => {
         const p = offset(g.own, (i ? 15 : -15) + (r() * 2 - 1) * 15, 14 + r() * 4);
         const k = boat(g, 'kilo', n, p, brg(p, exit), 10, r() < 0.5 ? 2 : 1);
@@ -667,6 +681,7 @@ export const missions: Record<MissionKey, Mission> = {
       g.startClock = clock(16);
       g.timeLimit = 3 * 3600;
       const tartus = offset(g.own, 90 + r() * 10, 16);
+      markAt(g, tartus, 'Tartus: air defences 12 nm', 12);
       const p0 = offset(g.own, 270 + (r() * 2 - 1) * 15, 17 + r() * 3);
       const crs = brg(p0, tartus);
       const ships = ([['ropucha', 'Korolev'], ['ivangren', 'Pyotr Morgunov'], ['ropucha', 'Aleksandr Shabalin']] as const)
