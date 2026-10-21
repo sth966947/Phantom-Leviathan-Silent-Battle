@@ -492,13 +492,16 @@ extras.P23 = (g, b) => {
 missions.P24 = {
   key: 'P24', title: 'Downed Pilots', era: '2029', place: 'Philippine Sea', date: 'August 2029, 1530',
   library: ['ka28', 'kq200', 'type054a', 'type052d', 'type056'],
-  brief: 'An EA-18G Growler from USS Gerald R. Ford went down an hour ago. Both crew, Lieutenant Commander Dana Ruiz and Lieutenant Sam Okafor, are alive in a raft 15 nm from you on bearing 065. China heard the Mayday too: the frigate Rizhao and the destroyer Taiyuan are coming at 25 knots from beyond the raft, about 40 nm out, and each is sending its Ka-28 helicopter ahead to search. The destroyer Guiyang, further off, may send a third. If a helicopter finds the raft it will hover over it and hoist them up, which takes 5 minutes; if a ship reaches it, they are prisoners. Get there first: come to periscope depth within about 600 yards of the raft at 4 knots or less, and hold there for 3 minutes while they swim to the sail and come aboard through the lock-out trunk. Then get at least 8 nm clear of the raft\'s position before the ships catch you. Their beacon gives an exact fix once you are within 6 nm at periscope depth. Radar at periscope depth sees helicopters; a JATM brings one down. A KQ-200 patrol plane is on its way to cover the search, about 40 minutes out: it will see masts on its radar. Mind the ships\' sonar on the way out.',
+  brief: 'An EA-18G Growler from USS Gerald R. Ford went down an hour ago. Both crew, Lieutenant Commander Dana Ruiz and Lieutenant Sam Okafor, are alive in a raft 15 nm from you on bearing 065. China heard the Mayday too: the frigate Rizhao and the destroyer Taiyuan are coming at 25 knots from beyond the raft, about 40 nm out, and each is sending its Ka-28 helicopter ahead to search. The destroyer Guiyang, further off, may send a third. If a helicopter finds the raft it will hover over it and hoist them up, which takes 5 minutes; if a ship reaches it, they are prisoners. Get there first: come to periscope depth within about 600 yards of the raft at 4 knots or less, and hold there for 3 minutes while they swim to the sail and come aboard through the lock-out trunk. Then get at least 8 nm clear of the raft\'s position before the ships catch you. The raft is marked on your plot from their Mayday, with a ring showing the 600-yard pickup zone; their beacon confirms the fix once you are within 6 nm at periscope depth, or a Blackwing can spot it from 3 nm. Radar and sonar will not show a raft. Radar at periscope depth sees helicopters; a JATM brings one down. A KQ-200 patrol plane is on its way to cover the search, about 40 minutes out: it will see masts on its radar. Mind the ships\' sonar on the way out.',
   build(g, r) {
     g.startClock = clock(15, 30);
     g.timeLimit = 3 * 3600;
     const rb = 65;
     const raft = mark(g, 'raft', offset(g.own, rb, 15));
     g.flags.raftBrg = rb;
+    // The Mayday gave the raft's position, so it is on the plot from the start, with the pickup ring.
+    const raftMark = { ...raft, label: 'Raft (Mayday position)', r: 0.3 };
+    g.marks = [raftMark];
     g.own.hdg = g.own.ordHdg = rb;
     const ship = (cls: string, name: string, b: number, d: number) => {
       const p = offset(raft, b, d);
@@ -547,7 +550,21 @@ missions.P24 = {
           for (const s of live(ships)) { s.ai!.knows = { x: o.x, y: o.y, t: gg.t, deep: false, exact: true }; s.ai!.mode = 'attack'; }
         }
       }
-      if (atPeriscopeDepth(gg) && dist(o, raft) < 6 && !gg.flags.beacon) { gg.flags.beacon = 1; log(gg, 'good', `ESM: PRC-149 beacon, bearing ${fmtBrg(brg(o, raft))}, ${dist(o, raft).toFixed(1)} nm. Raft marked on the plot.`); }
+      // The beacon is heard by our ESM mast at periscope depth within 6 nm; a Blackwing sees the raft within 3 nm.
+      const bw = gg.uavs.find((u) => dist(u, raft) < 3);
+      if (!gg.flags.beacon && ((atPeriscopeDepth(gg) && dist(o, raft) < 6) || bw)) {
+        gg.flags.beacon = 1; raftMark.label = 'Raft (beacon fix)';
+        log(gg, 'good', bw ? `Blackwing ${bw.n}: orange raft in sight, two aboard, waving. Bearing ${fmtBrg(brg(o, raft))} from us, ${dist(o, raft).toFixed(1)} nm.`
+          : `ESM: PRC-149 beacon, bearing ${fmtBrg(brg(o, raft))}, ${dist(o, raft).toFixed(1)} nm. Raft position confirmed on the plot.`);
+      }
+      // Close aboard but not set up for the pickup: say what is missing, once each time it changes.
+      if (!gg.flags.aboard && dist(o, raft) < 0.3) {
+        const need = !atPeriscopeDepth(gg) ? 1 : o.spd > 4.5 ? 2 : 0;
+        if (need && need !== gg.flags.raftHint) log(gg, 'warn', need === 1 ? 'The raft is right overhead. Come up to periscope depth so they can swim to the sail.' : 'The raft is alongside but we are going too fast for them to reach us. Slow to 4 knots or less.');
+        gg.flags.raftHint = need;
+      } else gg.flags.raftHint = 0;
+      if (!gg.flags.aboard && dist(o, raft) < 1 && dist(o, raft) >= 0.3 && !gg.flags.raftClose) { gg.flags.raftClose = 1; log(gg, 'info', `Raft ${Math.round(dist(o, raft) * 2025)} yards off, bearing ${fmtBrg(brg(o, raft))}. Close to inside 600 yards at periscope depth, 4 knots or less.`); }
+      if (gg.flags.aboard) { raftMark.r = 8; raftMark.label = 'Raft: get 8 nm clear'; }
       for (const s of ships) if (s.alive && dist(s, raft) < 1 && !gg.flags.aboard) end(gg, false, `${s.name} has picked the aircrew out of the water. They are prisoners of war.`);
       if (gg.flags.aboard && dist(o, raft) > 8) end(gg, true, 'Tang is clear with Ruiz and Okafor aboard. Both of them are going home.');
       if (!gg.flags.aboard && atPeriscopeDepth(gg) && dist(o, raft) < 0.3 && o.spd <= 4.5) {

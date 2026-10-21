@@ -190,6 +190,15 @@ export class Plot {
         .stroke({ width: 1.2, color: m.side === 'us' ? COL.friend : COL.threat, alpha: m.found ? 0.9 : 0.45 });
     }
 
+    // Mission marks: a raft, a rendezvous. A cross, its name, and a ring where one is given.
+    for (const m of g.marks ?? []) {
+      const q = scr(m), s = 5;
+      d.moveTo(q.x - s, q.y - s).lineTo(q.x + s, q.y + s).moveTo(q.x + s, q.y - s).lineTo(q.x - s, q.y + s)
+        .stroke({ width: 1.5, color: COL.friend, alpha: 0.9 });
+      if (m.r) d.circle(q.x, q.y, Math.max(3, m.r * k)).stroke({ width: 1, color: COL.friend, alpha: 0.5 });
+      this.label(m.label, q.x + 8, q.y - 6, COL.friend);
+    }
+
     // Baffles, or the towed array astern when it is working.
     if (arrayActive(g)) {
       const tail = ray(own.hdg + 180, Math.min(0.6 * k, 40));

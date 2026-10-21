@@ -177,6 +177,8 @@ export interface Game {
   hits: Hit[];
   /** Minefields (see hazards.ts): enemy mines Tang must find and avoid, and any Tang has laid. */
   mines: Mine[];
+  /** Points a mission marks on the plot (a raft, a rendezvous), with an optional ring of radius `r` nm. */
+  marks?: (Vec & { label: string; r?: number })[];
   /** Sea state and pack ice for the mission (see hazards.ts). */
   env: Env;
   t: number; r: () => number; seq: number;
