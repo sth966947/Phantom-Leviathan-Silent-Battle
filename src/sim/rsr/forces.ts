@@ -118,7 +118,7 @@ function sag(s: Spec): Plan {
       const ssn = hunter ? sub(g, hunter.cls, hunter.name, offset(fl, course + 30, 10), course, 8) : null;
       setGoal(g, {
         targets: ids(all), need,
-        win: `${need} ships of the ${flagName} group are going down. What is left of it is turning back for the Kola Inlet.`,
+        win: `The ${flagName} group has lost ${need} ships, and what is left of it is turning back for the Kola Inlet.`,
         timeout: `The ${flagName} group is still at sea and through to the convoy routes.`,
       });
       g.script = (gg) => {

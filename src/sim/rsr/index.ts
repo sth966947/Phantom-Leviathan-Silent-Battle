@@ -21,7 +21,7 @@ export const LEVELS: { name: string; mods: Mods; er: number; note: string }[] = 
 ];
 /** The boats on offer: Tang as she is, and the 1980s hulls. */
 export type Hull = 'tang' | BoatKey;
-export const HULLS: Hull[] = ['tang', ...BOATS];
+export const HULLS: Hull[] = [...BOATS];
 export const hullFor = (h: Hull, y: Year): BoatProfile => (h === 'tang' ? TANG : boatFor(h, y));
 export const hullOK = (h: Hull, y: Year) => h === 'tang' || inService(h, y);
 export { YEARS };

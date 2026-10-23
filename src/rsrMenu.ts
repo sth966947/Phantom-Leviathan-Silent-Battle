@@ -82,7 +82,7 @@ export function showRsr(host: RsrHost) {
 
 function showSetup(host: RsrHost) {
   const p = lastPick();
-  show(host, 'setup', `
+  show(host, 'rsr-setup', `
     <div class="camp-head"><div><h2>Red Storm Rising</h2><p class="sub">The war for the Norwegian Sea · 1984 to 1996</p></div>
       <button id="toSims" class="restart">Battle sims</button></div>
     <p>The Warsaw Pact has gone to war with NATO, and the Northern Fleet is coming out of the Kola Inlet to cut Europe off from America. You command an American attack submarine in the Norwegian Sea. Each mission sends you after one Soviet force; how you do, and the news from the rest of the war, moves the fight for the sea one way or the other. The war ends when one side holds the whole sea, or in a ceasefire after ${CAP} missions.</p>
@@ -176,7 +176,7 @@ function simKey(f: Force | 'chance', p: Pick) {
 }
 function showSims(host: RsrHost) {
   const p = lastPick();
-  show(host, 'sims', `
+  show(host, 'rsr-sims', `
     <div class="camp-head"><div><h2>Battle sims</h2><p class="sub">Red Storm Rising · single fights that don't count toward the war</p></div>
       <button id="toWar" class="restart">Back to the war</button></div>
     ${pickersHTML(p)}
