@@ -353,6 +353,17 @@ const SHIPS: Record<string, ShipSil> = {
     kind: 'ship', len: 135, deck: [[0, 7], [0.5, 8], [1, 10]],
     parts: [B(0.2, 0.72, 13), B(0.45, 0.72, 18), B(0.52, 0.7, 23), M(0.62, 33), M(0.32, 22), B(0.06, 0.2, 11)],
   },
+  // Kuznetsov: ski-jump bow, tall island with a flat radar block and one funnel.
+  kuznetsov: {
+    kind: 'ship', len: 305, deck: [[0, 9], [0.5, 10], [0.9, 11], [1, 13]],
+    parts: [B(0.05, 0.92, 20), S(0.0, 0.93, 22, 1.6), S(0.93, 0.965, 24, 1.6), S(0.965, 1, 26.5, 1.6), ...pillars([0.02], 22),
+      B(0.42, 0.56, 33), B(0.45, 0.55, 42), F(0.46, 0.04, 46), M(0.52, 58)],
+  },
+  // Serna: low open well deck, wheelhouse aft.
+  serna: {
+    kind: 'ship', len: 26, deck: [[0, 1.6], [0.8, 1.8], [1, 2.2]],
+    parts: [B(0.05, 0.25, 4), M(0.15, 6)],
+  },
   arktika: {
     kind: 'ship', len: 173, deck: [[0, 8], [0.5, 9], [0.85, 10], [1, 12]],
     parts: [B(0.12, 0.3, 12), M(0.3, 22), B(0.48, 0.8, 18), B(0.52, 0.78, 26), B(0.56, 0.74, 32), M(0.66, 44)],
@@ -391,6 +402,11 @@ const SHIPS: Record<string, ShipSil> = {
   type071: {
     kind: 'ship', len: 210, deck: [[0, 9], [0.4, 10], [1, 13]],
     parts: [B(0.28, 0.8, 21), B(0.55, 0.78, 28), M(0.66, 40), F(0.45, 0.04, 26), T(0.9, 15, 0.03, 0.05)],
+  },
+  // Type 726 LCAC: square deck on a skirt, two big ducted fans aft.
+  type726: {
+    kind: 'ship', len: 33, deck: [[0, 3], [0.5, 3], [1, 3]],
+    parts: [B(0.02, 0.14, 8), B(0.16, 0.28, 8), B(0.7, 0.85, 5.5), M(0.78, 8)],
   },
   // Fujian: flat deck, small island well aft. Shandong: ski-jump bow, big island with funnel.
   fujian: {
