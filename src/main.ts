@@ -17,6 +17,7 @@ import { Player, noteSelection, record as recordOrders, recording } from './repl
 import { FRONTS, FRONT_NAMES, WAR_MAX, WAR_MIN, currentSlot, warLength, newsCard, resolve as resolveWar, warOver, type Ending, type WarState } from './sim/war';
 import { WAR_MISSIONS } from './sim/warData';
 import { currentWar, playable, restartWar, saveWar } from './warSave';
+import { showRsr, showRsrResult, type RsrHost, type RsrPlay } from './rsrMenu';
 
 const $ = (id: string) => document.getElementById(id)!;
 const esc = (t: string) => t.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]!));
@@ -37,8 +38,10 @@ let winShown = false; // the 'objectives met' card has been shown for this missi
 let replay: Player | null = null;
 let liveGame: Game | null = null; // the finished mission, kept while its replay plays
 let warMission: string | null = null; // the modern war mission being played, if any
-type Mode = 'ww2' | 'war';
-let mode: Mode = (() => { try { return localStorage.getItem('phantom-leviathan-mode') === 'war' ? 'war' : 'ww2'; } catch { return 'ww2'; } })();
+let rsrPlay: RsrPlay | null = null; // a Red Storm Rising mission or battle sim, if that's what is being played
+type Mode = 'ww2' | 'war' | 'rsr';
+let mode: Mode = (() => { try { const m = localStorage.getItem('phantom-leviathan-mode'); return m === 'war' || m === 'rsr' ? m : 'ww2'; } catch { return 'ww2'; } })();
+const MODES = '<div class="modes"><button data-mode="ww2">WWII campaign</button><button data-mode="war">Modern war · 2029</button><button data-mode="rsr">Red Storm Rising · 1980s</button></div>';
 
 const plot = new Plot();
 const waterfall = new Waterfall($('waterfall') as HTMLCanvasElement);
@@ -294,7 +297,7 @@ document.addEventListener('keydown', (ev) => {
     return;
   }
   if ((ev.target as HTMLElement).closest?.('input, select, textarea')) return; // typing a depth, not giving orders
-  if (!running) { if (ev.key === 'Enter' && overShown) start(scenario); return; }
+  if (!running) { if (ev.key === 'Enter' && overShown) start(scenario, warMission, rsrPlay); return; }
   const idx = SPEEDS.findIndex(([v]) => v >= g.own.ordSpd);
   const faster = () => orders.speed(g, SPEEDS[Math.min(SPEEDS.length - 1, idx + 1)][0]);
   const slower = () => orders.speed(g, SPEEDS[Math.max(0, idx - 1)][0]);
@@ -413,8 +416,9 @@ function exitReplay() {
 on('replayRestart', startReplay);
 on('replayExit', exitReplay);
 
-function start(key: ScenarioKey, fromWar: string | null = null) {
+function start(key: ScenarioKey, fromWar: string | null = null, rsr: RsrPlay | null = null) {
   warMission = fromWar;
+  rsrPlay = rsr;
   unlockAudio();
   newGame(key);
   timeScale = resumeScale = 1; // start in real time so the player can get their bearings
@@ -478,6 +482,7 @@ function showCampaign(key: MissionKey = picked) {
 
 function showResult() {
   if (warMission) return showWarResult(warMission);
+  if (rsrPlay) return showRsrResult(rsrHost, g, scenario, rsrPlay);
   const o = g.over!;
   const res = record(g);
   const key = scenario;
@@ -506,7 +511,11 @@ function setMode(m: Mode) {
   try { localStorage.setItem('phantom-leviathan-mode', m); } catch { /* fine without it */ }
   showMenu();
 }
-function showMenu() { strikeCam.close(); if (mode === 'war') showWar(); else showCampaign(); }
+function showMenu() { strikeCam.close(); if (mode === 'war') showWar(); else if (mode === 'rsr') showRsr(rsrHost); else showCampaign(); }
+const rsrHost: RsrHost = {
+  modes: MODES, wireModes, start: (k, p) => start(k, null, p), replay: startReplay,
+  done: () => { $('overlay').hidden = false; running = false; },
+};
 function wireModes() {
   for (const b of document.querySelectorAll<HTMLButtonElement>('.modes button')) {
     b.classList.toggle('on', b.dataset.mode === mode);
@@ -562,7 +571,7 @@ function showWar() {
   for (let i = n + 2; i <= warLength(w); i++) rows.push(`<li class="locked"><span class="n">${i}</span><span class="t">?</span></li>`);
   const ending = w.ending && over ? ENDINGS[w.ending] : null;
   brief.innerHTML = `
-    <div class="modes"><button data-mode="ww2">WWII campaign</button><button data-mode="war">Modern war · 2029</button></div>
+    ${MODES}
     <div class="camp-head">
       <div>
         <h2>The war of 2029</h2>

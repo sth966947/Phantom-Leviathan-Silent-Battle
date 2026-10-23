@@ -148,7 +148,7 @@ export const CLASSES_80S: Record<string, ClassCard> = {
  * with these changes. Each looks like the class it copies (`ALIAS_80S` points the drawings at it).
  */
 export const ALIAS_80S: Record<string, string> = {
-  kirov80: 'kirov', udaloy80: 'udaloy', ropucha80: 'ropucha', akula80: 'akula', kilo80: 'kilo', oscar80: 'oscar', may: 'il38', bear: 'tu142', helix: 'ka27',
+  kirov80: 'kirov', udaloy80: 'udaloy', ropucha80: 'ropucha', akula80: 'akula', kilo80: 'kilo', oscar80: 'oscar', kuznetsov80: 'kuznetsov', may: 'il38', bear: 'tu142', helix: 'ka27',
 };
 export const CHANGES_80S: Record<string, Partial<ClassCard>> = {
   kirov80: { name: 'Kirov', type: 'nuclear battlecruiser' },
@@ -158,6 +158,7 @@ export const CHANGES_80S: Record<string, Partial<ClassCard>> = {
   akula80: { name: 'Akula', slBase: 99 },
   kilo80: { name: 'Kilo', slBase: 88 },
   oscar80: { name: 'Oscar', type: 'SSGN' },
+  kuznetsov80: { name: 'Kuznetsov', type: 'aircraft carrier' },
   may: { name: 'Il-38 May' },
   bear: { name: 'Tu-142 Bear-F' },
   helix: { name: 'Ka-27 Helix' },
@@ -199,6 +200,12 @@ export const REFERENCE_80S: Record<string, Reference> = {
     armament: ['24 × SS-N-19 anti-ship missiles in tubes outside the pressure hull', '4 × 533 mm and 4 × 650 mm torpedo tubes'],
     armor: 'None',
     notes: 'The carrier killer: a very broad double hull with the missile tubes along each side. Big and fairly loud. Two screws.',
+  },
+  kuznetsov80: {
+    displacement: '58,500 t full load',
+    armament: ['12 × SS-N-19 Shipwreck anti-ship missiles under the flight deck', 'SA-N-9 SAMs and close-in guns', 'Su-27K and MiG-29K fighters, Ka-27 helicopters'],
+    armor: 'Light protection over magazines',
+    notes: 'The first Soviet carrier with a full flight deck, at sea from 1991: ski-jump bow, angled deck and a tall island well aft. Four shafts.',
   },
   may: {
     displacement: '63,500 kg max takeoff',

@@ -11,6 +11,7 @@ import {
   markAt,
 } from './kit';
 import { MODERN_EXTRA, MODERN_MISSIONS } from './modern';
+import { isRsr, rsrExtra, rsrMission } from './rsr';
 
 export type { Carry, Mission, MissionKey, Objective };
 
@@ -998,8 +999,13 @@ const BUILT: Record<MissionKey, Mission> = {
   },
 };
 
-/** Every mission: the WWII campaign and prequels, Act 1's first missions, and the modern war's mission files. */
-export const MISSIONS: Record<MissionKey, Mission> = { ...BUILT, ...MODERN_MISSIONS };
+/**
+ * Every mission: the WWII campaign and prequels, Act 1's first missions, and the modern war's mission files.
+ * Red Storm Rising missions are built from their keys (rsr:...) the first time they're asked for.
+ */
+export const MISSIONS: Record<MissionKey, Mission> = new Proxy({ ...BUILT, ...MODERN_MISSIONS } as Record<MissionKey, Mission>, {
+  get: (t, k) => (typeof k === 'string' && !(k in t) && isRsr(k) ? rsrMission(k) : t[k as string]),
+});
 
 // ---- Objectives: what the pause screen lists, live ---------------------------------------------
 /** Objectives that missions' scripts add or change: escapes, reports, deadlines, trails. */
@@ -1071,6 +1077,6 @@ const EXTRA: Record<MissionKey, ObjectiveFn> = {
 /** The mission's objectives as they stand now. */
 export function objectives(g: Game): Objective[] {
   const base = baseObjectives(g);
-  const fn = EXTRA[g.scenario] ?? MODERN_EXTRA[g.scenario];
+  const fn = EXTRA[g.scenario] ?? MODERN_EXTRA[g.scenario] ?? (isRsr(g.scenario) ? rsrExtra(g.scenario) : undefined);
   return fn ? fn(g, base) : base;
 }

@@ -163,10 +163,12 @@ export const high = (w: Vec & { type: string; aim: Vec; run: number }) => w.type
 /** A missile in a Blackwing's jamming is half as likely to be shot down. */
 export const JAM_AD = 0.5;
 export const adP = (w: { type: string; screened?: boolean }, p: number) => (w.type === 'mjolnir' ? p * MJOLNIR_AD : w.type === 'nsm' ? p * NSM_AD : p) * (w.screened ? JAM_AD : 1);
+/** Our missiles that close-in air defence can shoot at: NSM, Maritime Strike Tomahawk, Mjolnir, and the 1980s Harpoon and TASM. */
+const AD_TYPES = new Set(['nsm', 'mst', 'mjolnir', 'harpoon', 'tasm']);
 /** Modern warships' close-in air defence: each of our anti-ship missiles that gets within 3 nm of one is shot down with chance `p`. */
 export function pointDefence(g: Game, ships: Vessel[], p: number) {
   for (const w of g.weapons) {
-    if (w.dead || w.side !== 'us' || (w.type !== 'nsm' && w.type !== 'mst' && w.type !== 'mjolnir') || high(w) || g.flags[`pd${w.id}`]) continue;
+    if (w.dead || w.side !== 'us' || !AD_TYPES.has(w.type) || high(w) || g.flags[`pd${w.id}`]) continue;
     const by = ships.find((v) => v.alive && dist(v, w) < 3);
     if (!by) continue;
     g.flags[`pd${w.id}`] = 1;

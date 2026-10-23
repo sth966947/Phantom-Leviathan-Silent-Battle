@@ -13,11 +13,11 @@ export const extras: Record<MissionKey, ObjectiveFn> = {};
 
 // ---- Local helpers --------------------------------------------------------------------------------
 /** A search pattern for aircraft that aren't hunting us: quarter the area at `cruise` knots. */
-const wander = (center: Vec, rng: number, cruise: number) => ({ mode: 'wander' as const, center, rng, cruise });
+export const wander = (center: Vec, rng: number, cruise: number) => ({ mode: 'wander' as const, center, rng, cruise });
 /** A maritime patrol aircraft working a box with sonobuoys and torpedoes. */
-const patrolPlane = (center: Vec, torps = 2) => ({ mode: 'search' as const, center, wp: { ...center }, buoyT: 0, torps, datum: null });
+export const patrolPlane = (center: Vec, torps = 2) => ({ mode: 'search' as const, center, wp: { ...center }, buoyT: 0, torps, datum: null });
 /** A dipping ASW helicopter hunting around a point, with one torpedo. */
-const dipper = (center: Vec) => ({ mode: 'search' as const, center: { ...center }, wp: { ...center }, torps: 1, datum: null, hits: 0, dipT: 0 });
+export const dipper = (center: Vec) => ({ mode: 'search' as const, center: { ...center }, wp: { ...center }, torps: 1, datum: null, hits: 0, dipT: 0 });
 const sub = (g: Game, cls: string, name: string, p: Vec, hdg: number, spd: number) =>
   add(g, cls, name, 'enemy', p, hdg, spd, { mode: 'patrol', legT: 600, decoys: 2 }, 1);
 const byName = (g: Game, name: string) => g.vessels.find((v) => v.name === name && v.side === 'enemy');
@@ -26,7 +26,7 @@ const dmg = (v: Vessel | undefined) => (v ? Math.max(0, v.cls.hp - v.hp) : 0);
  * The carrier is gone: the senior ship left stays by the wreck to pick up survivors, slow, and the rest of the
  * screen forms up on her instead of scattering. Run once, when the carrier sinks.
  */
-function standBy(g: Game, cv: Vessel, ships: Vessel[], course: number) {
+export function standBy(g: Game, cv: Vessel, ships: Vessel[], course: number) {
   if (cv.alive || g.flags.standBy) return;
   const lead = ships.find((v) => v.alive);
   if (!lead?.ai) return;
@@ -43,7 +43,7 @@ function standBy(g: Game, cv: Vessel, ships: Vessel[], course: number) {
  * One that holds Tang for a minute leaves the screen to attack, two at most at a time; when it loses us
  * for good it goes back on station.
  */
-function listen(g: Game, ships: Vessel[]) {
+export function listen(g: Game, ships: Vessel[]) {
   const o = g.own;
   for (const v of ships) {
     if (!v.alive || !v.ai || v.cls.threshold === null) continue;

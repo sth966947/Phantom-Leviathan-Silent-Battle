@@ -443,3 +443,44 @@ button.on-air { background: #1d4a3a; border-color: #2f7a5e; color: #d4ffe9; }
 .sc-btns { display: flex; gap: 6px; flex: none; }
 .sc-btns button { flex: none; padding: 4px 10px; }
 .sc-frame canvas { width: 100%; height: auto; aspect-ratio: 4 / 3; background: #000; image-rendering: pixelated; }
+
+/* Red Storm Rising: the gauge, the career panel, the setup pickers and the battle sims. */
+.brief.rsr button.primary { border-color: var(--good); color: var(--good); }
+.brief.rsr .heads { flex: none; }
+.gauge { border: 1px solid var(--rule); padding: 10px 12px; margin: 0 0 12px; }
+.gauge-ends { display: flex; justify-content: space-between; align-items: baseline; font: 11px var(--f-data); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }
+.gauge-ends .ok { color: var(--good); }
+.gauge-ends .no { color: var(--threat); }
+.gauge-ends .gv { font-size: 15px; font-weight: 600; color: var(--ink); }
+.gauge-bar { display: grid; grid-template-columns: repeat(21, 1fr); gap: 2px; }
+.gauge-bar i { height: 14px; border: 1px solid var(--rule); display: block; }
+.gauge-bar i.mid { border-color: var(--dim); }
+.gauge-bar i.pos { background: var(--good); border-color: var(--good); }
+.gauge-bar i.neg { background: var(--threat); border-color: var(--threat); }
+.gauge-bar i.at { outline: 2px solid var(--ink); outline-offset: 1px; }
+.gauge .fx { margin: 6px 0 0; }
+.career, .brief .er { display: grid; grid-template-columns: auto auto 1fr; gap: 6px 24px; border: 1px solid var(--rule); padding: 8px 12px; margin: 0 0 12px; }
+.brief .er { grid-template-columns: repeat(3, auto); justify-content: start; }
+.career > div, .brief .er > div { display: flex; flex-direction: column; gap: 2px; }
+.career .wlabel, .brief .er .wlabel { margin: 0; }
+.career b, .brief .er b { font: 600 18px var(--f-data); }
+.career small, .brief .er small { font: 11px var(--f-data); color: var(--dim); }
+.career .medals { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.career .medals .wlabel { width: 100%; }
+.medal { font: 11px var(--f-data); padding: 2px 6px; border: 1px solid var(--contact); color: var(--contact); white-space: nowrap; }
+.medal.m3, .medal.m4 { border-color: var(--own); color: var(--own); }
+.medal.m5 { border-color: var(--good); color: var(--good); }
+.rsr-pick { margin: 0 0 12px; }
+.rsr-pick .wlabel { margin: 10px 0 6px; }
+.brief .seg { flex-wrap: wrap; }
+.brief .seg button { flex: 1; width: auto; padding: 7px 10px; font-size: 13px; }
+.brief .seg button.on, .brief .boats button.on { border-color: var(--own); background: #1d3f5e; }
+.boats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.brief .boats button { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; padding: 8px 10px; font-size: 14px; background: transparent; }
+.boats button small { font: 11px var(--f-data); color: var(--dim); }
+.boats button span { font-size: 12px; color: var(--dim); line-height: 1.35; }
+.boats button:disabled { opacity: 0.35; cursor: not-allowed; }
+.sims { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.brief .sims button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 8px 10px; background: transparent; }
+.sims small { font-size: 12px; color: var(--dim); }
+@media (max-width: 700px) { .boats, .sims { grid-template-columns: 1fr; } .career { grid-template-columns: 1fr; } }
