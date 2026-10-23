@@ -69,8 +69,8 @@ export const missions: Record<MissionKey, Mission> = {
   // ---- The northern flank ------------------------------------------------------------------------
   A8: {
     key: 'A8', title: 'Fjord War', era: '2029', place: 'Vestfjorden, Norway', date: 'April 2029, 0230', night: true,
-    library: ['ropucha', 'ivangren', 'kilo', 'steregushchiy', 'ka27', 'nansen', 'virginia'],
-    brief: 'A Russian landing force has come round Lofoten in the dark and is running up Vestfjorden for the beaches south of Bodø. Three Ropucha landing ships and the Ivan Gren-class Pyotr Morgunov are in a loose column about 15 nm northwest of you, making 12 knots for a beach about 14 nm to your east. A Kilo sweeps ahead of them and the corvette Stoikiy rides with the column, with a Ka-27 up. Sink two of the four landing ships. If three of them reach the beach, the landing has succeeded and the mission fails. The corvette has good sonar and will leave the column to come after you if she hears you. Russian jamming covers the fjord: the anti-ship Tomahawk can\'t get its in-flight updates, so it\'s NSM and torpedoes, and the ships\' guns shoot down a share of what comes at them.',
+    library: ['ropucha', 'ivangren', 'kilo', 'steregushchiy', 'udaloy', 'ka27', 'il38', 'nansen', 'virginia'],
+    brief: 'A Russian landing force has come round Lofoten in the dark and is running up Vestfjorden for the beaches south of Bodø. Three Ropucha landing ships and the Ivan Gren-class Pyotr Morgunov are in a loose column about 15 nm northwest of you, making 12 knots for a beach about 14 nm to your east. A Kilo sweeps ahead of them, the corvette Stoikiy rides with the column and the Udaloy-class destroyer Admiral Levchenko covers its far side, with a Ka-27 up and an Il-38 patrolling over the fjord. Sink three of the four landing ships. If two of them reach the beach, the landing has succeeded and the mission fails. The corvette and the destroyer both have good sonar and will leave the column to come after you if they hear you. Russian jamming covers the fjord: the anti-ship Tomahawk can\'t get its in-flight updates, so it\'s NSM and torpedoes, and the ships\' guns shoot down a share of what comes at them.',
     build(g, r) {
       g.startClock = clock(2, 30);
       g.timeLimit = 3 * 3600;
@@ -83,13 +83,15 @@ export const missions: Record<MissionKey, Mission> = {
       const ships = ([['ropucha', 'Aleksandr Otrakovsky'], ['ropucha', 'Kondopoga'], ['ivangren', 'Pyotr Morgunov'], ['ropucha', 'Georgiy Pobedonosets']] as const)
         .map(([c, n], i) => add(g, c, n, 'enemy', offset(p0, crs + 180 + (i % 2 ? 15 : -15), i * 1.3), crs, 12, go(crs, 12, 600)));
       const corv = add(g, 'steregushchiy', 'Stoikiy', 'enemy', offset(ships[0], crs + 120, 2.5), crs, 12, { mode: 'station', leader: ships[0].id, rel: 120, rng: 2.5 });
+      const ddg = add(g, 'udaloy', 'Admiral Levchenko', 'enemy', offset(ships[0], crs - 120, 3), crs, 12, { mode: 'station', leader: ships[0].id, rel: -120, rng: 3 });
       const kilo = boat(g, 'kilo', 'Kilo (Vladikavkaz)', offset(p0, crs + (r() * 2 - 1) * 25, 5 + r() * 2), crs, 6, 1);
       const helo = add(g, 'ka27', 'Ka-27PL Helix', 'enemy', offset(ships[0], r() * 360, 4), 0, 120, { mode: 'search', center: { x: p0.x, y: p0.y }, wp: offset(p0, crs, 6), torps: 1, datum: null, hits: 0, dipT: 0 });
-      setGoal(g, { targets: ids(ships), need: 2, win: 'Two landing ships are on the bottom of Vestfjorden. The rest have turned back for Lofoten.', timeout: 'The landing force is still in the fjord, regrouping for another run at the beach.' });
+      add(g, 'il38', 'Il-38N May', 'enemy', offset(p0, r() * 360, 40), 0, 230, { mode: 'search', center: { x: p0.x, y: p0.y }, wp: { x: p0.x, y: p0.y }, buoyT: 0, torps: 2, datum: null });
+      setGoal(g, { targets: ids(ships), need: 3, win: 'Three landing ships are on the bottom of Vestfjorden. The last has turned back for Lofoten.', timeout: 'The landing force is still in the fjord, regrouping for another run at the beach.' });
       g.flags.landed = 0;
       g.script = (gg) => {
-        listen(gg, [corv]);
-        pointDefence(gg, [corv, ...ships], 0.35);
+        listen(gg, [corv, ddg]);
+        pointDefence(gg, [corv, ddg, ...ships], 0.35);
         const lead = ships.find((s) => s.alive) ?? ships[0];
         helo.ai!.center = offset(lead, lead.hdg, 4);
         keepCourse(kilo, brg(kilo, offset(lead, brg(lead, beach), 6)), 7);
@@ -97,15 +99,15 @@ export const missions: Record<MissionKey, Mission> = {
           if (s.alive && s.ai!.mode === 'transit') s.ai!.baseCourse = brg(s, beach);
           if (arrive(gg, s, beach, 1.5)) { gg.flags.landed++; log(gg, 'danger', `${s.name} has reached the beach and is putting her troops ashore.`); }
         }
-        if (gg.flags.landed >= 3) end(gg, false, 'Three landing ships reached the beach. Russian marines are ashore south of Bodø.');
+        if (gg.flags.landed >= 2) end(gg, false, 'Two landing ships reached the beach. Russian marines are ashore south of Bodø.');
       };
     },
   },
 
   A9: {
     key: 'A9', title: 'Svalbard', era: '2029', place: 'Off Svalbard', date: 'April 2029, 1100',
-    library: ['kirov', 'gorshkov', 'udaloy', 'ka27', 'virginia'],
-    brief: 'The battlecruiser Pyotr Velikiy and the frigates Admiral Kasatonov and Admiral Golovko are steaming west to cover a landing at Longyearbyen. They are about 30 nm east of you, making 18 knots for a fire support position off Isfjorden about 15 nm northwest of you. Sink Pyotr Velikiy, or hurt the group badly enough to turn it back: 8 points of damage on the Kirov (a Mk 48 does 5, a Tomahawk 3), or both frigates sunk. If the Kirov reaches the fire support position, the landing goes ahead and the mission fails. All three ships shoot down a share of incoming anti-ship missiles, and the frigates have strong sonar: if one hears you she will leave the screen and come for you. A Ka-27 flies from the Kirov.',
+    library: ['kirov', 'gorshkov', 'udaloy', 'ka27', 'il38', 'virginia'],
+    brief: 'The battlecruiser Pyotr Velikiy, the frigates Admiral Kasatonov and Admiral Golovko and the Udaloy-class destroyer Vice-Admiral Kulakov are steaming west to cover a landing at Longyearbyen. They are about 30 nm east of you, making 18 knots for a fire support position off Isfjorden about 15 nm northwest of you. Sink Pyotr Velikiy, or hurt the group badly enough to turn it back: 11 points of damage on the Kirov (a Mk 48 does 5, a Tomahawk 3), or all three escorts sunk. If the Kirov reaches the fire support position, the landing goes ahead and the mission fails. All four ships shoot down a share of incoming anti-ship missiles, and the escorts have strong sonar: if one hears you she will leave the screen and come for you. A Ka-27 flies from the Kirov, and an Il-38 is patrolling ahead of the group.',
     build(g, r) {
       g.startClock = clock(11);
       g.timeLimit = 3 * 3600;
@@ -115,8 +117,9 @@ export const missions: Record<MissionKey, Mission> = {
       const crs = brg(p, fsp);
       g.own.hdg = g.own.ordHdg = norm(brg(g.own, p));
       const kirov = add(g, 'kirov', 'Pyotr Velikiy', 'enemy', p, crs, 18, go(crs, 18, 700));
-      const frig = screen(g, kirov, 'gorshkov', ['Admiral Kasatonov', 'Admiral Golovko'], [[50, 3], [-50, 3]]);
+      const frig = [...screen(g, kirov, 'gorshkov', ['Admiral Kasatonov', 'Admiral Golovko'], [[50, 3], [-50, 3]]), ...screen(g, kirov, 'udaloy', ['Vice-Admiral Kulakov'], [[180, 2.5]])];
       const helo = add(g, 'ka27', 'Ka-27PL Helix', 'enemy', offset(kirov, crs, 5), crs, 120, { mode: 'search', center: offset(kirov, crs, 8), wp: offset(kirov, crs, 8), torps: 1, datum: null, hits: 0, dipT: 0 });
+      add(g, 'il38', 'Il-38N May', 'enemy', offset(p, r() * 360, 40), 0, 230, { mode: 'search', center: { x: p.x, y: p.y }, wp: { x: p.x, y: p.y }, buoyT: 0, torps: 2, datum: null });
       setGoal(g, { targets: [kirov.id], need: 1, win: 'Pyotr Velikiy is sinking. The landing at Longyearbyen is off.', timeout: 'The Kirov group is still at sea and the landing is only delayed.' });
       g.script = (gg) => {
         listen(gg, frig);
@@ -125,8 +128,8 @@ export const missions: Record<MissionKey, Mission> = {
         if (!kirov.alive) return;
         if (kirov.ai!.mode === 'transit') kirov.ai!.baseCourse = brg(kirov, fsp);
         helo.ai!.center = offset(kirov, kirov.hdg, 6);
-        if (kirov.hp <= kirov.cls.hp - 8) end(gg, true, 'Pyotr Velikiy is badly hurt and turning back for Severomorsk. The landing at Longyearbyen is off.');
-        if (frig.every(isSunk)) end(gg, true, 'Both frigates are sunk. Without a screen, Pyotr Velikiy has turned back for Severomorsk.');
+        if (kirov.hp <= kirov.cls.hp - 11) end(gg, true, 'Pyotr Velikiy is badly hurt and turning back for Severomorsk. The landing at Longyearbyen is off.');
+        if (frig.every(isSunk)) end(gg, true, 'All three escorts are sunk. Without a screen, Pyotr Velikiy has turned back for Severomorsk.');
         if (dist(kirov, fsp) < 2) end(gg, false, 'Pyotr Velikiy reached the fire support position. Her guns and missiles are covering the landing at Longyearbyen.');
       };
     },
@@ -597,21 +600,28 @@ export const missions: Record<MissionKey, Mission> = {
 
   A16: {
     key: 'A16', title: 'Zircon', era: '2029', place: 'Eastern Mediterranean', date: 'May 2029, 1400',
-    library: ['gorshkov', 'kilo', 'ka27', 'ford', 'arleigh', 'virginia'],
-    brief: 'The Ford strike group is south of Cyprus, and two Admiral Gorshkov frigates out of Tartus, Admiral Isakov and Admiral Amelko, are racing for it with Zircon hypersonic missiles. Nothing in the strike group can stop a Zircon salvo. The carrier is about 14 nm west-southwest of you; the frigates are about 38 nm northeast of you at 18 knots. If either frigate spends 6 minutes inside 30 nm of the Ford, she fires and the Ford is out of the war. Sink both frigates first. Their Poliment-Redut air defence shoots down most anti-ship missiles, and they have a Ka-27 up. USS Gerald R. Ford and USS Mahan are friendly: check every target.',
+    library: ['gorshkov', 'udaloy', 'kilo', 'ka27', 'il38', 'ford', 'arleigh', 'virginia'],
+    brief: 'The Ford strike group is south of Cyprus, and three Admiral Gorshkov frigates out of Tartus, Admiral Gorshkov, Admiral Isakov and Admiral Amelko, are racing for it with Zircon hypersonic missiles. Nothing in the strike group can stop a Zircon salvo. The carrier is about 14 nm west-southwest of you; the frigates are about 38 nm northeast of you at 18 knots. If any of the frigates spends 6 minutes inside 30 nm of the Ford, she fires and the Ford is out of the war. Sink all three frigates first. The Udaloy-class destroyer Severomorsk rides with them as their sonar picket, the Kilo Novorossiysk is out ahead of them, and they have a Ka-27 up and an Il-38 out of Hmeimim overhead. Their Poliment-Redut air defence shoots down most anti-ship missiles. USS Gerald R. Ford and USS Mahan are friendly: check every target.',
     build(g, r) {
       g.startClock = clock(14);
       g.timeLimit = 3 * 3600;
       const ford = add(g, 'ford', 'USS Gerald R. Ford', 'allied', offset(g.own, 240 + r() * 20, 14), 270, 6, go(270, 6, 1e9));
       screen(g, ford, 'arleigh', ['USS Mahan'], [[90, 2]]);
       const p = offset(g.own, 40 + r() * 30, 36 + r() * 4);
-      const frig = ['Admiral Isakov', 'Admiral Amelko'].map((n, i) => add(g, 'gorshkov', n, 'enemy', offset(p, 90 * i + r() * 30, 2.5 * i), brg(p, ford), 18, go(brg(p, ford), 18, 600)));
+      const frig = ['Admiral Gorshkov', 'Admiral Isakov', 'Admiral Amelko'].map((n, i) => add(g, 'gorshkov', n, 'enemy', offset(p, 120 * i + r() * 30, 2.5 * Math.min(i, 1)), brg(p, ford), 18, go(brg(p, ford), 18, 600)));
+      const ddg = add(g, 'udaloy', 'Severomorsk', 'enemy', offset(frig[0], brg(p, ford), 3), brg(p, ford), 18, { mode: 'station', leader: frig[0].id, rel: 0, rng: 3 });
+      const kilo = boat(g, 'kilo', 'Kilo (Novorossiysk)', offset(p, brg(p, ford) + (r() * 2 - 1) * 20, 14 + r() * 4), brg(p, ford), 5, 1);
       const helo = add(g, 'ka27', 'Ka-27PL Helix', 'enemy', offset(p, brg(p, ford), 6), 0, 120, { mode: 'search', center: offset(p, brg(p, ford), 10), wp: offset(p, brg(p, ford), 10), torps: 1, datum: null, hits: 0, dipT: 0 });
-      setGoal(g, { targets: ids(frig), need: 2, protect: [ford.id], maxLosses: 0, lossText: 'The Ford has been sunk.',
-        win: 'Both Zircon frigates are on the bottom. The Ford strike group is safe.', timeout: 'The frigates are still out there, and the Ford has to run.' });
+      add(g, 'il38', 'Il-38N May', 'enemy', offset(p, r() * 360, 40), 0, 230, { mode: 'search', center: { x: p.x, y: p.y }, wp: { x: p.x, y: p.y }, buoyT: 0, torps: 2, datum: null });
+      setGoal(g, { targets: ids(frig), need: 3, protect: [ford.id], maxLosses: 0, lossText: 'The Ford has been sunk.',
+        win: 'All three Zircon frigates are on the bottom. The Ford strike group is safe.', timeout: 'The frigates are still out there, and the Ford has to run.' });
       g.script = (gg) => {
+        listen(gg, [ddg]);
         pointDefence(gg, frig, 0.85);
+        pointDefence(gg, [ddg], 0.5);
         const lead = frig.find((f) => f.alive);
+        if (lead && ddg.alive && ddg.ai!.mode === 'station') ddg.ai!.leader = lead.id;
+        if (lead) keepCourse(kilo, brg(kilo, offset(lead, brg(lead, ford), 10)), 5);
         if (lead) helo.ai!.center = offset(lead, lead.hdg, 5);
         for (const f of frig) {
           if (!f.alive) continue;
@@ -675,8 +685,8 @@ export const missions: Record<MissionKey, Mission> = {
 
   A25: {
     key: 'A25', title: 'Tartus', era: '2029', place: 'Off Syria', date: 'May 2029, 1600',
-    library: ['ropucha', 'ivangren', 'kilo', 'tanker', 'lng', 'ka27', 'virginia'],
-    brief: 'Tartus is Russia\'s only naval base in the Mediterranean, and it lives on supply ships run in from the Black Sea and the Baltic. Three are coming in now: the landing ships Korolev and Aleksandr Shabalin and the Ivan Gren-class Pyotr Morgunov, about 18 nm west of you, making 14 knots for Tartus, which is about 16 nm east of you. The Kilo Stary Oskol is out ahead of them and a Ka-27 is up from Tartus. The jammers at Hmeimim cover the coast, so the anti-ship Tomahawk can\'t get its in-flight updates: NSM and torpedoes. The Pantsir and S-400 batteries round Tartus shoot down most missiles inside 12 nm of the port. Sink two of the three. If two of them reach Tartus, the mission fails. These are busy waters: the Liberian tanker MT Aegean Star and the gas carrier LNG Cyprus Spirit are crossing the area, and sinking either fails the mission. Identify before you shoot.',
+    library: ['ropucha', 'ivangren', 'kilo', 'steregushchiy', 'tanker', 'lng', 'ka27', 'il38', 'virginia'],
+    brief: 'Tartus is Russia\'s only naval base in the Mediterranean, and it lives on supply ships run in from the Black Sea and the Baltic. Five are coming in now: the landing ships Korolev, Aleksandr Shabalin, Yamal and Novocherkassk and the Ivan Gren-class Pyotr Morgunov, about 18 nm west of you, making 14 knots for Tartus, which is about 16 nm east of you. The corvette Boikiy escorts them, the Kilos Stary Oskol and Krasnodar are out ahead of them a Ka-27 is up from Tartus and an Il-38 from Hmeimim is covering the convoy. The jammers at Hmeimim cover the coast, so the anti-ship Tomahawk can\'t get its in-flight updates: NSM and torpedoes. The Pantsir and S-400 batteries round Tartus shoot down most missiles inside 12 nm of the port. Sink four of the five. If two of them reach Tartus, the mission fails. The corvette has good sonar and will leave the convoy to come after you if she hears you. These are busy waters: the Liberian tanker MT Aegean Star and the gas carrier LNG Cyprus Spirit are crossing the area, and sinking either fails the mission. Identify before you shoot.',
     build(g, r) {
       g.startClock = clock(16);
       g.timeLimit = 3 * 3600;
@@ -684,21 +694,26 @@ export const missions: Record<MissionKey, Mission> = {
       markAt(g, tartus, 'Tartus: air defences 12 nm', 12);
       const p0 = offset(g.own, 270 + (r() * 2 - 1) * 15, 17 + r() * 3);
       const crs = brg(p0, tartus);
-      const ships = ([['ropucha', 'Korolev'], ['ivangren', 'Pyotr Morgunov'], ['ropucha', 'Aleksandr Shabalin']] as const)
+      const ships = ([['ropucha', 'Korolev'], ['ivangren', 'Pyotr Morgunov'], ['ropucha', 'Aleksandr Shabalin'], ['ropucha', 'Yamal'], ['ropucha', 'Novocherkassk']] as const)
         .map(([c, n], i) => add(g, c, n, 'enemy', offset(p0, crs + 180, i * 1.5), crs, 14, go(crs, 14, 700)));
+      const corv = add(g, 'steregushchiy', 'Boikiy', 'enemy', offset(ships[0], crs + 60, 2.5), crs, 14, { mode: 'station', leader: ships[0].id, rel: 60, rng: 2.5 });
       const kilo = boat(g, 'kilo', 'Kilo (Stary Oskol)', offset(p0, crs + (r() * 2 - 1) * 20, 8), crs, 5, 1);
+      const kilo2 = boat(g, 'kilo', 'Kilo (Krasnodar)', offset(p0, crs + (r() * 2 - 1) * 40, 4 + r() * 2), crs, 5, 1);
       g.flags.jammed = 1;
       add(g, 'ka27', 'Ka-27PL Helix', 'enemy', offset(tartus, 270, 2), 270, 120, { mode: 'search', center: { x: g.own.x, y: g.own.y }, wp: offset(g.own, r() * 360, 4), torps: 1, datum: null, hits: 0, dipT: 0 });
       const neutrals = [
         neutral(g, 'tanker', 'MT Aegean Star', offset(g.own, 190 + r() * 30, 12), 10, 12),
         neutral(g, 'lng', 'LNG Cyprus Spirit', offset(g.own, 340 + r() * 30, 12), 190, 13),
       ];
-      setGoal(g, { targets: ids(ships), need: 2, protect: ids(neutrals), maxLosses: 0, lossText: 'We sank a neutral merchant ship. The world\'s press has a new story, and it is about us.',
-        win: 'Two supply ships are on the bottom off Tartus. The base is going hungry.', timeout: 'The supply run is still under way.' });
+      add(g, 'il38', 'Il-38N May', 'enemy', offset(p0, r() * 360, 40), 0, 230, { mode: 'search', center: { x: p0.x, y: p0.y }, wp: { x: p0.x, y: p0.y }, buoyT: 0, torps: 2, datum: null });
+      setGoal(g, { targets: ids(ships), need: 4, protect: ids(neutrals), maxLosses: 0, lossText: 'We sank a neutral merchant ship. The world\'s press has a new story, and it is about us.',
+        win: 'Four supply ships are on the bottom off Tartus. The base is going hungry.', timeout: 'The supply run is still under way.' });
       g.flags.in = 0;
       g.script = (gg) => {
         keepCourse(kilo, brg(kilo, offset(ships.find((s) => s.alive) ?? tartus, crs, 6)), 6);
-        pointDefence(gg, ships, 0.3);
+        keepCourse(kilo2, brg(kilo2, offset(ships.find((s) => s.alive) ?? tartus, crs + 180, 3)), 5);
+        listen(gg, [corv]);
+        pointDefence(gg, [corv, ...ships], 0.3);
         // The Pantsir and S-400 batteries round Tartus cover the last 12 nm.
         for (const w of gg.weapons) {
           if (w.dead || w.side !== 'us' || (w.type !== 'nsm' && w.type !== 'mst' && w.type !== 'mjolnir') || high(w) || dist(w, tartus) > 12 || gg.flags[`pt${w.id}`]) continue;

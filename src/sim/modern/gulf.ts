@@ -276,18 +276,19 @@ export const missions: Record<MissionKey, Mission> = {
   I14: {
     key: 'I14', title: 'Seychelles', era: '2029', place: 'Off Mahé', date: 'July 2029, 1600',
     library: ['talwar', 'kalvari', 'collins', 'kolkata', 'type054a'],
-    brief: 'India means to take the Seychelles and its airfield. Two Talwar frigates, Trishul and Tabar, are about 25 nm northeast of you with marines and helicopters aboard, heading for Mahé, and a Kalvari is sweeping ahead of them. Port Victoria on Mahé is 15 nm south of you. If either frigate spends 15 minutes within 6 nm of Victoria, its helicopters will have the airfield. Sink both frigates. They are sub hunters with good hull sonar and they will come for you if they hear you. HMAS Rankin, an Australian Collins boat, is with you and will take on the Kalvari.',
+    brief: 'India means to take the Seychelles and its airfield. Three Talwar frigates, Trishul, Tabar and Tamal, are about 25 nm northeast of you with marines and helicopters aboard, heading for Mahé, with the destroyer INS Kochi as escort, and a Kalvari is sweeping ahead of them. Port Victoria on Mahé is 15 nm south of you. If either frigate spends 15 minutes within 6 nm of Victoria, its helicopters will have the airfield. Sink all three frigates. The destroyer does not count, but she shoots down a share of incoming missiles. They are all sub hunters with good hull sonar and they will come for you if they hear you. HMAS Rankin, an Australian Collins boat, is with you and will take on the Kalvari.',
     build(g, r) {
       g.startClock = clock(16);
       g.timeLimit = 4 * 3600;
       const victoria = offset(g.own, 180, 15);
       markAt(g, victoria, 'Port Victoria: keep the frigates out', 6);
       const fp = offset(g.own, 35 + r() * 30, 23 + r() * 4);
-      const frig = ['INS Trishul (F43)', 'INS Tabar (F44)'].map((n, i) => add(g, 'talwar', n, 'enemy', offset(fp, brg(fp, victoria) + 90, i ? 3 : -3), brg(fp, victoria), 12, { mode: 'patrol', legT: 1e9 }));
+      const frig = ['INS Trishul (F43)', 'INS Tabar (F44)', 'INS Tamal (F71)'].map((n, i) => add(g, 'talwar', n, 'enemy', offset(fp, brg(fp, victoria) + 90, (i - 1) * 3), brg(fp, victoria), 12, { mode: 'patrol', legT: 1e9 }));
+      const kochi = add(g, 'kolkata', 'INS Kochi (D64)', 'enemy', offset(fp, brg(fp, victoria) + 180, 3), brg(fp, victoria), 12, { mode: 'station', leader: frig[1].id, rel: 180, rng: 3 });
       const kp = offset(fp, brg(fp, victoria), 12 + r() * 4);
       const kal = add(g, 'kalvari', 'INS Khanderi (S22)', 'enemy', kp, brg(kp, victoria), 5, { mode: 'patrol', legT: 600, decoys: 2 }, 1);
       const rankin = add(g, 'collins', 'HMAS Rankin', 'allied', offset(g.own, 90, 3), 45, 6, undefined, 1);
-      setGoal(g, { targets: ids(frig), need: 2, win: 'Both Talwars are sunk. The Seychelles stay out of India\'s hands.', timeout: 'India has the Seychelles.' });
+      setGoal(g, { targets: ids(frig), need: 3, win: 'All three Talwars are sunk. The Seychelles stay out of India\'s hands.', timeout: 'India has the Seychelles.' });
       g.script = (gg) => {
         for (const f of frig) {
           keepCourse(f, brg(f, victoria), dist(f, victoria) > 5 ? 12 : 4);
@@ -297,6 +298,8 @@ export const missions: Record<MissionKey, Mission> = {
         if (flag(gg, 'ashore') >= 900) end(gg, false, 'Indian marines hold the airfield on Mahé. The Seychelles are lost.');
         keepCourse(kal, brg(kal, victoria), 5);
         pointDefence(gg, frig, 0.3);
+        pointDefence(gg, [kochi], 0.5);
+        if (kochi.alive && kochi.ai!.mode === 'station' && !frig[1].alive) { const f = frig.find((v) => v.alive); if (f) kochi.ai!.leader = f.id; }
         steer(rankin, kal.alive ? kal : victoria, 7);
         skirmish(gg, [rankin], [kal], 4, 0.15, 0.1, 0.5);
       };

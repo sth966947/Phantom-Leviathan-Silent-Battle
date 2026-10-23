@@ -152,7 +152,7 @@ export const missions: Record<MissionKey, Mission> = {
   CP1: {
     key: 'CP1', title: 'Return to Taiwan', era: '2029', place: 'Taiwan Strait', date: 'January 2030, 0400', night: true,
     library: ['type071', 'type901', 'tanker', 'type054a', 'type056', 'type039', 'taigei', 'kq200'],
-    brief: 'The troops China landed on Taiwan live on what crosses the strait. Tonight\'s convoy is two Type 071 landing ships, a Type 901 supply ship and two fuel tankers, with two Type 054A frigates and a Type 056 corvette as escort and a Type 039 submarine out ahead. It is about 20 nm west of you, heading east for the beachhead at Taichung, about 26 nm east of you. Sink three of the five supply ships before three of them get there. JS Hakugei, a Japanese Taigei, is working the convoy\'s northern flank: she is friendly. A KQ-200 is flying cover.',
+    brief: 'The troops China landed on Taiwan live on what crosses the strait. Tonight\'s convoy is three Type 071 landing ships, a Type 901 supply ship and two fuel tankers, with two Type 054A frigates and a Type 056 corvette as escort and a Type 039 submarine out ahead. It is about 20 nm west of you, heading east for the beachhead at Taichung, about 26 nm east of you. Sink four of the six supply ships before three of them get there. JS Hakugei, a Japanese Taigei, is working the convoy\'s northern flank: she is friendly. A KQ-200 is flying cover.',
     build(g, r) {
       g.startClock = clock(4);
       g.timeLimit = 4 * 3600;
@@ -161,14 +161,14 @@ export const missions: Record<MissionKey, Mission> = {
       const lead = add(g, 'type071', 'Kunlunshan', 'enemy', { x: -20, y: (r() * 2 - 1) * 6 }, course, 12, go(course, 12, 1e9));
       markAt(g, { x: 26, y: 0 }, 'Beachhead at Taichung');
       const sup = [lead,
-        ...screen(g, lead, 'type071', ['Changbaishan'], [[180, 1.5]]),
+        ...screen(g, lead, 'type071', ['Changbaishan', 'Jinggangshan'], [[180, 1.5], [100, 2]]),
         ...screen(g, lead, 'type901', ['Chaganhu'], [[140, 1.5]]),
         ...screen(g, lead, 'tanker', ['Tanker Da Qing 75', 'Tanker Da Qing 91'], [[220, 1.5], [180, 3]])];
       const esc = [...screen(g, lead, 'type054a', ['Huangshan', 'Yuncheng'], [[40, 3], [320, 3]]), ...screen(g, lead, 'type056', ['Datong'], [[180, 5]])];
       const yuan = add(g, 'type039', 'Type 039 Yuan (Hull 336)', 'enemy', offset(lead, course + (r() * 2 - 1) * 30, 7), course, 6, { mode: 'transit', legT: 1e9, decoys: 2 }, 1);
       add(g, 'kq200', 'KQ-200', 'enemy', offset(lead, r() * 360, 40), 0, 230, { mode: 'search', center: { x: 0, y: 0 }, wp: { x: 0, y: 0 }, buoyT: 0, torps: 2, datum: null });
       const hak = add(g, 'taigei', 'JS Hakugei (SS-516)', 'allied', offset(lead, 20, 9), course, 6, undefined, 1);
-      setGoal(g, { targets: ids(sup), need: 3, win: 'Three supply ships are on the bottom of the strait. The beachhead at Taichung goes hungry.', timeout: 'The convoy got enough through to keep the beachhead going.' });
+      setGoal(g, { targets: ids(sup), need: 4, win: 'Four supply ships are on the bottom of the strait. The beachhead at Taichung goes hungry.', timeout: 'The convoy got enough through to keep the beachhead going.' });
       g.script = (gg) => {
         screenSub(yuan, [...sup, ...esc], offset(lead, course, 7), 13);
         steer(hak, offset(lead, 20, 7), 9);
@@ -398,7 +398,7 @@ export const missions: Record<MissionKey, Mission> = {
   CS2: {
     key: 'CS2', title: 'River Plate', era: '2029', place: 'Off Montevideo', date: 'January 2030, 1500',
     library: ['tanker', 'lng', 'tamandare', 'riachuelo', 'type26', 'p3am'],
-    brief: 'Brazil fuels its war with oil from the south. Four tankers chartered by Petrobras are leaving the River Plate, about 25 nm west of you, heading 060 up the coast for Rio Grande with two Tamandaré frigates and the Riachuelo Tonelero. Sink three of the four before they get 45 nm up the coast. A neutral Argentine LNG carrier, Puerto Madryn, is coming the other way, bound for Buenos Aires: an LNG carrier, not a tanker. Sinking her fails the mission. HMS Belfast is to the east, and will take on the escorts if they come near: she is friendly. A P-3AM covers the convoy.',
+    brief: 'Brazil fuels its war with oil from the south. Five tankers chartered by Petrobras are leaving the River Plate, about 25 nm west of you, heading 060 up the coast for Rio Grande with two Tamandaré frigates, and two Riachuelo boats ahead of them. Sink four of the five before two of them get 45 nm up the coast. A neutral Argentine LNG carrier, Puerto Madryn, is coming the other way, bound for Buenos Aires: an LNG carrier, not a tanker. Sinking her fails the mission. HMS Belfast is to the east, and will take on the escorts if they come near: she is friendly. A P-3AM covers the convoy.',
     build(g, r, carry) {
       g.startClock = clock(15);
       g.timeLimit = 4 * 3600;
@@ -408,20 +408,23 @@ export const missions: Record<MissionKey, Mission> = {
       const dest = offset(start, course, 45);
       markAt(g, dest, 'Stop them before here: 45 nm up the coast');
       const lead = add(g, 'tanker', 'Tanker Rômulo Almeida', 'enemy', start, course, 12, go(course, 12, 1e9));
-      const tankers = [lead, ...screen(g, lead, 'tanker', ['Tanker Henrique Dias', 'Tanker Zumbi dos Palmares', 'Tanker Marcílio Dias'], [[90, 1.2], [180, 1.5], [135, 2]])];
+      const tankers = [lead, ...screen(g, lead, 'tanker', ['Tanker Henrique Dias', 'Tanker Zumbi dos Palmares', 'Tanker Marcílio Dias', 'Tanker Celso Furtado'], [[90, 1.2], [180, 1.5], [135, 2], [225, 2]])];
       const esc = fresh(carry, ['Mariz e Barros (F203)', 'Cunha Moreira (F202)', 'Jerônimo de Albuquerque (F201)', 'Tamandaré (F200)'], 2);
       const frig = screen(g, lead, 'tamandare', esc, [[30, 3], [200, 3]]);
-      const ton = add(g, 'riachuelo', fresh(carry, ['Tonelero (S42)', 'Angostura (S43)', 'Humaitá (S41)'], 1)[0], 'enemy', offset(lead, course, 6), course, 5, { mode: 'transit', legT: 1e9, decoys: 2 }, 1);
+      const [s1, s2] = fresh(carry, ['Tonelero (S42)', 'Angostura (S43)', 'Humaitá (S41)'], 2);
+      const ton = add(g, 'riachuelo', s1, 'enemy', offset(lead, course, 6), course, 5, { mode: 'transit', legT: 1e9, decoys: 2 }, 1);
+      const ton2 = add(g, 'riachuelo', s2, 'enemy', offset(lead, course + 40, 8), course, 5, { mode: 'transit', legT: 1e9, decoys: 2 }, 1);
       const neutral = add(g, 'lng', 'Puerto Madryn (Argentina, neutral)', 'allied', { x: 20, y: 14 + r() * 3 }, 270, 13, go(270, 13, 1e9));
       void neutral;
       add(g, 'p3am', 'P-3AM Orion', 'enemy', offset(lead, r() * 360, 40), 0, 230, { mode: 'search', center: { x: -10, y: 2 }, wp: { x: -10, y: 2 }, buoyT: 0, torps: 2, datum: null });
       const belfast = add(g, 'type26', 'HMS Belfast', 'allied', offset(g.own, 90, 12), 0, 6, { mode: 'picket', center: offset(g.own, 70, 10) });
-      setGoal(g, { targets: ids(tankers), need: 3, win: 'Three tankers are burning off the Uruguayan coast. Brazil\'s southern oil has stopped.', timeout: 'The tankers got up the coast to Rio Grande.' });
+      setGoal(g, { targets: ids(tankers), need: 4, win: 'Four tankers are burning off the Uruguayan coast. Brazil\'s southern oil has stopped.', timeout: 'The tankers got up the coast to Rio Grande.' });
       g.script = (gg) => {
         pointDefence(gg, frig, 0.4);
         screenSub(ton, [...tankers, ...frig], offset(lead, course, 5), 13);
+        screenSub(ton2, [...tankers, ...frig], offset(lead, course + 40, 6), 13);
         through(gg, tankers, (v) => dist(v, start) > 45 || dist(v, dest) < 3, 'escaped', (v) => `${v.name} is past Chuí and into Brazilian waters.`);
-        skirmish(gg, [belfast], [...frig, ton], 6, 0.12, 0.08, 0.5);
+        skirmish(gg, [belfast], [...frig, ton, ton2], 6, 0.12, 0.08, 0.5);
         if (flag(gg, 'escaped') >= 2) end(gg, false, 'Two tankers got up the coast. Brazil\'s fuel keeps flowing.');
       };
     },
@@ -463,20 +466,20 @@ export const missions: Record<MissionKey, Mission> = {
   CP3: {
     key: 'CP3', title: 'Yellow Sea', era: '2029', place: 'Yellow Sea, off Qingdao', date: 'February 2030, 1100',
     library: ['type055', 'type052d', 'type054a', 'type039', 'type093b', 'maya', 'taigei', 'h6j'],
-    brief: 'China\'s North Sea Fleet has come out of Qingdao to fight: the Type 055 Nanchang, the Type 052Ds Xining, Urumqi and Qiqihar and the Type 054A Rizhao, about 20 nm north of you heading south, with a Type 039 ahead of them. JS Maya and the submarine JS Hakugei are 12 nm south of you, and the fleet is coming for them. Sink three of the five warships; Maya and Hakugei will fight too. The Yellow Sea is shallow, about 300 feet: nobody can get below the layer, and the bottom is close. Once the group is within 25 nm of Maya it fires YJ-18s at her every 15 minutes, and H-6J bombers are expected about 45 minutes in. If both Japanese ships are lost, so is the battle. Maya and Hakugei are friendly.',
+    brief: 'China\'s North Sea Fleet has come out of Qingdao to fight: the Type 055s Nanchang and Lhasa, the Type 052Ds Xining, Urumqi and Qiqihar and the Type 054A Rizhao, about 20 nm north of you heading south, with a Type 039 ahead of them. JS Maya and the submarine JS Hakugei are 12 nm south of you, and the fleet is coming for them. Sink four of the six warships; Maya and Hakugei will fight too. The Yellow Sea is shallow, about 300 feet: nobody can get below the layer, and the bottom is close. Once the group is within 25 nm of Maya it fires YJ-18s at her every 15 minutes, and H-6J bombers are expected about 45 minutes in. If both Japanese ships are lost, so is the battle. Maya and Hakugei are friendly.',
     build(g, r) {
       g.startClock = clock(11);
       g.timeLimit = 4 * 3600;
       g.own.hdg = g.own.ordHdg = 0;
       g.own.depthT = g.own.ordDepth = 1;
       const lead = add(g, 'type055', 'Nanchang', 'enemy', { x: (r() * 2 - 1) * 5, y: 20 }, 180, 12, go(180, 12, 900));
-      const group = [lead, ...screen(g, lead, 'type052d', ['Xining', 'Urumqi', 'Qiqihar'], [[60, 3], [300, 3], [180, 3]]), ...screen(g, lead, 'type054a', ['Rizhao'], [[0, 4]])];
+      const group = [lead, ...screen(g, lead, 'type055', ['Lhasa'], [[120, 4]]), ...screen(g, lead, 'type052d', ['Xining', 'Urumqi', 'Qiqihar'], [[60, 3], [300, 3], [180, 3]]), ...screen(g, lead, 'type054a', ['Rizhao'], [[0, 4]])];
       const yuan = add(g, 'type039', 'Type 039 Yuan (Hull 330)', 'enemy', offset(lead, 180 + (r() * 2 - 1) * 30, 8), 180, 5, { mode: 'patrol', legT: 600, decoys: 2 }, 1);
       const maya = add(g, 'maya', 'JS Maya (DDG-179)', 'allied', offset(g.own, 180, 12), 0, 6, { mode: 'picket', center: offset(g.own, 180, 12) });
       const hak = add(g, 'taigei', 'JS Hakugei (SS-516)', 'allied', offset(g.own, 160, 8), 0, 5, undefined, 1);
       const raids: Raid[] = [];
-      setGoal(g, { targets: ids(group), need: 3, protect: [maya.id, hak.id], maxLosses: 1, lossText: 'Maya and Hakugei are both gone. The North Sea Fleet has the Yellow Sea.',
-        win: 'Three of the North Sea Fleet\'s warships are sunk and the rest are running for Qingdao.', timeout: 'The North Sea Fleet still holds the Yellow Sea.' });
+      setGoal(g, { targets: ids(group), need: 4, protect: [maya.id, hak.id], maxLosses: 1, lossText: 'Maya and Hakugei are both gone. The North Sea Fleet has the Yellow Sea.',
+        win: 'Four of the North Sea Fleet\'s warships are sunk and the rest are running for Qingdao.', timeout: 'The North Sea Fleet still holds the Yellow Sea.' });
       g.script = (gg) => {
         shallow(gg, 260);
         pointDefence(gg, group, 0.45);

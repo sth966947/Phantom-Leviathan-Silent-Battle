@@ -69,7 +69,7 @@ function hunter(g: Game, i: number, s: CaptainState, targets: string[], threats:
     if (sub && r < 1.2) return; // too close: a snap shot back would get us first; open out
     if (r < 7) return orders.fire(g, 'mk48');
     if (sub && r > 1.5 && r < 12 && !g.env.ice) return orders.fire(g, 'asroc');
-    if (!sub && r < 30) orders.fire(g, g.flags.jammed ? 'harpoon' : 'mst');
+    if (!sub && r < 30) orders.fire(g, g.flags.jammed ? 'nsm' : 'mst');
   };
   const t = find(g, targets, min), th = find(g, threats, min);
   for (const [c, every] of [[th, 60], [t, 75]] as const) {
