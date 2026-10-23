@@ -5,6 +5,8 @@ import { CLASSES } from '../src/sim/classes';
 import { CAMPAIGN, MODERN, PREQUELS } from '../src/sim/missions';
 import { MODERN_MISSIONS } from '../src/sim/modern';
 import { CAPTAINS, type CaptainState } from './captains';
+import { rsrCaptain } from './captains/rsr';
+import { FORCE_PLACES, YEARS, hullOK, isRsr, rsrKey, type Force, type Hull } from '../src/sim/rsr';
 import { brg, dist } from '../src/sim/math';
 
 const med = (a: number[]) => (a.length ? a.sort((x, y) => x - y)[Math.floor(a.length / 2)] : NaN);
@@ -79,7 +81,7 @@ function modernCaptain(g: Game, i: number, s: CaptainState) {
   const key = g.scenario;
   // Missions from the modern mission files bring their own captains (scripts/captains/), which
   // either fly the whole mission or hand back the classes to hunt with the generic captain.
-  const own = CAPTAINS[key];
+  const own = isRsr(key) ? rsrCaptain : CAPTAINS[key];
   if (own) {
     const r = own(g, i, s);
     if (r === true) return;
@@ -155,6 +157,38 @@ function modernCaptain(g: Game, i: number, s: CaptainState) {
 const only = process.argv[2];
 // A key, a comma-separated list of keys, or a mission file's name (act1, pacific, gulf, arctic, home, finale...). N=20 sets the runs per mission.
 const FILE_KEYS = (f: string) => Object.keys(MODERN_MISSIONS).filter((k) => MODERN_MISSIONS[k].file === f);
+// Red Storm Rising: rsr runs a sample of generated missions, rsr:<force> a sample of one force. Each run of
+// a sample is a different variant, place, year and boat, so N runs cover N missions.
+const RSR_BOATS: Hull[] = ['permit', 'sturgeon', 'la688', 'la688i', 'seawolf', 'tang'];
+const rsrSample = (force: Force, n: number) => Array.from({ length: n }, (_, j) => {
+  const places = FORCE_PLACES[force], year = YEARS[j % YEARS.length];
+  const boats = RSR_BOATS.filter((b) => hullOK(b, year) && (force !== 'airbase' || year >= 1988 || b === 'tang'));
+  return rsrKey({ force, place: places[j % places.length], year, boat: boats[(j * 7) % boats.length], level: Number(process.env.L ?? 1), variant: 1000 + j * 7919, sim: false });
+});
+const RSR_ALL: Force[] = ['sag', 'asw', 'cvbg', 'amphib', 'convoy', 'wolfpack', 'bastion', 'spetsnaz', 'airbase', 'duel', 'cms', 'november', 'kashin'];
+const rsrSets = (k: string): string[][] | null => (k === 'rsr' ? RSR_ALL.map((f) => rsrSample(f, Number(process.env.N) || 20))
+  : /^rsr:[a-z]+$/.test(k) ? [rsrSample(k.slice(4) as Force, Number(process.env.N) || 20)] : null);
+const sets = only ? only.split(',').flatMap((k) => rsrSets(k) ?? [[k]]) : [];
+if (sets.some((s) => s.length > 1 || isRsr(s[0]))) {
+  for (const set of sets) {
+    const res: Record<string, number> = {};
+    for (const [j, key] of set.entries()) {
+      const g = create(key, j + 1);
+      const s: CaptainState = { legs: 0, lastLeg: 0, sprintT: -1, deepT: -1e9, cutBrg: 0, cutT: -1, m: {} };
+      for (let i = 0; i < Math.min(18000, g.timeLimit + 5) && !g.over; i++) {
+        tick(g, 1); modernCaptain(g, i, s);
+        if (process.env.E && j + 1 === Number(process.env.E)) for (const e of g.events) console.log(Math.round(g.t / 60), e.text);
+        g.events.length = 0;
+      }
+      const out = g.over ? (g.over.win ? 'win' : g.over.reason.slice(0, 50)) : 'timeout';
+      if (process.env.V) console.log(key, out);
+      res[out] = (res[out] ?? 0) + 1;
+    }
+    const wins = res.win ?? 0;
+    console.log(set[0].split(':').slice(0, 2).join(':'), `${Math.round((wins / set.length) * 100)}% won`, res);
+  }
+  process.exit(0);
+}
 const keys = only ? only.split(',').flatMap((k) => FILE_KEYS(k).length ? FILE_KEYS(k) : [k]) : ['duel', ...CAMPAIGN, ...PREQUELS, ...MODERN.filter((k) => k !== 'duel'), ...Object.keys(MODERN_MISSIONS)];
 for (const key of keys) {
 

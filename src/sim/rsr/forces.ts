@@ -55,6 +55,11 @@ const B = (b: number) => fmtBrg(b);
 const cname = (cls: string) => CLASSES[cls].name;
 /** The place in a sentence: "in the Barents Sea", "off the Faroes", "near Jan Mayen". */
 export const where = (p: Place) => (p.name.startsWith('The ') ? `in the ${p.name.slice(4)}` : p.name[0].toLowerCase() + p.name.slice(1));
+/** Where a group starts that runs `len` nm in to `to`, its track `ang`° off the line from `to` out to us: bearing and range from us. */
+function runIn(to: Vec, len: number, ang: number): [number, number] {
+  const p = offset(to, brg(to, O) + ang, len);
+  return [Math.round(brg(O, p)), Math.round(dist(O, p))];
+}
 const sub = (g: Game, cls: string, name: string, p: Vec, hdg: number, spd: number, decoys = 2) =>
   add(g, cls, name, 'enemy', p, hdg, spd, { mode: 'patrol', legT: 600, decoys }, 1);
 const air = (g: Game, cls: string, name: string, p: Vec, center: Vec) =>
@@ -93,7 +98,7 @@ function sag(s: Spec): Plan {
   const fc = pick(R.flag), flagName = name(fc);
   const n = Math.min(4, 2 + Math.floor(kr() * 2) + (s.level >= 2 ? 1 : 0));
   const esc = Array.from({ length: n }, () => { const c = pick(R.escort); return { cls: c, name: name(c) }; });
-  const b = Math.round(kr() * 360), rng = 24 + Math.round(kr() * 6), course = (b + 180 + Math.round((kr() * 2 - 1) * 25) + 360) % 360, spd = 14 + Math.round(kr() * 4);
+  const b = Math.round(kr() * 360), rng = 22 + Math.round(kr() * 6), course = (b + 180 + Math.round((kr() * 2 - 1) * 15) + 360) % 360, spd = 12 + Math.round(kr() * 4);
   const need = n >= 4 ? 3 : 2;
   const hunter = kr() < 0.45 ? { cls: pick(R.ssn), name: name('sub') } : null;
   const hour = Math.floor(kr() * 24);
@@ -145,7 +150,7 @@ function asw(s: Spec): Plan {
   return {
     title: `${cname(fc)} Hunting Group`, hour,
     library: [fc, ...esc.map((e) => e.cls), ...R.helo, R.plane[0]],
-    brief: `An ASW hunting group is sweeping ${where(s.place)} for NATO submarines, and it is between you and your patrol area: ${flagName} (${cname(fc)}) with ${ships(esc)}, about ${rng} nm from you, bearing ${B(b)}, coming your way at 10 knots. Helicopters work ahead of them with dipping sonar, and ${an(cname(R.plane[0]))} lays sonobuoys. They are hunting, so expect them to come at anything they hear. Sink the flagship and one more, or any two of them, inside three hours.${ice ? ' The edge of the pack ice is close: the group keeps to the open water.' : ''}`,
+    brief: `An ASW hunting group is sweeping ${where(s.place)} for NATO submarines, and it is between you and your patrol area: ${flagName} (${cname(fc)}) with ${ships(esc)}, about ${rng} nm from you, bearing ${B(b)}, coming your way at 10 knots. Helicopters work ahead of them with dipping sonar, and ${an(cname(R.plane[0]))} lays sonobuoys. They are hunting: one of the escorts is already out ahead on her own, and the rest will come at anything they hear. Sink ${n} of the ${n + 1} inside three hours.${ice ? ' The edge of the pack ice is close: the group keeps to the open water.' : ''}`,
     build(g, r) {
       g.timeLimit = 3 * 3600;
       g.own.hdg = g.own.ordHdg = b;
@@ -153,11 +158,12 @@ function asw(s: Spec): Plan {
       const fl = add(g, fc, flagName, 'enemy', p, course, 10, go(course, 10, 600));
       const spots: [number, number][] = [[0, 4], [70, 4], [290, 4], [180, 3]];
       const scr = esc.map((e, i) => screen(g, fl, e.cls, [e.name], [spots[i]])[0]);
+      Object.assign(scr[0].ai!, { mode: 'patrol', legT: 400 }); // out ahead, hunting on her own
       const all = [fl, ...scr];
       const helos = R.helo.slice(0, 2).map((h, i) => air(g, h, `${cname(h)} ${i + 1}`, offset(fl, course, 3), offset(fl, course + (i ? 30 : -30), 8)));
       setGoal(g, {
-        targets: ids(all), need: 2,
-        win: `Two of the hunting group are sinking. The rest are pulling back to pick up survivors; the way through is open.`,
+        targets: ids(all), need: n,
+        win: `${n} of the hunting group are sinking. The rest are pulling back to pick up survivors; the way through is open.`,
         timeout: 'Three hours, and the hunting group is still sweeping. The way through stays shut.',
       });
       g.script = (gg) => {
@@ -169,7 +175,7 @@ function asw(s: Spec): Plan {
         planeAt(gg, 1800, R.plane[0], course + 180, () => offset(lead(all), course, 8));
       };
     },
-    extra: (g, base) => [sinkLine(g, `Sink two of the ${flagName} group`), ...base.filter((o) => !o.text.startsWith('Sink'))],
+    extra: (g, base) => [sinkLine(g, `Sink ${n} of the ${flagName} group`), ...base.filter((o) => !o.text.startsWith('Sink'))],
   };
 }
 
@@ -179,12 +185,12 @@ function cvbg(s: Spec): Plan {
   const cc = R.carrier, cvName = name(cc), bc = pick(R.flag), bcName = name(bc);
   const n = 2 + (kr() < 0.5 ? 1 : 0) + (s.level >= 2 ? 1 : 0);
   const esc = Array.from({ length: n }, () => { const c = pick(['sovremenny', 'udaloy80', 'krivak']); return { cls: c, name: name(c) }; });
-  const b = Math.round(kr() * 360), rng = 26 + Math.round(kr() * 6), course = (b + 180 + Math.round((kr() * 2 - 1) * 20) + 360) % 360, spd = 14;
+  const b = Math.round(kr() * 360), rng = 24 + Math.round(kr() * 5), course = (b + 180 + Math.round((kr() * 2 - 1) * 20) + 360) % 360, spd = 14;
   const hour = Math.floor(kr() * 24);
   return {
     title: `${cvName} Task Force`, hour,
     library: [cc, bc, ...esc.map((e) => e.cls), ...R.helo, R.plane[0]],
-    brief: `The Northern Fleet has sent its carrier south. ${cc === 'kiev' ? 'The aviation cruiser' : 'The carrier'} ${cvName} is at the centre of a task force about ${rng} nm from you, bearing ${B(b)}, making ${spd} knots on course ${B(course)}, with ${bcName} (${cname(bc)}) ahead of her and ${ships(esc)} on the screen. Sink ${cvName}. She takes three torpedo hits; her screen stops nearly every missile. Helicopters work round the group and ${an(cname(R.plane[0]))} covers it from Kola. If she gets more than 50 nm away from you, she's gone. Nothing else in the task force counts.`,
+    brief: `The Northern Fleet has sent its carrier south. ${cc === 'kiev' ? 'The aviation cruiser' : 'The carrier'} ${cvName} is at the centre of a task force about ${rng} nm from you, bearing ${B(b)}, making ${spd} knots on course ${B(course)}, with ${bcName} (${cname(bc)}) ahead of her and ${ships(esc)} on the screen. Sink ${cvName}. She takes three torpedo hits; her screen stops nearly every missile. Helicopters work round the group and ${an(cname(R.plane[0]))} covers it from Kola. If she gets more than 40 nm away from you, she's gone. Nothing else in the task force counts.`,
     build(g, r) {
       g.timeLimit = 5 * 3600;
       g.own.hdg = g.own.ordHdg = b;
@@ -202,12 +208,12 @@ function cvbg(s: Spec): Plan {
         const l = cv.alive ? cv : lead(scr);
         helos.forEach((h, i) => { if (h.alive && h.ai?.mode === 'search') h.ai.center = offset(l, course + (i ? 40 : -40), 8); });
         planeAt(gg, 5400, R.plane[0], course + 180, () => offset(cv.alive ? cv : lead(scr), course, 6));
-        if (cv.alive && dist(gg.own, cv) > 50) end(gg, false, `${cvName} is more than 50 nm away and still going. We have lost her.`);
+        if (cv.alive && dist(gg.own, cv) > 40) end(gg, false, `${cvName} is more than 40 nm away and still going. We have lost her.`);
       };
     },
     extra: (g, base) => {
       const cv = byId(g, g.goal.targets)[0];
-      return [...base, watch('Don\'t let her get 50 nm away', !!g.over?.reason.includes('lost her'), cv?.alive ? `${dist(g.own, cv).toFixed(0)} nm away now. Damage ${cv.cls.hp - cv.hp} of ${cv.cls.hp}.` : undefined)];
+      return [...base, watch('Don\'t let her get 40 nm away', !!g.over?.reason.includes('lost her'), cv?.alive ? `${dist(g.own, cv).toFixed(0)} nm away now. Damage ${cv.cls.hp - cv.hp} of ${cv.cls.hp}.` : undefined)];
     },
   };
 }
@@ -216,16 +222,17 @@ function cvbg(s: Spec): Plan {
 function amphib(s: Spec): Plan {
   const { kr } = s, R = rosterFor(s.year), name = namer(kr), pick = <T>(a: T[]) => a[Math.floor(kr() * a.length)];
   const lift = [{ cls: 'ivanrogov', name: name('ivanrogov') }, ...Array.from({ length: 2 + (kr() < 0.5 ? 1 : 0) }, () => ({ cls: 'ropucha80', name: name('ropucha80') }))];
-  const esc = Array.from({ length: 1 + (kr() < 0.5 || s.level >= 2 ? 1 : 0) }, () => { const c = pick(R.corvette); return { cls: c, name: name(c) }; });
+  const esc = Array.from({ length: 2 + (kr() < 0.5 || s.level >= 2 ? 1 : 0) }, () => { const c = pick(R.corvette); return { cls: c, name: name(c) }; });
   const beachName = s.place.beach ?? 'the beach';
   const bb = (s.place.coast + Math.round((kr() * 2 - 1) * 15) + 360) % 360, beachR = 16 + Math.round(kr() * 4);
-  const gb = (s.place.coast + 180 + Math.round((kr() * 2 - 1) * 50) + 360) % 360, gr = 12 + Math.round(kr() * 4);
+  // The group runs in along the coast, not over us: its track passes some 8 to 11 nm off, so we have to go and meet it.
+  const [gb, gr] = runIn(P(bb, beachR), 18 + Math.round(kr() * 4), (kr() < 0.5 ? 1 : -1) * (28 + Math.round(kr() * 8)));
   const need = lift.length - 1;
   const hour = Math.floor(kr() * 6);
   return {
     title: `Landing at ${beachName}`, hour,
     library: ['ivanrogov', 'ropucha80', ...esc.map((e) => e.cls), R.helo[0], R.plane[0]],
-    brief: `Soviet naval infantry are on their way to ${beachName}. The landing group is about ${gr} nm from you, bearing ${B(gb)}, steering for the beach at 12 knots: the landing ship ${lift[0].name} (Ivan Rogov class) and the Ropuchas ${andList(lift.slice(1).map((l) => l.name))}, with ${ships(esc)} as escort. The beach is about ${beachR} nm from you, bearing ${B(bb)}, and it is marked on the plot. Sink ${need} of the ${lift.length} landing ships. If two of them reach the beach, the troops are ashore and the mission fails. The escorts don't count.`,
+    brief: `Soviet naval infantry are on their way to ${beachName}. The landing group is about ${gr} nm from you, bearing ${B(gb)}, steering for the beach at 15 knots: the landing ship ${lift[0].name} (Ivan Rogov class) and the Ropuchas ${andList(lift.slice(1).map((l) => l.name))}, with ${ships(esc)} as escort. The beach is about ${beachR} nm from you, bearing ${B(bb)}, and it is marked on the plot. Sink ${need} of the ${lift.length} landing ships before any of them reaches the beach: once one is there, her troops are ashore and the mission fails. The escorts don't count.`,
     build(g, r) {
       g.timeLimit = 4 * 3600;
       const beach = jit(P(bb, beachR), r, 0.5);
@@ -233,8 +240,8 @@ function amphib(s: Spec): Plan {
       const p = jit(P(gb, gr), r);
       g.own.hdg = g.own.ordHdg = brg(O, p);
       const c = brg(p, beach);
-      const lifts = lift.map((l, i) => add(g, l.cls, l.name, 'enemy', offset(p, c + 90, (i - (lift.length - 1) / 2) * 1.5), c, 12, go(c, 12, 1e9)));
-      const scr = esc.map((e, i) => screen(g, lifts[0], e.cls, [e.name], [[[0, 3], [180, 3]][i] as [number, number]])[0]);
+      const lifts = lift.map((l, i) => add(g, l.cls, l.name, 'enemy', offset(p, c + 90, (i - (lift.length - 1) / 2) * 1.5), c, 15, go(c, 15, 1e9)));
+      const scr = esc.map((e, i) => screen(g, lifts[0], e.cls, [e.name], [[[0, 3], [180, 3], [90, 3]][i] as [number, number]])[0]);
       const helo = air(g, R.helo[0], `${cname(R.helo[0])}`, offset(p, c, 3), offset(p, c, 6));
       setGoal(g, {
         targets: ids(lifts), need,
@@ -248,15 +255,15 @@ function amphib(s: Spec): Plan {
         for (const v of lifts) {
           if (!v.alive || !v.ai) continue;
           if (v.ai.mode === 'transit') { v.ai.baseCourse = brg(v, beach); v.ai.zig = 0; }
-          if (arrive(gg, v, beach, 1.5)) { gg.flags.landed++; log(gg, 'danger', `${v.name} is on the beach at ${beachName} and putting her troops ashore. ${gg.flags.landed} of 2.`); }
+          if (arrive(gg, v, beach, 1.5)) { gg.flags.landed++; log(gg, 'danger', `${v.name} is on the beach at ${beachName} and putting her troops ashore.`); }
         }
-        mark.label = `Beach at ${beachName}: ${flag(gg, 'landed')} of 2 landed`;
+        mark.label = flag(gg, 'landed') ? `Beach at ${beachName}: troops ashore` : `Beach at ${beachName}`;
         if (helo.alive && helo.ai?.mode === 'search') helo.ai.center = offset(lead(lifts), c, 6);
-        if (flag(gg, 'landed') >= 2) end(gg, false, `Two landing ships reached ${beachName}. Soviet troops are ashore.`);
+        if (flag(gg, 'landed') >= 1) end(gg, false, `A landing ship reached ${beachName}. Soviet troops are ashore.`);
         short(gg, `Too many landing ships got through to ${beachName}.`);
       };
     },
-    extra: (g, base) => [...base, watch('Don\'t let two landing ships reach the beach', flag(g, 'landed') >= 2, `${flag(g, 'landed')} of 2 have landed.`)],
+    extra: (g, base) => [...base, watch('Don\'t let a landing ship reach the beach', flag(g, 'landed') >= 1, (() => { const l = byId(g, g.goal.targets).filter((v) => v.alive); return l.length ? `The nearest is ${Math.min(...l.map((v) => dist(v, g.marks![0]))).toFixed(1)} nm from the beach.` : undefined; })())],
   };
 }
 
@@ -264,16 +271,16 @@ function amphib(s: Spec): Plan {
 function convoy(s: Spec): Plan {
   const { kr } = s, R = rosterFor(s.year), name = namer(kr), pick = <T>(a: T[]) => a[Math.floor(kr() * a.length)];
   const merch = [...Array.from({ length: 3 + Math.floor(kr() * 2) }, () => ({ cls: 'sovmerch', name: name('sovmerch') })), { cls: 'chilikin', name: name('chilikin') }];
-  const esc = Array.from({ length: 2 + (s.level >= 2 ? 1 : 0) }, () => { const c = pick(R.corvette); return { cls: c, name: name(c) }; });
+  const esc = Array.from({ length: 2 + (s.level >= 1 ? 1 : 0) }, () => { const c = pick(R.corvette); return { cls: c, name: name(c) }; });
   const port = s.place.port ?? 'the port';
   const pb = (s.place.coast + Math.round((kr() * 2 - 1) * 20) + 360) % 360, pr = 22 + Math.round(kr() * 4);
-  const gb = (s.place.coast + 180 + Math.round((kr() * 2 - 1) * 40) + 360) % 360, gr = 10 + Math.round(kr() * 4);
-  const need = Math.ceil(merch.length * 0.6);
+  const [gb, gr] = runIn(P(pb, pr), 24 + Math.round(kr() * 4), (kr() < 0.5 ? 1 : -1) * (25 + Math.round(kr() * 10)));
+  const need = merch.length - 1;
   const hour = Math.floor(kr() * 24);
   return {
     title: `Convoy for ${port}`, hour,
     library: ['sovmerch', 'chilikin', ...esc.map((e) => e.cls), R.helo[0], R.plane[0]],
-    brief: `The Soviet army in Norway lives on what comes in by sea. A supply convoy is running for ${port}: ${andList(merch.map((m) => m.name))}, ${merch.length} ships in all, about ${gr} nm from you, bearing ${B(gb)}, at 12 knots, escorted by ${ships(esc)}. ${port} is about ${pr} nm from you, bearing ${B(pb)}, marked on the plot. Sink ${need} of the ${merch.length} supply ships before they get in. The escorts don't count.`,
+    brief: `The Soviet army in Norway lives on what comes in by sea. A supply convoy is running for ${port}: ${andList(merch.map((m) => m.name))}, ${merch.length} ships in all, about ${gr} nm from you, bearing ${B(gb)}, at 14 knots, escorted by ${ships(esc)}. ${port} is about ${pr} nm from you, bearing ${B(pb)}, marked on the plot. Sink ${need} of the ${merch.length} supply ships before they get in. The escorts don't count.`,
     build(g, r) {
       g.timeLimit = 4 * 3600;
       const dest = jit(P(pb, pr), r, 0.5);
@@ -281,7 +288,7 @@ function convoy(s: Spec): Plan {
       const p = jit(P(gb, gr), r);
       g.own.hdg = g.own.ordHdg = brg(O, p);
       const c = brg(p, dest);
-      const ms = merch.map((m, i) => add(g, m.cls, m.name, 'enemy', offset(offset(p, c + 90, ((i % 2) - 0.5) * 1.2), c, -Math.floor(i / 2) * 1.2), c, 12, go(c, 12)));
+      const ms = merch.map((m, i) => add(g, m.cls, m.name, 'enemy', offset(offset(p, c + 90, ((i % 2) - 0.5) * 1.2), c, -Math.floor(i / 2) * 1.2), c, 14, go(c, 14)));
       const scr = esc.map((e, i) => screen(g, ms[0], e.cls, [e.name], [[[0, 3], [90, 3], [270, 3]][i] as [number, number]])[0]);
       setGoal(g, { targets: ids(ms), need, win: `${need} supply ships are on the bottom. ${port} won't get what it was waiting for.`, timeout: `The convoy is into ${port}.` });
       g.flags.inPort = 0;
@@ -305,7 +312,7 @@ function convoy(s: Spec): Plan {
 // ---- Wolfpack ----------------------------------------------------------------------------------
 function wolfpack(s: Spec): Plan {
   const { kr } = s, R = rosterFor(s.year), name = namer(kr), pick = <T>(a: T[]) => a[Math.floor(kr() * a.length)];
-  const n = 3 + (s.level >= 3 ? 1 : 0);
+  const n = 3;
   const pack = Array.from({ length: n }, (_, i) => { const c = i === n - 1 ? pick(R.ssk) : pick(R.ssn); return { cls: c, name: name('sub') }; });
   const b = Math.round(kr() * 360), rng = 11 + Math.round(kr() * 4), cr = 22 + Math.round(kr() * 4);
   const need = n - 1;
@@ -313,7 +320,7 @@ function wolfpack(s: Spec): Plan {
   return {
     title: 'The Wolfpack', hour,
     library: [...new Set(pack.map((p) => p.cls)), R.plane[0]],
-    brief: `A NATO reinforcement convoy is crossing behind you, about ${cr} nm away, bearing ${B(b + 180)}: it is marked on the plot. Our SOSUS lines have a Soviet wolfpack heading for it, ${n} boats spread across about 8 nm, about ${rng} nm from you, bearing ${B(b)}: ${andList(pack.map((p) => `${an(cname(p.cls))}`))}. Sink ${need} of them. If two reach the convoy, they will be in among the troopships and the mission fails. Each boat hunts you as soon as she hears you.`,
+    brief: `A NATO reinforcement convoy is crossing behind you, about ${cr} nm away, bearing ${B(b + 180)}: it is marked on the plot. Our SOSUS lines have a Soviet wolfpack heading for it, ${n} boats strung out across about 16 nm, the nearest about ${rng} nm from you, bearing ${B(b)}: ${andList(pack.map((p) => `${an(cname(p.cls))}`))}. Sink ${need} of them. If two reach the convoy, they will be in among the troopships and the mission fails. Each boat hunts you as soon as she hears you.`,
     build(g, r) {
       g.timeLimit = 5 * 3600;
       g.own.hdg = g.own.ordHdg = b;
@@ -321,7 +328,7 @@ function wolfpack(s: Spec): Plan {
       const mark = markAt(g, cv, 'NATO convoy', 6);
       const mid = jit(P(b, rng), r);
       const c = brg(mid, cv);
-      const subs = pack.map((p, i) => sub(g, p.cls, p.name, offset(mid, c + 90, (i - (n - 1) / 2) * 8 / (n - 1)), c, CLASSES[p.cls].type === 'SSK' ? 7 : 9));
+      const subs = pack.map((p, i) => sub(g, p.cls, p.name, offset(offset(mid, c + 90, (i - (n - 1) / 2) * 8), c, -i * 4), c, CLASSES[p.cls].type === 'SSK' ? 7 : 9, 1));
       setGoal(g, { targets: ids(subs), need, win: `${need} boats of the wolfpack are on the bottom. The convoy goes through.`, timeout: 'The wolfpack is still out there, and so is the convoy.' });
       g.flags.atConvoy = 0;
       g.script = (gg) => {
@@ -358,7 +365,7 @@ function bastion(s: Spec): Plan {
       const c = jit(P(b, rng), r, 0.5);
       markAt(g, c, 'Bastion', 8);
       const boomer = sub(g, ssbn.cls, ssbn.name, offset(c, r() * 360, r() * 4), r() * 360, 4, 1);
-      const ssn = sub(g, guard.cls, guard.name, offset(c, b + 180, 7), b + 90, 6);
+      const ssn = sub(g, guard.cls, guard.name, offset(c, b, 7), b + 90, 6);
       const ps = pickets.map((p, i) => add(g, p.cls, p.name, 'enemy', offset(c, b + 180 + (i ? 50 : -50), 9), b + 90, 8, wander(offset(c, b + 180 + (i ? 50 : -50), 8), 4, 10)));
       let wp = offset(c, r() * 360, 4);
       setGoal(g, { targets: [boomer.id], need: 1, win: `${ssbn.name} is breaking up inside her own bastion. Moscow has one fewer missile boat.`, timeout: `${ssbn.name} is still on patrol in her bastion.` });
@@ -379,7 +386,7 @@ function spetsnaz(s: Spec): Plan {
   const boat = { cls: pick(R.ssk), name: name('sub') }, patrol = { cls: 'grisha', name: name('grisha') };
   const where = s.place.beach ?? 'the coast';
   const db = (s.place.coast + Math.round((kr() * 2 - 1) * 20) + 360) % 360, dr = 15 + Math.round(kr() * 4);
-  const sb = (s.place.coast + 180 + Math.round((kr() * 2 - 1) * 40) + 360) % 360, sr = 6 + Math.round(kr() * 3);
+  const sb = (s.place.coast + 180 + Math.round((kr() * 2 - 1) * 40) + 360) % 360, sr = 8 + Math.round(kr() * 3);
   const hour = 18 + Math.floor(kr() * 6);
   return {
     title: `Spetsnaz for ${where}`, hour,
@@ -389,7 +396,7 @@ function spetsnaz(s: Spec): Plan {
       g.timeLimit = 4 * 3600;
       const drop = jit(P(db, dr), r, 0.5);
       const mark = markAt(g, drop, 'Spetsnaz drop point', 2);
-      const p = jit(P(sb, sr), r, 1.5);
+      const p = jit(P(sb, sr), r, 3);
       g.own.hdg = g.own.ordHdg = sb;
       const k = sub(g, boat.cls, boat.name, p, brg(p, drop), 6);
       const gr = add(g, 'grisha', patrol.name, 'enemy', offset(drop, db + 180, 3), db + 90, 8, wander(offset(drop, db + 180, 3), 4, 9));
@@ -416,14 +423,14 @@ const FIELDS = ['Severomorsk-1', 'Severomorsk-3', 'Olenya', 'Kilpyavr', 'Moncheg
 function airbase(s: Spec): Plan {
   const { kr } = s, R = rosterFor(s.year), name = namer(kr), pick = <T>(a: T[]) => a[Math.floor(kr() * a.length)];
   const fields = [...FIELDS].sort(() => kr() - 0.5).slice(0, 3).map((f, i) => ({ name: `${f} airfield`, b: (s.place.coast + (i - 1) * 18 + 360) % 360, r: 90 + Math.round(kr() * 50) }));
-  const hunters = Array.from({ length: 2 + (s.level >= 2 ? 1 : 0) }, () => { const c = pick(R.corvette); return { cls: c, name: name(c) }; });
+  const hunters = Array.from({ length: 2 + (s.level >= 3 ? 1 : 0) }, () => { const c = pick(R.corvette); return { cls: c, name: name(c) }; });
   const hb = (s.place.coast + Math.round((kr() * 2 - 1) * 60) + 360) % 360;
   const need = 4;
   const hour = 1 + Math.floor(kr() * 4);
   return {
     title: 'Strike on Kola', hour,
     library: [...hunters.map((h) => h.cls), ...R.helo, R.plane[0]],
-    brief: `The Backfire bombers that savage the convoys fly from the Kola airfields. Close them: put ${need} Tomahawk hits on ${andList(fields.map((f) => f.name))}, all marked on the plot, inside three hours. The fields lie ${fields.map((f) => `${B(f.b)} at ${f.r} nm`).join(', ')}. Launch from 150 feet or shallower; each Tomahawk goes out of a torpedo tube${s.kit.mk48 === 'mk48' ? ' or a vertical tube' : ''}. SAM batteries round the fields shoot some down. Every launch is a flash on the surface: ${ships(hunters)} are patrolling about 12 nm from you, bearing ${B(hb)}, and helicopters and ${an(cname(R.plane[0]))} will come to where they see one.`,
+    brief: `The Backfire bombers that savage the convoys fly from the Kola airfields. Close them: put ${need} Tomahawk hits on ${andList(fields.map((f) => f.name))}, all marked on the plot, inside three hours. The fields lie ${fields.map((f) => `${B(f.b)} at ${f.r} nm`).join(', ')}. Launch from 150 feet or shallower; each Tomahawk goes out of a torpedo tube${s.kit.mk48 === 'mk48' ? ' or a vertical tube' : ''}. SAM batteries round the fields shoot some down. Every launch is a flash on the surface: ${ships(hunters)} are patrolling about 12 nm from you, bearing ${B(hb)}, and about ten minutes after each salvo, helicopters or ${an(cname(R.plane[0]))} come to where they saw it.`,
     build(g, r) {
       g.timeLimit = 3 * 3600;
       g.own.hdg = g.own.ordHdg = s.place.coast;
@@ -436,14 +443,17 @@ function airbase(s: Spec): Plan {
         // Each Tomahawk launch is seen: the hunters get a rough datum on it.
         const fired = gg.stats.fired.tlam ?? 0;
         if (fired > seen) {
+          const first = !seen;
           seen = fired;
-          const d = jit(gg.own, gg.r, 1.5);
+          const d = jit(gg.own, gg.r, 3);
           for (const h of hs) if (h.alive && h.ai && dist(h, d) < 25) h.ai.knows = { x: d.x, y: d.y, t: gg.t, deep: false };
-          if (fired === 1 || fired % 3 === 0) {
-            air(gg, pick(R.helo), `${cname(R.helo[0])} (launch datum)`, offset(d, hb, 12), d);
-            log(gg, 'warn', 'ESM: Soviet air search radar sweeping. They saw the launch and are sending aircraft to the datum.');
-          }
-          if (fired === 2) air(gg, R.plane[0], cname(R.plane[0]), offset(d, s.place.coast, 50), d);
+          if (first || !gg.flags.airDue) { gg.flags.airDue = gg.t + 600; gg.flags.dx = d.x; gg.flags.dy = d.y; log(gg, 'warn', 'ESM: Soviet air search radar sweeping. They saw the launch, and aircraft will be over the datum in about ten minutes.'); }
+        }
+        if (gg.flags.airDue && gg.t >= gg.flags.airDue) {
+          const d = { x: gg.flags.dx, y: gg.flags.dy }, n = gg.flags.airN = (gg.flags.airN ?? 0) + 1;
+          gg.flags.airDue = 0;
+          if (n === 2) air(gg, R.plane[0], cname(R.plane[0]), offset(d, s.place.coast, 20), d);
+          else air(gg, R.helo[0], `${cname(R.helo[0])} ${n}`, offset(d, hb, 3), d);
         }
         // The SA-10 batteries round the fields.
         for (const w of gg.weapons) {
@@ -465,31 +475,31 @@ function airbase(s: Spec): Plan {
 function duel(s: Spec): Plan {
   const { kr } = s, R = rosterFor(s.year), name = namer(kr), pick = <T>(a: T[]) => a[Math.floor(kr() * a.length)];
   const foe = { cls: s.force === 'november' ? 'november' : pick(R.ssn), name: name('sub') };
-  const b = Math.round(kr() * 360), rng = 9 + Math.round(kr() * 4);
   const train = s.force === 'november';
+  const b = Math.round(kr() * 360), rng = (train ? 12 : 7) + Math.round(kr() * 3);
   return {
     title: train ? 'Training: Open Sea' : 'A Duel', hour: Math.floor(kr() * 24),
     library: [foe.cls],
     brief: train
-      ? `A training fight with no real damage: hits on us count, but do no harm. A November-class boat, the loudest Soviet submarine at sea, is somewhere about ${rng} nm from you, bearing ${B(b)}. Find her, get a solution and sink her inside two hours.`
+      ? `A training fight with no real damage: hits on us count, but do no harm. A November-class boat, the loudest Soviet submarine at sea, is somewhere about ${rng} nm from you, bearing ${B(b)}. Find her, get a solution and sink her inside an hour.`
       : `One on one. ${An(cname(foe.cls))} is hunting ${where(s.place)}, about ${rng} nm from you, bearing ${B(b)}. She will hear you as soon as you are loud enough, and she shoots back. Sink her.`,
     build(g, r) {
-      g.timeLimit = (train ? 2 : 3) * 3600;
+      g.timeLimit = (train ? 1 : 3) * 3600;
       g.own.hdg = g.own.ordHdg = b;
       const k = sub(g, foe.cls, foe.name, jit(P(b, rng), r, 1.5), r() * 360, 6);
       setGoal(g, { targets: [k.id], need: 1, win: `${foe.name} is breaking up.`, timeout: `${foe.name} is still out there.` });
-      g.script = (gg) => { if (k.ai?.mode === 'patrol') keepCourse(k, brg(k, O) + 90 + Math.sin(gg.t / 600) * 60, 6); };
+      g.script = (gg) => { if (k.ai?.mode === 'patrol') keepCourse(k, brg(k, gg.own) + 60 + Math.sin(gg.t / 600) * 50, 6); };
     },
   };
 }
 function cms(s: Spec): Plan {
   const { kr } = s, R = rosterFor(s.year), name = namer(kr), pick = <T>(a: T[]) => a[Math.floor(kr() * a.length)];
   const foe = { cls: pick(R.ssgn), name: name('sub') };
-  const b = Math.round(kr() * 360), rng = 12 + Math.round(kr() * 3), cr = 30;
+  const b = Math.round(kr() * 360), rng = 14 + Math.round(kr() * 3), cr = 22;
   return {
     title: 'The Cruise Missile Sub', hour: Math.floor(kr() * 24),
     library: [foe.cls],
-    brief: `${An(cname(foe.cls))} cruise missile boat is closing on a NATO carrier group, marked on the plot about ${cr} nm behind you, bearing ${B(b + 180)}. She is about ${rng} nm from you, bearing ${B(b)}. Once she has spent five minutes inside 30 nm of the carrier group she will fire, and the mission fails. Sink her first.`,
+    brief: `${An(cname(foe.cls))} cruise missile boat is closing on a NATO carrier group, marked on the plot about ${cr} nm behind you, bearing ${B(b + 180)}. She is about ${rng} nm from you, bearing ${B(b)}. Once she has spent three minutes inside 30 nm of the carrier group she will fire, and the mission fails. Sink her first.`,
     build(g, r) {
       g.timeLimit = 4 * 3600;
       g.own.hdg = g.own.ordHdg = b;
@@ -501,29 +511,33 @@ function cms(s: Spec): Plan {
       g.script = (gg) => {
         keepCourse(k, brg(k, cv) + Math.sin(gg.t / 500) * 25, 10);
         if (k.alive && dist(k, cv) < 30) gg.flags.inRange++;
-        mark.label = gg.flags.inRange ? `NATO carrier group: she fires in ${mins(300 - flag(gg, 'inRange'))}` : 'NATO carrier group (her firing range)';
-        if (flag(gg, 'inRange') >= 300) end(gg, false, `${foe.name} has fired her missiles at the carrier group.`);
+        mark.label = gg.flags.inRange ? `NATO carrier group: she fires in ${mins(180 - flag(gg, 'inRange'))}` : 'NATO carrier group (her firing range)';
+        if (flag(gg, 'inRange') >= 180) end(gg, false, `${foe.name} has fired her missiles at the carrier group.`);
       };
     },
-    extra: (g, base) => [...base, watch('Stop her before she fires', flag(g, 'inRange') >= 300, `${mins(Math.max(0, 300 - flag(g, 'inRange')))} of firing time left to her.`)],
+    extra: (g, base) => [...base, watch('Stop her before she fires', flag(g, 'inRange') >= 180, `${mins(Math.max(0, 180 - flag(g, 'inRange')))} of firing time left to her.`)],
   };
 }
 function kashin(s: Spec): Plan {
   const { kr } = s, name = namer(kr);
-  const n = name('kashin'), b = Math.round(kr() * 360), rng = 10 + Math.round(kr() * 3);
+  const n = name('kashin'), b = Math.round(kr() * 360), rng = 10 + Math.round(kr() * 2);
   const ice = s.level >= 2;
   return {
     title: 'Training: The Kashin', hour: Math.floor(kr() * 24),
     library: ['kashin', 'ka25'],
-    brief: `A training fight with no real damage: hits on us count, but do no harm. The Kashin-class destroyer ${n} is hunting you about ${rng} nm away, bearing ${B(b)}, with her hull sonar and torpedoes. Sink her inside two hours.${ice ? ' The fight is at the edge of the pack ice: she keeps to the open water, marked on the plot, and under the ice you can\'t use the periscope, masts or missiles.' : ''}`,
+    brief: `A training fight with no real damage: hits on us count, but do no harm. The Kashin-class destroyer ${n} is hunting you about ${rng} nm away, bearing ${B(b)}, with her hull sonar and torpedoes. Sink her inside an hour.${ice ? ' The fight is at the edge of the pack ice: she keeps to the open water, marked on the plot, and under the ice you can\'t use the periscope, masts or missiles.' : ''}`,
     build(g, r) {
-      g.timeLimit = 2 * 3600;
+      g.timeLimit = 3600;
       g.own.hdg = g.own.ordHdg = b;
       const p = jit(P(b, rng), r, 1);
       if (ice) { g.env.ice = true; g.env.polynyas = [{ ...p, r: 7 }]; g.env.sea = 1; markAt(g, p, 'Open water', 7); }
       const k = add(g, 'kashin', n, 'enemy', p, brg(p, O), 12, { mode: 'patrol', legT: 400 });
       setGoal(g, { targets: [k.id], need: 1, win: `${n} is sinking.`, timeout: `${n} is still hunting.` });
-      g.script = () => { if (ice && dist(k, p) > 6 && k.ai?.mode === 'patrol') { k.ordHdg = brg(k, p); } };
+      g.script = (gg) => {
+        if (k.ai?.mode !== 'patrol') return;
+        if (ice && dist(k, p) > 6) k.ordHdg = brg(k, p);
+        else keepCourse(k, brg(k, gg.own) + Math.sin(gg.t / 300) * 50, 10);
+      };
     },
   };
 }
