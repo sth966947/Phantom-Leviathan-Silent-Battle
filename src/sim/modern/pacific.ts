@@ -237,8 +237,8 @@ export const missions: Record<MissionKey, Mission> = {
   // ---- Taiwan ------------------------------------------------------------------------------------
   P3: {
     key: 'P3', title: 'Taiwan Strait', era: '2029', place: 'Taiwan Strait', date: 'August 2029, 0400', night: true,
-    library: ['type075', 'type071', 'type052d', 'type054a', 'type901'],
-    brief: 'The invasion has begun. An amphibious group is crossing the strait for the beaches south of Taoyuan: the assault ship Hainan (Type 075) and two Type 071 docks, Wuzhi Shan and Siming Shan, with the destroyers Taiyuan and Hohhot (Type 052D) as escort. They are 20 nm northwest of you (bearing 300), making about 12 knots east for the beach 22 nm northeast (bearing 060). Sink two of the three landing ships before they get there; if two reach the beach, the mission fails. The PLA has laid a mine line across the strait about 3 to 4 nm north of you to cover the group\'s southern flank: the HF sonar will show you the mines. The escorts\' close-in guns can shoot down some of your anti-ship missiles.',
+    library: ['type075', 'type071', 'type055', 'type052d', 'type054a', 'type901'],
+    brief: 'The invasion has begun. An amphibious group is crossing the strait for the beaches south of Taoyuan: the assault ship Hainan (Type 075) and three Type 071 docks, Wuzhi Shan, Siming Shan and Longhu Shan, with the big Type 055 destroyer Dalian and the destroyers Taiyuan and Hohhot (Type 052D) as escort. They are 20 nm northwest of you (bearing 300), making about 12 knots east for the beach 22 nm northeast (bearing 060). Sink three of the four landing ships before they get there; if two reach the beach, the mission fails. The PLA has laid a mine line across the strait about 3 to 4 nm north of you to cover the group\'s southern flank: the HF sonar will show you the mines. The escorts\' close-in guns can shoot down some of your anti-ship missiles.',
     build(g, r) {
       g.startClock = clock(4);
       g.timeLimit = 4 * 3600;
@@ -248,10 +248,10 @@ export const missions: Record<MissionKey, Mission> = {
       markAt(g, P(0, 3.5), 'Mine line, about here');
       const course = brg(P3_START, P3_BEACH);
       const lhd = add(g, 'type075', 'Hainan', 'enemy', P3_START, course, 12, go(course, 12, 1e9));
-      const lpds = screen(g, lhd, 'type071', ['Wuzhi Shan', 'Siming Shan'], [[150, 1.5], [210, 1.5]]);
-      const dd = screen(g, lhd, 'type052d', ['Taiyuan', 'Hohhot'], [[0, 3], [100 + r() * 20, 3]]);
+      const lpds = screen(g, lhd, 'type071', ['Wuzhi Shan', 'Siming Shan', 'Longhu Shan'], [[150, 1.5], [210, 1.5], [180, 2.8]]);
+      const dd = [...screen(g, lhd, 'type052d', ['Taiyuan', 'Hohhot'], [[0, 3], [100 + r() * 20, 3]]), ...screen(g, lhd, 'type055', ['Dalian'], [[250 + r() * 20, 3]])];
       const landers = [lhd, ...lpds];
-      setGoal(g, { targets: ids(landers), need: 2, win: 'Two of the landing ships are sunk in the strait. The assault on the Taoyuan beaches is broken.', timeout: 'The landing went in.' });
+      setGoal(g, { targets: ids(landers), need: 3, win: 'Three of the landing ships are sunk in the strait. The assault on the Taoyuan beaches is broken.', timeout: 'The landing went in.' });
       g.flags.landed = 0;
       g.script = (gg) => {
         pointDefence(gg, [...landers, ...dd], 0.8);

@@ -83,7 +83,7 @@ function attack(g: Game, i: number, c: Contact, sub: boolean, close = true) {
   if (!safe || running >= (sub ? 2 : 1) || c.q < 0.55) return;
   if (r < 7 && i % 90 === 0) orders.fire(g, 'mk48');
   else if (sub && r > 1.2 && r < 12 && c.q > 0.6 && i % 150 === 0) orders.fire(g, 'asroc');
-  else if (!sub && r > 4 && r < 30 && c.q > 0.6 && i % 120 === 0) orders.fire(g, g.flags.jammed ? 'harpoon' : 'mst');
+  else if (!sub && r > 4 && r < 30 && c.q > 0.6 && i % 120 === 0) orders.fire(g, g.flags.jammed ? 'nsm' : 'mst');
 }
 /**
  * Convoy escort: keep station ahead of the lead ship and listen; a launch transient means a boat is

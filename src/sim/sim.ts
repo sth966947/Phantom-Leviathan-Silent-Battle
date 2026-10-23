@@ -182,7 +182,11 @@ export interface Game {
   /** Sea state and pack ice for the mission (see hazards.ts). */
   env: Env;
   t: number; r: () => number; seq: number;
-  over: { win: boolean; t: number; reason: string } | null;
+  /**
+   * How the mission came out. A win doesn't stop the game: `live` stays true while the captain
+   * fights on after the objectives are met, until they end the mission (or Tang is lost, or time runs out).
+   */
+  over: { win: boolean; t: number; reason: string; live?: boolean; after?: string } | null;
   /** A replay of a finished mission: the plot shows every ship where it really is. */
   replay?: boolean;
   own: OwnBoat; vessels: Vessel[]; contacts: Contact[]; selected: number | null;
@@ -413,7 +417,7 @@ export const radarTracked = (g: Game, c: Contact) => c.held && g.t - c.radarT <=
 /** Fire at the selected contact, or for a wave at a given contact from a given tube, to arrive at `tot`. */
 function fireWeapon(g: Game, type: FireKey, opt: Launch = {}): Weapon | void {
   const o = g.own;
-  if (g.over) return;
+  if (finished(g)) return;
   const w = WEAPONS[type];
   if (w.missile && underIce(g)) return log(g, 'warn', `${w.short}: ice overhead. Missiles need open water: find a polynya.`);
   if (w.missile && o.depthT > MISSILE_MAX_DEPTH) return log(g, 'warn', `${w.short}: come up to 150 feet or shallower to launch.`);
@@ -459,7 +463,7 @@ function fireWeapon(g: Game, type: FireKey, opt: Launch = {}): Weapon | void {
 /** Land attack at one of the mission's fixed sites ashore: TLAM, or Mjolnir. */
 function strikeSite(g: Game, siteId: number, type: 'tlam' | 'mjolnir', opt: Launch = {}): Weapon | void {
   const o = g.own, w = WEAPONS[type], mj = type === 'mjolnir';
-  if (g.over) return;
+  if (finished(g)) return;
   const site = g.sites.find((x) => x.id === siteId);
   const name = mj ? 'Mjolnir' : 'TLAM';
   if (!site) return log(g, 'warn', `${name}: no target selected.`);
@@ -600,7 +604,7 @@ function planAir(g: Game, type: WaveKey, list: WaveItem[]): WavePlan {
 }
 
 function fireWave(g: Game, type: WaveKey, items: WaveItem[]) {
-  if (g.over) return;
+  if (finished(g)) return;
   const plan = planWave(g, type, items);
   if (!plan.ok) return log(g, 'warn', `Attack plan: ${plan.why}`);
   const id = g.seq++, targets = new Set(plan.shots.map((x) => `${x.site}${x.target}`)).size;
@@ -670,6 +674,10 @@ function paceTorpedo(g: Game, w: Weapon, spec: (typeof WEAPONS)[WeaponKey]) {
 }
 
 export const orders = {
+  /** After a win, stop fighting on and close the mission. */
+  endMission(g: Game) {
+    if (g.over?.live) g.over.live = false;
+  },
   heading(g: Game, hdg: number) { stopSteering(g); g.own.ordHdg = norm(Math.round(hdg)); },
   turn(g: Game, delta: number) { stopSteering(g); g.own.ordHdg = norm(Math.round(g.own.ordHdg + delta)); },
   speed(g: Game, kts: number) {
@@ -749,7 +757,7 @@ export const orders = {
   /** Lay a mine from a torpedo tube where Tang is now. Missions that send Tang out with mines set `minesAboard`. */
   layMine(g: Game) {
     const o = g.own;
-    if (g.over) return;
+    if (finished(g)) return;
     if (!g.flags.minesAboard) return log(g, 'warn', 'No mines aboard on this patrol.');
     if (o.spd > 12) return log(g, 'warn', 'Mines: slow to 12 knots or less to lay a mine.');
     const tube = o.tubes.findIndex((x) => x <= 0);
@@ -764,14 +772,14 @@ export const orders = {
   /** A timed attack wave: see planWave. */
   wave(g: Game, type: WaveKey, items: WaveItem[]) { fireWave(g, type, items); },
   radar(g: Game, on = !g.own.radar) {
-    if (g.over || on === g.own.radar) return;
+    if (finished(g) || on === g.own.radar) return;
     if (on && g.own.depthT > PD_MAX) return log(g, 'warn', 'Radar: the mast only clears the water at periscope depth.');
     g.own.radar = on;
     log(g, on ? 'good' : 'info', on ? 'Radar mast up, transmitting. Anyone with a radar warning receiver can hear us.' : 'Radar secured.');
   },
   ping(g: Game) {
     const o = g.own;
-    if (g.over) return;
+    if (finished(g)) return;
     g.stats.pings++;
     g.pings.push({ t: g.t });
     pingMines(g);
@@ -781,7 +789,7 @@ export const orders = {
   /** Swim a sonar drone out of a torpedo tube, toward the selected contact or dead ahead. */
   launchDrone(g: Game) {
     const o = g.own;
-    if (g.over) return;
+    if (finished(g)) return;
     if (o.drones - o.droneQueue <= 0) return log(g, 'warn', 'No sonar drones left aboard.');
     const tube = o.tubes.findIndex((x) => x <= 0);
     // Every tube reloading: the crew loads the drone into the first one to clear and swims it out then.
@@ -791,7 +799,7 @@ export const orders = {
   /** Fire a Blackwing from the signal ejector at the selected contact, or along its bearing, or dead ahead. Any depth. */
   blackwing(g: Game) {
     const o = g.own;
-    if (g.over) return;
+    if (finished(g)) return;
     if (o.blackwings <= 0) return log(g, 'warn', 'No Blackwings left aboard.');
     if (underIce(g)) return log(g, 'warn', 'Blackwing: ice overhead. The canister can\'t reach open air.');
     o.blackwings--;
@@ -804,13 +812,13 @@ export const orders = {
   /** Send a Blackwing (the newest unless one is named) to the selected contact. */
   blackwingTo(g: Game, id?: number) {
     const u = id === undefined ? g.uavs[g.uavs.length - 1] : g.uavs.find((x) => x.id === id);
-    if (g.over || !u) return;
+    if (finished(g) || !u) return;
     uavTask(g, u);
   },
   /** Switch a Blackwing (the newest unless one is named) between radar search (ESM) and jamming. */
   blackwingMode(g: Game, mode: UavMode, id?: number) {
     const u = id === undefined ? g.uavs[g.uavs.length - 1] : g.uavs.find((x) => x.id === id);
-    if (g.over || !u || u.mode === mode) return;
+    if (finished(g) || !u || u.mode === mode) return;
     u.mode = mode;
     log(g, 'info', mode === 'jam'
       ? `Blackwing ${u.n}: jamming. Enemy radars within ${BLACKWING.jam} nm of it are blinded; its own radar intercept is off while it jams.`
@@ -819,7 +827,7 @@ export const orders = {
   /** Fly a Blackwing to a point on the map and circle there, or to a ship or submarine to follow it. */
   blackwingGo(g: Game, id: number, x: number, y: number, contactId: number | null = null) {
     const u = g.uavs.find((v) => v.id === id);
-    if (g.over || !u) return;
+    if (finished(g) || !u) return;
     const c = contactById(g, contactId);
     if (c?.est && !c.air) {
       u.target = c.id; u.aim = { x: c.est.x, y: c.est.y };
@@ -832,14 +840,14 @@ export const orders = {
   droneFollow(g: Game, id?: number) {
     const d = (id === undefined ? null : g.drones.find((v) => v.id === id)) ?? [...g.drones].reverse().find((v) => !v.home) ?? g.drones[g.drones.length - 1];
     const c = contactById(g, g.selected);
-    if (g.over || !d) return;
+    if (finished(g) || !d) return;
     if (!c?.est || c.air) return log(g, 'warn', 'Select a ship or submarine with a position for the UUV to follow.');
     orders.droneGo(g, d.id, c.est.x, c.est.y, c.id);
   },
   /** Send a UUV to a point and hover there, or after a ship or submarine to shadow it. */
   droneGo(g: Game, id: number, x: number, y: number, contactId: number | null = null) {
     const d = g.drones.find((v) => v.id === id);
-    if (g.over || !d) return;
+    if (finished(g) || !d) return;
     d.home = false;
     const c = contactById(g, contactId);
     if (c?.est && !c.air) {
@@ -852,20 +860,20 @@ export const orders = {
   /** Call a UUV home: it runs back to the boat and is taken aboard through a torpedo tube, which then reloads. */
   droneHome(g: Game, id?: number) {
     const d = id === undefined ? g.drones[g.drones.length - 1] : g.drones.find((v) => v.id === id);
-    if (g.over || !d) return;
+    if (finished(g) || !d) return;
     d.home = true; d.mode = 'passive'; d.target = null;
     log(g, 'info', `Drone ${d.n}: coming home, ${fmtRng(dist(g.own, d))} out. Slow to ${DRONE_RECOVER_SPD} knots or less to take it aboard.`);
   },
   /** Switch a drone (the newest unless one is named) between passive listening, active pinging and decoy. */
   droneMode(g: Game, mode: DroneMode, id?: number) {
     const d = id === undefined ? g.drones[g.drones.length - 1] : g.drones.find((v) => v.id === id);
-    if (g.over || !d || d.mode === mode) return;
+    if (finished(g) || !d || d.mode === mode) return;
     d.mode = mode;
     log(g, mode === 'passive' ? 'info' : 'good', `Drone ${d.n}: ${mode === 'passive' ? 'passive, listening.' : mode === 'active' ? 'active sonar on, pinging every minute. Anyone who hears it will hunt the drone.' : 'decoy on, playing our noise. Torpedoes and hunters should go for it.'}`);
   },
   decoy(g: Game) {
     const o = g.own;
-    if (g.over) return;
+    if (finished(g)) return;
     if (o.decoys <= 0) return log(g, 'warn', 'No countermeasures remaining.');
     o.decoys--;
     g.decoys.push({ id: g.seq++, side: 'us', x: o.x, y: o.y, life: 240, deep: o.depthT > LAYER_AT });
@@ -1379,7 +1387,10 @@ export function shellfire(g: Game, from: Vessel, at: Vessel, pHit: number) {
 
 /** Win or lose on the mission goal. Called after every sinking and every tick. */
 function checkGoal(g: Game) {
-  if (g.over) return;
+  if (g.over) {
+    if (g.over.live && g.t >= g.timeLimit) { g.over.live = false; g.over.after = 'Time ran out while we fought on.'; }
+    return;
+  }
   const gl = g.goal;
   const sunkIds = (ids: number[]) => ids.filter((id) => !vesselById(g, id).alive && !vesselById(g, id).gone).length;
   if (gl.protect.length && sunkIds(gl.protect) > gl.maxLosses) return end(g, false, gl.lossText);
@@ -1387,7 +1398,17 @@ function checkGoal(g: Game) {
   if (g.t >= g.timeLimit) end(g, gl.surviveWin, gl.surviveWin ? gl.win : gl.timeout);
 }
 
-export function end(g: Game, win: boolean, reason: string) { if (!g.over) g.over = { win, t: g.t, reason }; }
+/** True once the mission is over for good: lost, or won and the captain has ended it. */
+export const finished = (g: Game) => !!g.over && !g.over.live;
+/**
+ * Win or lose. A win leaves the game running (the UI asks whether to end it or fight on), and
+ * nothing after it can turn it into a loss: the mission's own fail conditions no longer apply,
+ * and losing Tang or running out of time just ends it.
+ */
+export function end(g: Game, win: boolean, reason: string) {
+  if (!g.over) { g.over = win ? { win, t: g.t, reason, live: true } : { win, t: g.t, reason }; return; }
+  if (g.over.live && !win && !g.own.alive) { g.over.live = false; g.over.after = reason; }
+}
 
 const isEscort = (v: Vessel) => /destroyer|corvette/.test(v.cls.type);
 const ADJ: Record<string, string> = {
@@ -2058,7 +2079,7 @@ function keepMatch(g: Game) {
 }
 
 export function tick(g: Game, dt = 1) {
-  if (g.over) return;
+  if (finished(g)) return;
   g.t += dt;
   ambient = ambientDb(g.env);
   const o = g.own;
@@ -2078,7 +2099,7 @@ export function tick(g: Game, dt = 1) {
   for (const w of g.weapons) if (!w.dead) updateWeapon(g, w, dt);
   g.weapons = g.weapons.filter((w) => { if (w.dead && w.deadAt === undefined) w.deadAt = g.t; return !w.dead || g.t - w.deadAt! < 1; });
   updateHazards(g);
-  if (g.over) return;
+  if (finished(g)) return;
   if (g.drones.length) updateDrones(g, dt);
   ownSensors(g, dt);
   radarAndAir(g);

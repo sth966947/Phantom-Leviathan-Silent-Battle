@@ -4,7 +4,7 @@
 // weapons keep their own times. JATM and SM-6 go at aircraft all at once, fire and forget.
 // The weapon and number pickers are up-down steppers: the arrows (or the arrow keys) step through them.
 import { CLASSES } from '../sim/classes';
-import { JATM_PER_CANISTER, WEAPONS, contactLabel, isFriendlyClass, orders, planWave, type Game, type WaveItem, type WaveKey, type WavePlan, type WaveShot } from '../sim/sim';
+import { JATM_PER_CANISTER, finished, WEAPONS, contactLabel, isFriendlyClass, orders, planWave, type Game, type WaveItem, type WaveKey, type WavePlan, type WaveShot } from '../sim/sim';
 import { brg, dist, fmtBrg, fmtRng } from '../sim/math';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -156,7 +156,7 @@ export class AttackPlan {
     $('attackPlan').innerHTML = !plans.length ? 'Pick how many to send at one target or more.'
       : plans.map((x) => `<div class="${x.plan.ok ? '' : 'bad'}">${esc(NAMES[x.type])} × ${x.n}: ${x.plan.ok ? `${WEAPONS[x.type].role === 'aa' ? 'all fire now, fire and forget' : `all hit together in ${mmss(x.plan.tot - g.t)}`}` : esc(x.plan.why)}</div>`).join('')
         + (tubeWhy ? `<div class="bad">${esc(tubeWhy)}</div>` : '');
-    ($('attackFire') as HTMLButtonElement).disabled = !!g.over || !plans.length || !!tubeWhy || plans.some((x) => !x.plan.ok);
+    ($('attackFire') as HTMLButtonElement).disabled = finished(g) || !plans.length || !!tubeWhy || plans.some((x) => !x.plan.ok);
     const live = g.waves.map((w) => mmss(w.tot - g.t)).join(', ');
     $('attackRead').textContent = `game paused while you plan · ${live ? `salvoes in the air, hitting in ${live}` : 'each weapon is a salvo that hits together'}`;
   }

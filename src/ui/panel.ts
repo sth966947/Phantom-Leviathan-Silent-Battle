@@ -1,5 +1,5 @@
 // Ship status, contact list, identification and weapons readouts, plus the log.
-import { ARRAY, DRONE_LINK, depthFeet, JATM_PER_CANISTER, WEAPONS, arrayActive, atPeriscopeDepth, bearingRate, blackwingLink, contactById, contactLabel, isFriendlyClass, missileDepthOk, inPeriscope, radarTracked, targetContact, vesselSL, type Game, type GameEvent } from '../sim/sim';
+import { ARRAY, finished, DRONE_LINK, depthFeet, JATM_PER_CANISTER, WEAPONS, arrayActive, atPeriscopeDepth, bearingRate, blackwingLink, contactById, contactLabel, isFriendlyClass, missileDepthOk, inPeriscope, radarTracked, targetContact, vesselSL, type Game, type GameEvent } from '../sim/sim';
 import { CLASSES } from '../sim/classes';
 import { angDiff, dist, fmtBrg, fmtRng } from '../sim/math';
 
@@ -106,7 +106,7 @@ export function updatePanel(g: Game, steerId: number | null = null) {
   const quarry = dr?.target != null ? contactById(g, dr.target) : null;
   setText('uuvLink', dr ? `#${dr.n} ${dist(o, dr) <= DRONE_LINK ? fmtRng(dist(o, dr)) : 'out of range'} · ${dr.home ? 'coming home' : quarry ? `shadowing ${contactLabel(quarry)}` : dr.mode}` : `${DRONE_LINK} nm`);
   setText('wJatm', o.jatm ? `${o.jatm} of ${JATM_PER_CANISTER} left` : `fresh, ${JATM_PER_CANISTER} rounds`);
-  const over = !!g.over, depthOk = missileDepthOk(g);
+  const over = finished(g), depthOk = missileDepthOk(g);
   const ship = targetContact(g, false), air = targetContact(g, true);
   const asrocRange = ship?.est ? (() => { const r = dist(o, ship.est!); return r >= WEAPONS.asroc.minRun! && r <= WEAPONS.asroc.maxRun; })() : false;
   const dis = (id: string, off: boolean) => { ($(id) as HTMLButtonElement).disabled = over || off; };

@@ -70,7 +70,7 @@ function wwiiCaptain(g: Game, i: number, s: { deepT: number }, extra: string[] =
   const sub = CLASSES[guess(t)!].kind === 'sub';
   if (i % 120 === 0) { orders.heading(g, brg(g.own, t.est!)); orders.speed(g, deep ? 5 : r > 10 ? 15 : 6); }
   if (t.q > 0.6 && r < 8 && i % 90 === 0) orders.fire(g, 'mk48');
-  if (!sub && !deep && t.q > 0.6 && r < 30 && r > 4 && i % 120 === 0) orders.fire(g, g.flags.jammed ? 'harpoon' : 'mst');
+  if (!sub && !deep && t.q > 0.6 && r < 30 && r > 4 && i % 120 === 0) orders.fire(g, g.flags.jammed ? 'nsm' : 'mst');
   if (sub && !deep && t.q > 0.6 && r > 1 && r < 15 && i % 120 === 0) orders.fire(g, 'asroc');
 }
 
