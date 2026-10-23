@@ -1,12 +1,12 @@
 import 'pixi.js/unsafe-eval'; // no eval(), so the game runs under strict content security policies
 import './style.css';
-import { WEAPONS, arrivingSoon, contactById, create, inPeriscope, orders, tick, type Depth, type Game, type ScenarioKey, type WeaponKey } from './sim/sim';
+import { WEAPONS, arrivingSoon, contactById, create, finished, inPeriscope, orders, tick, type Depth, type Game, type ScenarioKey, type WeaponKey } from './sim/sim';
 import { CAMPAIGN, MISSIONS, PREQUELS, objectives, type MissionKey } from './sim/missions';
 import { carryFor, changedFor, interlude, record, resetCampaign, results, unlocked } from './campaign';
 import { Plot, SPANS } from './render/plot';
 import { Waterfall } from './ui/waterfall';
 import { SignatureDisplay } from './ui/signature';
-import { addLog, updatePanel } from './ui/panel';
+import { addLog, loadout, updatePanel } from './ui/panel';
 import { play, unlockAudio } from './ui/audio';
 import { Periscope } from './ui/periscope';
 import { Solution } from './ui/solution';
@@ -17,6 +17,7 @@ import { Player, noteSelection, record as recordOrders, recording } from './repl
 import { FRONTS, FRONT_NAMES, WAR_MAX, WAR_MIN, currentSlot, warLength, newsCard, resolve as resolveWar, warOver, type Ending, type WarState } from './sim/war';
 import { WAR_MISSIONS } from './sim/warData';
 import { currentWar, playable, restartWar, saveWar } from './warSave';
+import { showRsr, showRsrResult, type RsrHost, type RsrPlay } from './rsrMenu';
 
 const $ = (id: string) => document.getElementById(id)!;
 const esc = (t: string) => t.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]!));
@@ -33,11 +34,14 @@ let running = false;
 let acc = 0;
 let last = performance.now();
 let overShown = false;
+let winShown = false; // the 'objectives met' card has been shown for this mission
 let replay: Player | null = null;
 let liveGame: Game | null = null; // the finished mission, kept while its replay plays
 let warMission: string | null = null; // the modern war mission being played, if any
-type Mode = 'ww2' | 'war';
-let mode: Mode = (() => { try { return localStorage.getItem('phantom-leviathan-mode') === 'war' ? 'war' : 'ww2'; } catch { return 'ww2'; } })();
+let rsrPlay: RsrPlay | null = null; // a Red Storm Rising mission or battle sim, if that's what is being played
+type Mode = 'ww2' | 'war' | 'rsr';
+let mode: Mode = (() => { try { const m = localStorage.getItem('phantom-leviathan-mode'); return m === 'war' || m === 'rsr' ? m : 'ww2'; } catch { return 'ww2'; } })();
+const MODES = '<div class="modes"><button data-mode="ww2">WWII campaign</button><button data-mode="war">Modern war · 2029</button><button data-mode="rsr">Red Storm Rising · 1980s</button></div>';
 
 const plot = new Plot();
 const waterfall = new Waterfall($('waterfall') as HTMLCanvasElement);
@@ -50,7 +54,7 @@ const toggleAttack = () => { solution.close(); depthView.close(); attack.toggle(
 // The game holds still while the attack plan is open, and picks up at the same speed when it closes.
 let attackPaused = false;
 attack.onToggle = (open) => {
-  if (open && timeScale && running && !g.over) { resumeScale = timeScale; timeScale = 0; attackPaused = true; pauseDismissed = true; }
+  if (open && timeScale && running && !finished(g)) { resumeScale = timeScale; timeScale = 0; attackPaused = true; pauseDismissed = true; }
   else if (!open && attackPaused) { attackPaused = false; if (!timeScale) timeScale = resumeScale; }
 };
 const strikeCam = new StrikeCam();
@@ -75,7 +79,7 @@ function collectArrivals(): boolean {
   return true;
 }
 /** Still waiting for more weapons to land before showing what has. */
-const holding = () => pending.length > 0 && !g.over && g.t - lastArrival < HOLD && arrivingSoon(g, HOLD - (g.t - lastArrival));
+const holding = () => pending.length > 0 && !finished(g) && g.t - lastArrival < HOLD && arrivingSoon(g, HOLD - (g.t - lastArrival));
 /** Hands the waiting arrivals to the battle camera as one reel. */
 function showArrivals() {
   if (!pending.length) return;
@@ -120,18 +124,22 @@ const MARK = { done: '✓', open: '○', failed: '✗' } as const;
 function renderPause() {
   const m = MISSIONS[scenario];
   const obs = objectives(g);
+  const won = !!g.over?.live;
   $('pauseCard').innerHTML = `
+    ${won ? `<div class="won"><h2>Mission accomplished</h2><p>${esc(g.over!.reason)}</p>
+      <p>End the mission now, or keep fighting: everything you sink still counts, and the mission stays won. End it any time from this screen.${warMission ? ' If Tang is lost while you fight on, you will have to replay the mission.' : ''}</p></div>` : ''}
     <p class="sub">Paused · ${esc(m.place)} · ${esc(m.date)}</p>
     <h2>${esc(m.title)}</h2>
     <p class="pbrief">${esc(m.brief)}</p>
     <h3>Objectives</h3>
     <ul class="obj">${obs.map((o) => `<li class="${o.state}"><span class="mk">${MARK[o.state]}</span><span><b>${esc(o.text)}</b>${o.detail ? `<small>${esc(o.detail)}</small>` : ''}</span></li>`).join('')}</ul>
-    <div class="row"><button id="pResume">Resume <kbd>Space</kbd></button><button id="pHide">Hide, stay paused</button></div>`;
+    <div class="row">${won ? '<button id="pEnd" class="primary">End mission</button>' : ''}<button id="pResume">${won ? 'Keep fighting' : 'Resume'} <kbd>Space</kbd></button><button id="pHide">Hide, stay paused</button></div>`;
   $('pResume').addEventListener('click', togglePause);
+  $('pEnd')?.addEventListener('click', () => { orders.endMission(g); $('pauseCard').hidden = true; });
   $('pHide').addEventListener('click', () => { pauseDismissed = true; $('pauseCard').hidden = true; });
 }
 function updatePauseCard() {
-  const paused = running && !g.over && !replay && timeScale === 0;
+  const paused = running && !finished(g) && !replay && timeScale === 0;
   if (!paused) pauseDismissed = false;
   const show = paused && !pauseDismissed && $('overlay').hidden;
   const card = $('pauseCard');
@@ -143,7 +151,7 @@ on('pauseBtn', togglePause);
 // Leaving a mission in progress takes two clicks, so a stray one doesn't throw it away.
 on('toCampaign', () => {
   const b = $('toCampaign');
-  const midMission = running && !g.over && !replay;
+  const midMission = running && !finished(g) && !replay;
   if (midMission && !b.classList.contains('confirm')) {
     b.classList.add('confirm');
     b.textContent = 'Leave mission? Click again';
@@ -253,7 +261,7 @@ $('matches').addEventListener('click', (ev) => {
 
 const wrap = $('plotWrap');
 wrap.addEventListener('click', (ev) => {
-  if (!running || g.over || (ev.target as HTMLElement).closest('button, .scope')) return;
+  if (!running || finished(g) || (ev.target as HTMLElement).closest('button, .scope')) return;
   const drone = plot.pickSteer(ev.clientX, ev.clientY);
   if (drone !== null) { steerTo(drone === plot.steerId ? null : drone); return; }
   const picked = plot.pick(ev.clientX, ev.clientY);
@@ -289,7 +297,7 @@ document.addEventListener('keydown', (ev) => {
     return;
   }
   if ((ev.target as HTMLElement).closest?.('input, select, textarea')) return; // typing a depth, not giving orders
-  if (!running) { if (ev.key === 'Enter' && overShown) start(scenario); return; }
+  if (!running) { if (ev.key === 'Enter' && overShown) start(scenario, warMission, rsrPlay); return; }
   const idx = SPEEDS.findIndex(([v]) => v >= g.own.ordSpd);
   const faster = () => orders.speed(g, SPEEDS[Math.min(SPEEDS.length - 1, idx + 1)][0]);
   const slower = () => orders.speed(g, SPEEDS[Math.max(0, idx - 1)][0]);
@@ -361,10 +369,12 @@ function setUp(key: ScenarioKey) {
   waterfall.clear();
   signature.clear();
   plot.reset(key === 'duel' ? 2 : 3);
-  $('tlamRow').hidden = !g.sites.length;
+  loadout(g);
+  weaponTab(false);
+  $('tlamRow').hidden = !g.sites.length || !g.own.kit.tlam;
   $('mineRow').hidden = !g.flags.minesAboard;
   $('tlamSite').innerHTML = g.sites.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join('');
-  $('mjLandRow').hidden = !g.sites.length;
+  $('mjLandRow').hidden = !g.sites.length || !g.own.kit.mjolnir;
   $('mjSite').innerHTML = $('tlamSite').innerHTML;
   periscope.close();
   solution.close();
@@ -373,7 +383,7 @@ function setUp(key: ScenarioKey) {
   steerTo(null);
   strikeCam.close();
   forgetArrivals();
-  overShown = false;
+  overShown = false; winShown = false;
   acc = 0;
 }
 
@@ -406,8 +416,9 @@ function exitReplay() {
 on('replayRestart', startReplay);
 on('replayExit', exitReplay);
 
-function start(key: ScenarioKey, fromWar: string | null = null) {
+function start(key: ScenarioKey, fromWar: string | null = null, rsr: RsrPlay | null = null) {
   warMission = fromWar;
+  rsrPlay = rsr;
   unlockAudio();
   newGame(key);
   timeScale = resumeScale = 1; // start in real time so the player can get their bearings
@@ -471,6 +482,7 @@ function showCampaign(key: MissionKey = picked) {
 
 function showResult() {
   if (warMission) return showWarResult(warMission);
+  if (rsrPlay) return showRsrResult(rsrHost, g, scenario, rsrPlay);
   const o = g.over!;
   const res = record(g);
   const key = scenario;
@@ -483,7 +495,7 @@ function showResult() {
   brief.innerHTML = `
     <h2>${o.win ? 'Mission accomplished' : 'Mission failed'}</h2>
     <p class="sub">${esc(MISSIONS[key].title)} · ${Math.round(o.t / 60)} min · ${fired} fired · ${g.stats.hits} hits${g.stats.blueOnBlue ? ` · ${g.stats.blueOnBlue} on friendly ships` : ''}</p>
-    <p>${esc(o.reason)}${res.sunk.length ? ` Sunk: ${esc(res.sunk.join(', '))}.` : ''}${res.aircraft ? ` Aircraft shot down: ${res.aircraft}.` : ''} The plot now shows where every ship really was.</p>
+    <p>${esc(o.reason)}${o.after ? ` Afterwards: ${esc(o.after)}` : ''}${res.sunk.length ? ` Sunk: ${esc(res.sunk.join(', '))}.` : ''}${res.aircraft ? ` Aircraft shot down: ${res.aircraft}.` : ''} The plot now shows where every ship really was.</p>
     ${story.length ? `<div class="interlude"><div class="wlabel">The war, as it now stands</div>${story.map((p) => `<p>${esc(p)}</p>`).join('')}</div>` : ''}
     <div class="row">${next ? `<button id="next">Next: ${esc(MISSIONS[next].title)}</button>` : ''}<button id="watch">Watch replay</button><button id="again">Play again</button><button id="menu">Campaign</button></div>`;
   $('next')?.addEventListener('click', () => showCampaign(next!));
@@ -499,7 +511,11 @@ function setMode(m: Mode) {
   try { localStorage.setItem('phantom-leviathan-mode', m); } catch { /* fine without it */ }
   showMenu();
 }
-function showMenu() { strikeCam.close(); if (mode === 'war') showWar(); else showCampaign(); }
+function showMenu() { strikeCam.close(); if (mode === 'war') showWar(); else if (mode === 'rsr') showRsr(rsrHost); else showCampaign(); }
+const rsrHost: RsrHost = {
+  modes: MODES, wireModes, start: (k, p) => start(k, null, p), replay: startReplay,
+  done: () => { $('overlay').hidden = false; running = false; },
+};
 function wireModes() {
   for (const b of document.querySelectorAll<HTMLButtonElement>('.modes button')) {
     b.classList.toggle('on', b.dataset.mode === mode);
@@ -555,7 +571,7 @@ function showWar() {
   for (let i = n + 2; i <= warLength(w); i++) rows.push(`<li class="locked"><span class="n">${i}</span><span class="t">?</span></li>`);
   const ending = w.ending && over ? ENDINGS[w.ending] : null;
   brief.innerHTML = `
-    <div class="modes"><button data-mode="ww2">WWII campaign</button><button data-mode="war">Modern war · 2029</button></div>
+    ${MODES}
     <div class="camp-head">
       <div>
         <h2>The war of 2029</h2>
@@ -606,7 +622,7 @@ function showWarResult(id: string) {
   brief.innerHTML = `
     <h2>${o.win ? 'Mission passed' : tangLost ? 'Tang is lost' : 'Mission failed'}</h2>
     <p class="sub">${esc(m.name)} · ${Math.round(o.t / 60)} min · ${g.stats.hits} hits</p>
-    <p>${esc(o.reason)}${res.sunk.length ? ` Sunk: ${esc(res.sunk.join(', '))}.` : ''} The plot now shows where every ship really was.</p>
+    <p>${esc(o.reason)}${o.after ? ` Afterwards: ${esc(o.after)}` : ''}${res.sunk.length ? ` Sunk: ${esc(res.sunk.join(', '))}.` : ''} The plot now shows where every ship really was.</p>
     <p><b>Orders were:</b> ${esc(m.goal)}.</p>
     ${tangLost ? '<p>The war can\'t go on without Tang. Replay the mission.</p>'
       : `<p class="fx">If you continue: ${o.win ? `<span class="ok">passed</span> · ${esc(m.winText)}` : `<span class="no">failed</span> · ${esc(m.loseText)}`}</p>`}
@@ -630,9 +646,9 @@ function frame(now: number) {
   // The game waits while the battle camera plays. A weapon landing stops the tick there, so time
   // compression can't run past it; if more of ours are about to land, the game runs on quickly
   // until they have (or a minute has passed), and they all play as one reel.
-  if (running && !g.over && !strikeCam.open) {
+  if (running && !finished(g) && !strikeCam.open) {
     acc += dt * (pending.length && timeScale > 0 ? Math.max(timeScale, 16) : timeScale);
-    for (let n = 0; acc >= 1 && n < 400 && !g.over; n++) {
+    for (let n = 0; acc >= 1 && n < 400 && !finished(g); n++) {
       if (replay) replay.apply(); else noteSelection(g);
       tick(g, 1); acc -= 1;
       collectArrivals();
@@ -666,7 +682,15 @@ function frame(now: number) {
     pb.classList.toggle('on', !timeScale);
     updatePauseCard();
   }
-  if (g.over && !overShown && !strikeCam.open) {
+  // Objectives met: pause once and ask whether to end the mission or fight on.
+  if (g.over?.live && !winShown && !replay && running && !strikeCam.open) {
+    winShown = true;
+    attack.close(); // first: closing it resumes the speed it paused
+    if (timeScale) { resumeScale = timeScale; timeScale = 0; }
+    pauseDismissed = false;
+    $('pauseCard').hidden = true; // re-rendered as the win card on the next panel update
+  }
+  if (finished(g) && !overShown && !strikeCam.open) {
     overShown = true; updatePanel(g, plot.steerId);
     if (replay) $('replayText').textContent = 'Replay finished';
     else setTimeout(showResult, 2500);

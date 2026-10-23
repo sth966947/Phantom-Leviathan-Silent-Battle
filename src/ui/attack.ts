@@ -4,7 +4,7 @@
 // weapons keep their own times. JATM and SM-6 go at aircraft all at once, fire and forget.
 // The weapon and number pickers are up-down steppers: the arrows (or the arrow keys) step through them.
 import { CLASSES } from '../sim/classes';
-import { JATM_PER_CANISTER, WEAPONS, contactLabel, isFriendlyClass, orders, planWave, type Game, type WaveItem, type WaveKey, type WavePlan, type WaveShot } from '../sim/sim';
+import { JATM_PER_CANISTER, finished, WEAPONS, bankFor, contactLabel, isFriendlyClass, orders, planWave, slotWeapon, type Game, type WaveItem, type WaveKey, type WavePlan, type WaveShot, type WeaponKey } from '../sim/sim';
 import { brg, dist, fmtBrg, fmtRng } from '../sim/math';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -18,10 +18,15 @@ const NAMES: Record<WaveKey, string> = {
 const AT_SEA: WaveKey[] = ['mk48', 'mk96', 'nsm', 'mst', 'asroc', 'mjolnir'];
 const ASHORE: WaveKey[] = ['tlam', 'mjolnir'];
 const AIR: WaveKey[] = ['jatm', 'sm6'];
+/** A 1980s boat's own weapon in each slot (boats.ts), named for what it is. */
+const OLD: Partial<Record<WeaponKey, string>> = { mk48old: 'Mk 48 torpedo', harpoon: 'Harpoon', tasm: 'Tomahawk anti-ship (TASM)', subroc: 'SUBROC', sealance: 'Sea Lance', stinger: 'Stinger' };
+const real = (g: Game, k: WaveKey): WeaponKey | null => (k === 'tlam' ? (g.own.kit.tlam ? 'tlam' : null) : slotWeapon(g, k));
+const nameOf = (g: Game, k: WaveKey) => { const r = real(g, k); return (r && OLD[r]) ?? NAMES[k]; };
 
 type Kind = 'sea' | 'site' | 'air';
 interface Row { key: string; target: number; site: boolean; kind: Kind; name: string; at: { x: number; y: number } | null; bearing: number; sub: boolean }
-const choices = (r: Row) => (r.kind === 'air' ? AIR : r.kind === 'site' ? ASHORE : AT_SEA);
+/** The weapons this boat can send at a row: only what she carries. */
+const choices = (g: Game, r: Row) => (r.kind === 'air' ? AIR : r.kind === 'site' ? ASHORE : AT_SEA).filter((k) => real(g, k));
 interface Pick { type: WaveKey; n: number }
 
 /** What a salvo weapon will do to make its time, in a few words. */
@@ -65,9 +70,9 @@ export class AttackPlan {
     if (!r) return;
     const p = this.picks.get(r.key)!;
     if (sp.dataset.f === 'type') {
-      const list = choices(r), i = list.indexOf(p.type);
-      p.type = list[Math.max(0, Math.min(list.length - 1, i + d))];
-      sp.querySelector('span')!.textContent = NAMES[p.type];
+      const g = this.g(), list = choices(g, r), i = list.indexOf(p.type);
+      p.type = list[Math.max(0, Math.min(list.length - 1, i + d))] ?? p.type;
+      sp.querySelector('span')!.textContent = nameOf(g, p.type);
     } else {
       p.n = Math.max(0, Math.min(4, p.n - d));
       sp.querySelector('span')!.textContent = p.n ? String(p.n) : '—';
@@ -122,7 +127,10 @@ export class AttackPlan {
   draw(g: Game) {
     if (!this.open) return;
     const rows = this.lastRows = this.rows(g), o = g.own;
-    for (const r of rows) if (!this.picks.has(r.key)) this.picks.set(r.key, { type: r.kind === 'air' ? 'jatm' : r.site ? 'tlam' : r.sub ? 'mk48' : g.flags.jammed ? 'nsm' : 'mst', n: 0 });
+    for (const r of rows) if (!this.picks.has(r.key)) {
+      const want: WaveKey = r.kind === 'air' ? 'jatm' : r.site ? 'tlam' : r.sub ? 'mk48' : g.flags.jammed ? 'nsm' : 'mst';
+      this.picks.set(r.key, { type: real(g, want) ? want : choices(g, r)[0] ?? want, n: 0 });
+    }
     const keys = rows.map((r) => r.key).join();
     const body = $('attackRows');
     if (keys !== this.rowKeys) {
@@ -132,7 +140,7 @@ export class AttackPlan {
         const spin = (f: string, label: string, val: string) => `<div class="spin" data-f="${f}" role="spinbutton" tabindex="0" aria-label="${label}" aria-valuetext="${esc(val)}">`
           + `<span>${esc(val)}</span><button type="button" tabindex="-1" data-d="-1" aria-label="Up">▲</button><button type="button" tabindex="-1" data-d="1" aria-label="Down">▼</button></div>`;
         return `<tr data-key="${r.key}"><td class="nm">${esc(r.name)}${r.site ? ' <span class="dim">ashore</span>' : r.kind === 'air' ? ' <span class="dim">aircraft</span>' : ''}</td><td class="num brg"></td><td class="num rng"></td>`
-          + `<td>${spin('type', `Weapon for ${esc(r.name)}`, NAMES[p.type])}</td>`
+          + `<td>${spin('type', `Weapon for ${esc(r.name)}`, nameOf(g, p.type))}</td>`
           + `<td>${spin('n', `How many at ${esc(r.name)}`, p.n ? String(p.n) : '—')}</td><td class="how"></td></tr>`;
       }).join('') : '<tr><td colspan="6" class="empty">No targets with a solution yet. Build a solution on a contact first.</td></tr>';
     }
@@ -150,13 +158,15 @@ export class AttackPlan {
     // A JATM canister is one tube for up to seven, starting with the rounds left in the open one.
     const vls = o.vls.filter((x) => x <= 0).length, tt = o.tubes.filter((x) => x <= 0).length;
     const tubesFor = (x: { type: WaveKey; n: number }) => (x.type === 'jatm' ? Math.ceil(Math.max(0, x.n - o.jatm) / JATM_PER_CANISTER) : x.n);
-    const needV = plans.filter((x) => WEAPONS[x.type].vls).reduce((a, x) => a + tubesFor(x), 0), needT = plans.filter((x) => !WEAPONS[x.type].vls).reduce((a, x) => a + x.n, 0);
+    // A 1980s boat's Stingers take no tube; its Tomahawks go out of the torpedo tubes if it has no vertical ones.
+    const bankOf = (x: { type: WaveKey }) => { const w = real(g, x.type); return !w || w === 'stinger' ? null : bankFor(o, w) === o.vls ? 'v' : 't'; };
+    const needV = plans.filter((x) => bankOf(x) === 'v').reduce((a, x) => a + tubesFor(x), 0), needT = plans.filter((x) => bankOf(x) === 't').reduce((a, x) => a + x.n, 0);
     const tubeWhy = needV > vls ? `The salvoes need ${needV} vertical tubes; ${vls} are loaded.` : needT > tt ? `The salvoes need ${needT} torpedo tubes; ${tt} are loaded.` : '';
     $('attackTubes').textContent = `Loaded: ${tt} of ${o.tubes.length} torpedo tubes, ${vls} of ${o.vls.length} vertical tubes${plans.length ? ` · this attack uses ${needT} and ${needV}` : ''}`;
     $('attackPlan').innerHTML = !plans.length ? 'Pick how many to send at one target or more.'
-      : plans.map((x) => `<div class="${x.plan.ok ? '' : 'bad'}">${esc(NAMES[x.type])} × ${x.n}: ${x.plan.ok ? `${WEAPONS[x.type].role === 'aa' ? 'all fire now, fire and forget' : `all hit together in ${mmss(x.plan.tot - g.t)}`}` : esc(x.plan.why)}</div>`).join('')
+      : plans.map((x) => `<div class="${x.plan.ok ? '' : 'bad'}">${esc(nameOf(g, x.type))} × ${x.n}: ${x.plan.ok ? `${WEAPONS[x.type].role === 'aa' ? 'all fire now, fire and forget' : `all hit together in ${mmss(x.plan.tot - g.t)}`}` : esc(x.plan.why)}</div>`).join('')
         + (tubeWhy ? `<div class="bad">${esc(tubeWhy)}</div>` : '');
-    ($('attackFire') as HTMLButtonElement).disabled = !!g.over || !plans.length || !!tubeWhy || plans.some((x) => !x.plan.ok);
+    ($('attackFire') as HTMLButtonElement).disabled = finished(g) || !plans.length || !!tubeWhy || plans.some((x) => !x.plan.ok);
     const live = g.waves.map((w) => mmss(w.tot - g.t)).join(', ');
     $('attackRead').textContent = `game paused while you plan · ${live ? `salvoes in the air, hitting in ${live}` : 'each weapon is a salvo that hits together'}`;
   }

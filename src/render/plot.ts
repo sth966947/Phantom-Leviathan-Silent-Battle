@@ -3,7 +3,7 @@
 // at any time compression.
 
 import { Application, Container, Graphics, Text } from 'pixi.js';
-import { BAFFLE_HALF, BLACKWING, DRONE_LINK, RADAR, blackwingLink, WEAPONS, arrayActive, isFriendlyClass, type Contact, type Game } from '../sim/sim';
+import { BAFFLE_HALF, finished, BLACKWING, DRONE_LINK, RADAR, blackwingLink, WEAPONS, arrayActive, isFriendlyClass, type Contact, type Game } from '../sim/sim';
 import { CLASSES } from '../sim/classes';
 import { angDiff, dist, fmtBrg, offset, type Vec } from '../sim/math';
 import { visibility } from '../sim/hazards';
@@ -113,7 +113,7 @@ export class Plot {
     if (!W) return;
     this.span += (SPANS[this.zoom] - this.span) * 0.15; // smooth zoom
     const k = Math.min(W, H) / this.span;
-    const own = g.own, over = !!g.over || !!g.replay;
+    const own = g.own, over = finished(g) || !!g.replay;
     const cx = W / 2, cy = H / 2, ctr = { x: cx, y: cy };
     const fmtTime = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
     const scr = (p: Vec): P => ({ x: cx + (p.x - own.x) * k, y: cy - (p.y - own.y) * k });
@@ -196,7 +196,11 @@ export class Plot {
     const pin = (p: Vec, label: string, col: number, draw: (q: P) => void, ring?: number) => {
       const off = dist(own, p) * k;
       if (ring && off - ring * k < R) d.circle(scr(p).x, scr(p).y, Math.max(3, ring * k)).stroke({ width: 1, color: col, alpha: 0.5 });
-      if (off <= R) { const q = scr(p); draw(q); this.label(label, q.x + 8, q.y - 6, col); return; }
+      if (off <= R) {
+        // On the right half the label goes left of the mark, so the plot's edge never cuts it off.
+        const q = scr(p), left = q.x > cx + R * 0.35;
+        draw(q); this.label(label, q.x + (left ? -8 : 8), q.y - 6, col, left ? 1 : 0); return;
+      }
       const b = Math.atan2(p.x - own.x, p.y - own.y) * 180 / Math.PI;
       const tip = ray(b, R - 2), l = ray(b - 2.2, R - 14), r = ray(b + 2.2, R - 14);
       d.moveTo(tip.x, tip.y).lineTo(l.x, l.y).lineTo(r.x, r.y).closePath().fill({ color: col, alpha: 0.85 });

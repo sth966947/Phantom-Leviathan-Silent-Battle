@@ -11,8 +11,9 @@ import * as home from './home';
 import * as counter from './counter';
 import * as finale from './finale';
 import * as chance from './chance';
+import * as fleets from './fleets';
 
-const FILES = { act1, pacific, pacific2, gulf, gulf2, arctic, home, counter, finale, chance };
+const FILES = { act1, pacific, pacific2, gulf, gulf2, arctic, home, counter, finale, chance, fleets };
 export const MODERN_MISSIONS: Record<MissionKey, Mission> = Object.assign({}, ...Object.entries(FILES).map(([file, f]) =>
   Object.fromEntries(Object.entries(f.missions).map(([k, m]) => [k, { ...m, file }]))));
 export const MODERN_EXTRA: Record<MissionKey, ObjectiveFn> = Object.assign({}, ...Object.values(FILES).map((f) => f.extras));

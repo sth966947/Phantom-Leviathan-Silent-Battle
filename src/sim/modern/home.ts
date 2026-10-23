@@ -201,8 +201,8 @@ export const missions: Record<MissionKey, Mission> = {
   // ---- The South Atlantic erupts ------------------------------------------------------------------
   E1: {
     key: 'E1', title: 'Brazil\'s Gambit', era: '2029', place: 'Off Ascension Island', date: 'December 2029, 0600',
-    library: ['jalashwa', 'tamandare', 'riachuelo', 'kalvari', 'type075'],
-    brief: 'Brazil has come into the war with a grab for Ascension Island, the airfield halfway across the South Atlantic. Two dock landing ships with Brazilian Marines aboard, Bahia and Mattoso Maia, are coming in from the west-southwest with two Tamandaré frigates screening ahead; Ascension is 10 nm east of you and the force about 40 nm beyond it to the west-southwest. The ID book has no Brazilian landing ship: they are closest to the Indian Jalashwa, another ex-US dock ship. Two Riachuelo boats, Humaitá and Tonelero, are out ahead as a screen, somewhere between you and the force. Sink both landing ships. If either gets within 3 nm of the island, the Marines are ashore and Ascension is lost. The frigates have good hull sonar: once the force is attacked or sees a periscope, they will come hunting.',
+    library: ['jalashwa', 'tamandare', 'riachuelo', 'p3am', 'kalvari', 'type075'],
+    brief: 'Brazil has come into the war with a grab for Ascension Island, the airfield halfway across the South Atlantic. Two dock landing ships with Brazilian Marines aboard, Bahia and Mattoso Maia, and the helicopter carrier Atlântico with more Marines and their helicopters, are coming in from the west-southwest with two Tamandaré frigates screening ahead; Ascension is 10 nm east of you and the force about 40 nm beyond it to the west-southwest. The ID book has no Brazilian landing ship: all three are closest to the Indian Jalashwa, another big ex-US dock ship. Two Riachuelo boats, Humaitá and Tonelero, are out ahead as a screen, somewhere between you and the force. Sink all three. If any of them gets within 3 nm of the island, the Marines are ashore and Ascension is lost. The frigates have good hull sonar: once the force is attacked or sees a periscope, they will come hunting. A P-3AM Orion is flying ahead of the force, laying sonobuoys.',
     build(g, r) {
       g.startClock = clock(6);
       g.timeLimit = 4 * 3600;
@@ -215,11 +215,12 @@ export const missions: Record<MissionKey, Mission> = {
       const frig = frigates(g, 'tamandare', ['Tamandaré (F200)', 'Jerônimo de Albuquerque (F201)'], start, course, 14, [[-30, 4], [30, 4]]);
       const bahia = add(g, 'jalashwa', 'Bahia (G40)', 'enemy', start, course, 14, go(course, 14, 1e9));
       for (const f of frig) f.ai!.leader = bahia.id;
-      const maia = screen(g, bahia, 'jalashwa', ['Mattoso Maia (G28)'], [[180, 2]])[0];
+      const [maia, atl] = screen(g, bahia, 'jalashwa', ['Mattoso Maia (G28)', 'Atlântico (A140)'], [[180, 2], [150, 3.5]]);
       add(g, 'riachuelo', 'Humaitá (S41)', 'enemy', offset(offset(isle, from, 16 + r() * 6), from + 90, (r() * 2 - 1) * 5), r() * 360, 4, { mode: 'patrol', legT: 600, decoys: 2 }, 1);
       add(g, 'riachuelo', 'Tonelero (S42)', 'enemy', offset(offset(isle, from, 11 + r() * 4), from + 90, (r() * 2 - 1) * 6), r() * 360, 4, { mode: 'patrol', legT: 600, decoys: 2 }, 1);
-      const lsts = [bahia, maia];
-      setGoal(g, { targets: ids(lsts), need: 2, win: 'Both landing ships are sunk. The Brazilian force is turning for home and Ascension holds.', timeout: 'The landing force is still out there, waiting its chance.' });
+      add(g, 'p3am', 'P-3AM Orion', 'enemy', offset(isle, from, 20), 0, 230, { mode: 'search', center: offset(isle, from, 18), wp: offset(isle, from, 18), buoyT: 0, torps: 2, datum: null });
+      const lsts = [bahia, maia, atl];
+      setGoal(g, { targets: ids(lsts), need: 3, win: 'All three landing ships are sunk. The Brazilian force is turning for home and Ascension holds.', timeout: 'The landing force is still out there, waiting its chance.' });
       g.script = (gg) => {
         screenUntilStung(gg, frig, lsts);
         pointDefence(gg, frig, 0.35);

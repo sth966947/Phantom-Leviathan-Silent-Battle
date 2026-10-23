@@ -44,9 +44,9 @@ function harpoonBoats(g: Game, i: number, s: CaptainState, keys: string[], max =
   const keep = g.selected;
   g.selected = b.id;
   if (!b.classified) orders.classify(g, b.id, guess(b, 40)!);
-  const before = g.stats.fired.harpoon;
-  orders.fire(g, 'harpoon');
-  if (g.stats.fired.harpoon > before) s.m[`h${b.id}`] = i;
+  const before = g.stats.fired.nsm;
+  orders.fire(g, 'nsm');
+  if (g.stats.fired.nsm > before) s.m[`h${b.id}`] = i;
   g.selected = keep;
 }
 /** Hunt submarines among friendly shipping: close the nearest, ASROC from stand-off, Mk 48 only with no friendly near the target. */

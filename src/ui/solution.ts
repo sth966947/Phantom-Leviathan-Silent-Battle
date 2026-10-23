@@ -16,12 +16,12 @@ const MAX_HZ = 200;
 const NATION: Record<string, string> = {
   US: 'US', UK: 'British', Germany: 'German', Russia: 'Russian', Japan: 'Japanese', Italy: 'Italian', Netherlands: 'Dutch',
   China: 'Chinese', India: 'Indian', Iran: 'Iranian', Brazil: 'Brazilian', 'South Africa': 'South African', Venezuela: 'Venezuelan',
-  Australia: 'Australian', Norway: 'Norwegian', Turkey: 'Turkish', Pakistan: 'Pakistani', Liberia: 'Liberian-flagged',
+  Australia: 'Australian', Norway: 'Norwegian', Turkey: 'Turkish', Pakistan: 'Pakistani', Liberia: 'Liberian-flagged', USSR: 'Soviet',
 };
 const FLAG: Record<string, string> = {
   US: 'US', UK: 'UK', Germany: 'GER', Russia: 'RUS', Japan: 'JPN', Italy: 'ITA', Netherlands: 'NED',
   China: 'CHN', India: 'IND', Iran: 'IRN', Brazil: 'BRA', 'South Africa': 'RSA', Venezuela: 'VEN',
-  Australia: 'AUS', Norway: 'NOR', Turkey: 'TUR', Pakistan: 'PAK', Liberia: 'LBR',
+  Australia: 'AUS', Norway: 'NOR', Turkey: 'TUR', Pakistan: 'PAK', Liberia: 'LBR', USSR: 'USSR',
 };
 const drift = (c: Contact) => {
   const r = c.held ? bearingRate(c) : null;
