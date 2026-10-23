@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { blackwingLink, contactFor, create, excess, radarJammed, torpSL, inPeriscope, makeAI, radarTracked, orders, planWave, tick, vesselSL, JATM_PER_CANISTER, MJOLNIR_LAND_HITS, WEAPONS, type Game, type Vessel } from './sim';
+import { blackwingLink, contactFor, create, end, excess, radarJammed, torpSL, inPeriscope, makeAI, radarTracked, orders, planWave, tick, vesselSL, JATM_PER_CANISTER, MJOLNIR_LAND_HITS, WEAPONS, type Game, type Vessel } from './sim';
 import { angDiff, dist, offset } from './math';
 import { adP } from './kit';
 import { CLASSES, LIBRARY } from './classes';
@@ -793,5 +793,35 @@ describe('UUV launch', () => {
     for (let i = 0; i < 31; i++) tick(g, 1);
     expect(g.drones).toHaveLength(1);
     expect(g.own.droneQueue).toBe(0);
+  });
+});
+
+describe('Fighting on after a win', () => {
+  it('keeps the game running after the objectives are met, until the captain ends it', () => {
+    const g = create('duel', 4);
+    end(g, true, 'Kazan is sunk.');
+    expect(g.over).toMatchObject({ win: true, live: true });
+    const t = g.t;
+    tick(g, 1);
+    expect(g.t).toBe(t + 1);
+    // The mission's own fail conditions no longer apply.
+    end(g, false, 'She got away.');
+    expect(g.over).toMatchObject({ win: true, live: true });
+    orders.endMission(g);
+    expect(g.over).toMatchObject({ win: true, live: false });
+    tick(g, 1);
+    expect(g.t).toBe(t + 1);
+  });
+  it('stays a win if Tang is lost or time runs out while fighting on', () => {
+    const g = create('duel', 4);
+    end(g, true, 'Kazan is sunk.');
+    g.own.alive = false;
+    end(g, false, 'Tang was hit.');
+    expect(g.over).toMatchObject({ win: true, live: false, after: 'Tang was hit.' });
+    const h = create('duel', 4);
+    end(h, true, 'Kazan is sunk.');
+    h.t = h.timeLimit;
+    tick(h, 1);
+    expect(h.over).toMatchObject({ win: true, live: false });
   });
 });

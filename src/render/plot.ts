@@ -3,7 +3,7 @@
 // at any time compression.
 
 import { Application, Container, Graphics, Text } from 'pixi.js';
-import { BAFFLE_HALF, BLACKWING, DRONE_LINK, RADAR, blackwingLink, WEAPONS, arrayActive, isFriendlyClass, type Contact, type Game } from '../sim/sim';
+import { BAFFLE_HALF, finished, BLACKWING, DRONE_LINK, RADAR, blackwingLink, WEAPONS, arrayActive, isFriendlyClass, type Contact, type Game } from '../sim/sim';
 import { CLASSES } from '../sim/classes';
 import { angDiff, dist, fmtBrg, offset, type Vec } from '../sim/math';
 import { visibility } from '../sim/hazards';
@@ -113,7 +113,7 @@ export class Plot {
     if (!W) return;
     this.span += (SPANS[this.zoom] - this.span) * 0.15; // smooth zoom
     const k = Math.min(W, H) / this.span;
-    const own = g.own, over = !!g.over || !!g.replay;
+    const own = g.own, over = finished(g) || !!g.replay;
     const cx = W / 2, cy = H / 2, ctr = { x: cx, y: cy };
     const fmtTime = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
     const scr = (p: Vec): P => ({ x: cx + (p.x - own.x) * k, y: cy - (p.y - own.y) * k });
