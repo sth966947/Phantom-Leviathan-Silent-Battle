@@ -8,6 +8,7 @@ import { CLASSES, type ClassCard } from './classes';
 import { MISSIONS, type Carry, type MissionKey } from './missions';
 import { matchClasses, signatureView, type Match, type SignatureView } from './signature';
 import { ambientDb, calmSea, pingMines, underIce, updateHazards, visibility, type Env, type Mine } from './hazards';
+import { TANG, type Kit } from './boats';
 
 export type Side = 'us' | 'allied' | 'enemy';
 /** Depth setting: 0 periscope depth (60 ft), 1 is 150 ft, 2 is 700 ft, and anything between or below. */
@@ -15,9 +16,11 @@ export type Depth = number;
 export type ScenarioKey = MissionKey;
 export type EventKind = 'info' | 'contact' | 'danger' | 'good' | 'warn';
 export type Sound = 'ping' | 'ping-echo' | 'contact' | 'launch' | 'missile' | 'alarm' | 'boom';
-export type WeaponKey = 'mk48' | 'ugst' | 'nsm' | 'mst' | 'asroc' | 'mk54' | 'jatm' | 'sm6' | 'apr3' | 'wwtorp' | 'tlam' | 'mk96' | 'mjolnir';
-/** What the player can launch. Mk 54 comes from ASROC; UGST and APR-3 are enemy weapons. */
-export type FireKey = 'mk48' | 'nsm' | 'mst' | 'asroc' | 'jatm' | 'sm6' | 'mk96' | 'mjolnir';
+export type WeaponKey = 'mk48' | 'ugst' | 'nsm' | 'mst' | 'asroc' | 'mk54' | 'jatm' | 'sm6' | 'apr3' | 'wwtorp' | 'tlam' | 'mk96' | 'mjolnir'
+  | 'mk48old' | 'harpoon' | 'tasm' | 'subroc' | 'sealance' | 'stinger';
+/** What the player can launch. Mk 54 comes from ASROC; UGST and APR-3 are enemy weapons. The last six are the 1980s boats' (boats.ts). */
+export type FireKey = 'mk48' | 'nsm' | 'mst' | 'asroc' | 'jatm' | 'sm6' | 'mk96' | 'mjolnir'
+  | 'mk48old' | 'harpoon' | 'tasm' | 'subroc' | 'sealance' | 'stinger';
 /** How a weapon finds its target: homing torpedo, anti-ship missile, ASROC carrier, or surface-to-air. */
 export type Role = 'torpedo' | 'antiship' | 'asw' | 'aa' | 'land';
 
@@ -64,7 +67,15 @@ export interface OwnBoat extends Vessel {
   drones: number; droneQueue: number;
   /** Blackwing drones left aboard. */
   blackwings: number;
+  /** What the boat carries (Tang's 2029 kit unless a mission sends another boat), and Stingers left in the mast launcher. */
+  kit: Kit; stingers: number;
 }
+/**
+ * Challenge settings (the Red Storm Rising campaign's four levels): `ear` dB added to every enemy
+ * sonar, `dmg` times the damage a hit does to us, and `noId` when the sonar crew offers no matches.
+ */
+export interface Mods { ear: number; dmg: number; noId: boolean }
+export const NO_MODS: Mods = { ear: 0, dmg: 1, noId: false };
 
 /**
  * An Iver4 900 UUV, swum out of a torpedo tube in a TTLR sleeve. It runs to a point (4 nm down
@@ -107,6 +118,8 @@ export interface Weapon extends Vec {
   heardAt?: number; heardEst?: Vec | null; heardTrail?: (Vec & { t: number })[]; heardVel?: { hdg: number; spd: number } | null;
   /** Mjolnir: past the top of its arc. */
   apex?: boolean;
+  /** One of ours that swims out of the tube and stays quiet until it pings (unset: Mk 48 and Mk 96 do). */
+  swim?: boolean;
   /** Flying to a site ashore (a TLAM, or a Mjolnir sent at a land target). */
   land?: boolean;
   /** Part of an attack wave: the game second it is to arrive, and whether a missile has left its loiter orbit for the target. */
@@ -181,6 +194,8 @@ export interface Game {
   marks?: (Vec & { label: string; r?: number })[];
   /** Sea state and pack ice for the mission (see hazards.ts). */
   env: Env;
+  /** Challenge settings: enemy ears, damage to us, crew identification. */
+  mods: Mods;
   t: number; r: () => number; seq: number;
   /**
    * How the mission came out. A win doesn't stop the game: `live` stays true while the captain
@@ -237,7 +252,22 @@ export const WEAPONS: Record<WeaponKey, {
   // down onto the ship at Mach 6 with a 1,500 lb penetrating warhead. Air defence can only reach it as it climbs or dives, and seldom stops it (kit.ts MJOLNIR_AD).
   mjolnir: { name: 'Mjolnir (sub-launched PrSM Increment 2, experimental)', short: 'Mjolnir', spd: 3000, maxRun: 1000, seeker: 10, damage: 9, missile: true, role: 'antiship', vls: true, minRun: 10 },
   wwtorp: { name: 'Straight-running torpedo', short: 'Torpedo', spd: 40, maxRun: 5, seeker: 0.12, damage: 3, missile: false, role: 'torpedo' },
+  // The 1980s boats' weapons (boats.ts). The Mk 48 before ADCAP: shorter reach and a weaker seeker.
+  mk48old: { name: 'Mk 48 Mod 4', short: 'Mk 48', spd: 55, maxRun: 19, seeker: 1.8, damage: 5, missile: false, role: 'torpedo' },
+  // Harpoon in its capsule from a torpedo tube: sea-skimming, active radar seeker.
+  harpoon: { name: 'UGM-84 Harpoon (sub-launched)', short: 'Harpoon', spd: 460, maxRun: 65, seeker: 10, damage: 2, missile: true, role: 'antiship' },
+  // Tomahawk anti-ship, BGM-109B: from a vertical tube on a 688I, else from a torpedo tube. No in-flight updates:
+  // it flies to where the target was and searches there.
+  tasm: { name: 'Tomahawk anti-ship (TASM)', short: 'TASM', spd: 480, maxRun: 250, seeker: 15, damage: 3, missile: true, role: 'antiship', vls: true },
+  // SUBROC: a rocket out of a torpedo tube to the solution, 5 to 30 nm, where its depth bomb goes off.
+  subroc: { name: 'UUM-44 SUBROC', short: 'SUBROC', spd: 700, maxRun: 30, seeker: 0, damage: 0, missile: true, role: 'asw', minRun: 5 },
+  // Sea Lance: SUBROC's replacement, a rocket out of a torpedo tube that drops a Mk 50 torpedo, 3 to 35 nm.
+  sealance: { name: 'UUM-125 Sea Lance', short: 'Sea Lance', spd: 600, maxRun: 35, seeker: 0, damage: 0, missile: true, role: 'asw', minRun: 3 },
+  // A Stinger from a launcher on the mast, at periscope depth, at helicopters and low patrol planes close by.
+  stinger: { name: 'Stinger (mast launcher)', short: 'Stinger', spd: 1300, maxRun: 4, seeker: 4, damage: 1, missile: true, role: 'aa', pk: 0.6 },
 };
+/** A SUBROC's depth bomb: what it does to a submarine within this many nm of where it goes off. */
+const SUBROC_KILL = 0.7, SUBROC_DAMAGE = 8;
 export const JATM_PER_CANISTER = 7;
 /** Mk 96 sprint speed once the seeker has a target, knots. */
 export const MK96_SPRINT = 250;
@@ -268,7 +298,7 @@ const AIR_VISUAL_RANGE = 10;    // nm, aircraft against the sky
 /** Mast radar, nm. Ships: seen and identified out to 25. Aircraft: low fliers (helicopters, attack runs) inside 15, high fliers out to 100, identified inside 15. */
 export const RADAR = { classify: 50, classifyAir: 15, horizon: 50, airLow: 15, airHigh: 100, sweep: 4, esm: 100 };
 /** Helicopters stay down on the water; fixed-wing aircraft come down only to attack. */
-const HELOS = new Set(['ka27', 'ka28']);
+const HELOS = new Set(['ka27', 'ka28', 'ka25']);
 export const flyingLow = (v: Vessel) => v.cls.kind === 'air' && (HELOS.has(v.cls.key) || v.ai?.mode === 'prosecute');
 /** Feet below the surface for a depth setting: periscope depth 60 ft, 150 ft, 700 ft. */
 export const depthFeet = (depthT: number) => (depthT <= 1 ? 60 + 90 * depthT : 150 + 550 * (depthT - 1));
@@ -301,7 +331,7 @@ export const WF_BINS = 180;
 export const vesselSL = (v: Vessel) => v.cls.quiet ? v.cls.slBase + 0.5 * Math.min(v.spd, 10) + 2 * Math.max(0, v.spd - 10) : v.cls.slBase + 1.5 * v.spd;
 /** How loud one of our torpedoes is to the enemy: quiet on the swim out, loud once pinging, and a Mk 96 on its rocket is unmissable. */
 export function torpSL(w: Weapon) {
-  if (w.side !== 'us' || (w.type !== 'mk48' && w.type !== 'mk96')) return SL_TORPEDO;
+  if (w.side !== 'us' || !(w.swim ?? (w.type === 'mk48' || w.type === 'mk96'))) return SL_TORPEDO;
   if (w.type === 'mk96' && w.spd >= MK96_SPRINT) return SL_TORPEDO + 10;
   return pinging(w) ? SL_TORPEDO : SL_SWIMOUT;
 }
@@ -357,7 +387,7 @@ export function create(scenario: ScenarioKey = 'bismarck', seed?: number, carry:
   const g = {
     scenario, era: m.era, startClock: 0, timeLimit: Infinity, library: m.library, night: !!m.night,
     goal: { targets: [], need: 1, protect: [], maxLosses: Infinity, surviveWin: false, win: '', timeout: '', lossText: '' },
-    sunk: [], flags: {}, script: null, sites: [], strikes: [], hits: [], mines: [], env: calmSea(),
+    sunk: [], flags: {}, script: null, sites: [], strikes: [], hits: [], mines: [], env: calmSea(), mods: { ...NO_MODS, ...m.mods },
     t: 0, r, seq: 1, over: null, vessels: [], contacts: [], selected: null,
     weapons: [], decoys: [], drones: [], uavs: [], buoys: [], charges: [], waves: [], splashT: -1e9, heard: new Set(), sweeps: [], events: [], waterfall: null, wfTimer: 0, pings: [], blasts: [],
     stats: {
@@ -366,9 +396,15 @@ export function create(scenario: ScenarioKey = 'bismarck', seed?: number, carry:
     },
   } as unknown as Game;
 
-  const ownV = makeVessel(g, 'virginia', 'USS Tang (SSN-805)', 'us', { x: 0, y: 0 }, 0, 5, 1);
-  g.own = Object.assign(ownV, { tubes: [0, 0, 0, 0], vls: Array(12).fill(0), decoys: 4, arrayStableAt: 0, arraySide: 'with' as ArraySide, jatm: 0, radar: false, drones: DRONES_ABOARD, droneQueue: 0, blackwings: BLACKWING.aboard });
+  // Tang unless the mission sends another boat (the Red Storm Rising campaign's, boats.ts).
+  const b = m.boat ?? TANG;
+  const ownV = makeVessel(g, b.cls, b.name, 'us', { x: 0, y: 0 }, 0, 5, 1);
+  g.own = Object.assign(ownV, {
+    tubes: Array(b.tubes).fill(0), vls: Array(b.vls).fill(0), decoys: b.decoys, arrayStableAt: 0, arraySide: 'with' as ArraySide, jatm: 0, radar: false,
+    drones: b === TANG ? DRONES_ABOARD : b.kit.drones, droneQueue: 0, blackwings: b === TANG ? BLACKWING.aboard : b.kit.blackwings, kit: b.kit, stingers: b.kit.stingers,
+  });
   g.vessels.push(g.own);
+  if (b.kit.mines) g.flags.minesAboard = b.kit.mines;
   m.build(g, r, carry);
   return g;
 }
@@ -414,11 +450,36 @@ export function targetContact(g: Game, air = false): Contact | null {
 /** Surface-to-air missiles need a live radar track to fly out on. */
 export const radarTracked = (g: Game, c: Contact) => c.held && g.t - c.radarT <= RADAR.sweep * 3;
 
+/**
+ * The weapon a button fires on this boat: Tang fires what the button says; a 1980s boat fires its own
+ * weapon from the same button (Harpoon from the NSM button, SUBROC or Sea Lance from ASROC's), or has none.
+ */
+export function slotWeapon(g: Game, slot: FireKey): FireKey | null {
+  const k = g.own.kit;
+  switch (slot) {
+    case 'mk48': return k.mk48;
+    case 'nsm': return k.nsm;
+    case 'mst': return k.mst;
+    case 'asroc': return k.asroc;
+    case 'jatm': return k.jatm;
+    case 'sm6': return k.sm6 ? 'sm6' : null;
+    case 'mk96': return k.mk96 ? 'mk96' : null;
+    case 'mjolnir': return k.mjolnir ? 'mjolnir' : null;
+    default: return slot;
+  }
+}
+/** The tubes a weapon goes out of: a vertical-tube weapon on a boat with no vertical tubes goes out of a torpedo tube. */
+export const bankFor = (o: OwnBoat, type: WeaponKey) => (WEAPONS[type].vls && o.vls.length ? o.vls : o.tubes);
+const reloadFor = (o: OwnBoat, bank: number[]) => (bank === o.vls ? VLS_RELOAD : TUBE_RELOAD);
+/** The boat's name without its hull number: 'USS Tang'. */
+export const boatName = (g: Game) => g.own.name.replace(/ \(.*\)$/, '');
+
 /** Fire at the selected contact, or for a wave at a given contact from a given tube, to arrive at `tot`. */
 function fireWeapon(g: Game, type: FireKey, opt: Launch = {}): Weapon | void {
   const o = g.own;
   if (finished(g)) return;
   const w = WEAPONS[type];
+  if (type === 'stinger') return fireStinger(g);
   if (w.missile && underIce(g)) return log(g, 'warn', `${w.short}: ice overhead. Missiles need open water: find a polynya.`);
   if (w.missile && o.depthT > MISSILE_MAX_DEPTH) return log(g, 'warn', `${w.short}: come up to 150 feet or shallower to launch.`);
   // Maritime Strike Tomahawk needs satellite updates in flight to find a moving ship.
@@ -429,17 +490,17 @@ function fireWeapon(g: Game, type: FireKey, opt: Launch = {}): Weapon | void {
   // A SAM goes down the bearing of the selected air contact, or straight ahead if there is none.
   const aim = aa ? offset(o, c ? c.bearing! : o.hdg, w.seeker) : c?.est ? { x: c.est.x, y: c.est.y } : offset(o, o.hdg, 8);
   const range = dist(o, aim);
-  if (w.role === 'asw' && (range < w.minRun! || range > w.maxRun)) return log(g, 'warn', `ASROC: solution is ${fmtRng(range)} out. ASROC reaches 1 to 15 nm.`);
+  if (w.role === 'asw' && (range < w.minRun! || range > w.maxRun)) return log(g, 'warn', `${w.short}: solution is ${fmtRng(range)} out. ${w.short} reaches ${w.minRun} to ${w.maxRun} nm.`);
   if (type === 'mjolnir' && (range < w.minRun! || range > w.maxRun)) return log(g, 'warn', `Mjolnir: solution is ${fmtRng(range)} out. The ballistic arc needs ${w.minRun} to ${w.maxRun} nm.`);
   // A JATM canister holds seven rounds; it takes a vertical tube until it is empty.
   const fromCanister = type === 'jatm' && o.jatm > 0;
-  const bank = w.vls ? o.vls : o.tubes;
+  const bank = bankFor(o, type), vertical = bank === o.vls;
   const tube = fromCanister ? -1 : bank.findIndex((x) => x <= 0);
-  if (!fromCanister && tube < 0) return log(g, 'warn', w.vls ? 'All vertical launch tubes reloading.' : 'All torpedo tubes reloading.');
+  if (!fromCanister && tube < 0) return log(g, 'warn', vertical ? 'All vertical launch tubes reloading.' : 'All torpedo tubes reloading.');
   if (type === 'jatm') {
     if (!fromCanister) { o.jatm = JATM_PER_CANISTER; bank[tube] = VLS_RELOAD; }
     o.jatm--;
-  } else bank[tube] = w.vls ? VLS_RELOAD : TUBE_RELOAD;
+  } else bank[tube] = reloadFor(o, bank);
   const hdg = brg(o, aim);
   g.stats.fired[type]++;
   const label = `${w.short} ${g.stats.fired[type]}`;
@@ -450,14 +511,33 @@ function fireWeapon(g: Game, type: FireKey, opt: Launch = {}): Weapon | void {
     deep: o.depthT > LAYER_AT, wire: !w.missile, aim, contactId: c?.id ?? null,
     target: null, rolled: new Set(), trail: [], tot: opt.tot, wave: opt.wave,
   };
+  if (o.kit !== TANG.kit && !w.missile) wpn.swim = o.kit.swimOut;
   g.weapons.push(wpn);
   const at = c ? ` at ${contactLabel(c)}` : '';
-  const from = type === 'jatm' ? `JATM canister, ${o.jatm} of ${JATM_PER_CANISTER} left${fromCanister ? '' : `, VLS tube ${tube + 1}`}` : w.vls ? `VLS tube ${tube + 1}` : `Tube ${tube + 1}`;
+  const from = type === 'jatm' ? `JATM canister, ${o.jatm} of ${JATM_PER_CANISTER} left${fromCanister ? '' : `, VLS tube ${tube + 1}`}` : vertical ? `VLS tube ${tube + 1}` : `Tube ${tube + 1}`;
   const tail = type === 'mk96' ? '. Wire guidance active; rocket lights when the seeker acquires.' : type === 'mjolnir' ? `, ${fmtRng(range)}. Boosting up the arc; impact in about ${Math.round(range / w.spd * 3600)} seconds.` : w.role === 'torpedo' ? '. Wire guidance active.' : w.role === 'asw' ? `, drop point ${fmtRng(range)}.` : aa ? '. Fire and forget, seeker searching.' : `, range ${fmtRng(range)}.`;
   log(g, 'good', `${from} fired. ${label}${at}, bearing ${fmtBrg(hdg)}${tail}`, w.missile ? 'missile' : 'launch');
-  // Torpedoes swim out quietly; a missile's launch is a loud transient.
-  if (w.missile) { transient(g, o, 'us'); launchSeen(g); }
+  // Torpedoes swim out quietly; a missile's launch is a loud transient, and so is a torpedo blown out by an impulse tube.
+  if (w.missile) { transient(g, o, 'us'); launchSeen(g); } else if (wpn.swim === false) transient(g, o, 'us');
   return wpn;
+}
+
+/** A Stinger from the mast launcher at periscope depth, down the selected air contact's bearing. It takes no tube. */
+function fireStinger(g: Game) {
+  const o = g.own, w = WEAPONS.stinger;
+  if (o.stingers <= 0) return log(g, 'warn', 'Stinger: none left in the mast launcher.');
+  if (o.depthT >= PD_MAX) return log(g, 'warn', 'Stinger: the launcher is on the mast. Come to periscope depth.');
+  const c = targetContact(g, true);
+  o.stingers--;
+  g.stats.fired.stinger++;
+  const hdg = c ? c.bearing! : o.hdg, aim = offset(o, hdg, w.seeker);
+  g.weapons.push({
+    id: g.seq++, type: 'stinger', side: 'us', label: `Stinger ${g.stats.fired.stinger}`, x: o.x, y: o.y, hdg, ordHdg: hdg, spd: w.spd,
+    run: 0, maxRun: w.maxRun, enableAt: 0.2, enabled: false, deep: false, wire: false, aim, contactId: c?.id ?? null,
+    target: null, rolled: new Set(), trail: [],
+  });
+  log(g, 'good', `Mast launcher: Stinger ${g.stats.fired.stinger} away${c ? ` at ${contactLabel(c)}` : ''}, bearing ${fmtBrg(hdg)}. ${o.stingers} left.`, 'missile');
+  launchSeen(g);
 }
 
 /** Land attack at one of the mission's fixed sites ashore: TLAM, or Mjolnir. */
@@ -472,9 +552,9 @@ function strikeSite(g: Game, siteId: number, type: 'tlam' | 'mjolnir', opt: Laun
   const range = dist(o, site);
   if (mj && (range < w.minRun! || range > w.maxRun)) return log(g, 'warn', `Mjolnir: ${site.name} is ${fmtRng(range)} away. The ballistic arc needs ${w.minRun} to ${w.maxRun} nm.`);
   if (range > w.maxRun) return log(g, 'warn', `TLAM: ${site.name} is ${fmtRng(range)} away, beyond Tomahawk range.`);
-  const tube = o.vls.findIndex((x) => x <= 0);
-  if (tube < 0) return log(g, 'warn', 'All vertical launch tubes reloading.');
-  o.vls[tube] = VLS_RELOAD;
+  const bank = bankFor(o, type), tube = bank.findIndex((x) => x <= 0), vertical = bank === o.vls;
+  if (tube < 0) return log(g, 'warn', vertical ? 'All vertical launch tubes reloading.' : 'All torpedo tubes reloading.');
+  bank[tube] = reloadFor(o, bank);
   g.stats.fired[type]++;
   const label = mj ? `Mjolnir ${g.stats.fired.mjolnir}` : `TLAM ${g.stats.fired.tlam}`;
   const hdg = brg(o, site);
@@ -485,7 +565,7 @@ function strikeSite(g: Game, siteId: number, type: 'tlam' | 'mjolnir', opt: Laun
   };
   g.weapons.push(wpn);
   if (mj) log(g, 'good', `VLS tube ${tube + 1} fired. ${label} for ${site.name}, ${fmtRng(range)}. Boosting up the arc; impact in about ${Math.round(range / w.spd * 3600)} seconds.`, 'missile');
-  else log(g, 'good', `VLS tube ${tube + 1} fired. ${label} for ${site.name}, ${fmtRng(range)}, about ${Math.round(range / w.spd * 60)} minutes' flight. ${g.era === '1941' ? 'Terrain matching only: no GPS in 1942.' : g.flags.jammed ? 'GPS jammed: terrain matching only.' : 'GPS and terrain matching.'}`, 'missile');
+  else log(g, 'good', `${vertical ? 'VLS tube' : 'Tube'} ${tube + 1} fired. ${label} for ${site.name}, ${fmtRng(range)}, about ${Math.round(range / w.spd * 60)} minutes' flight. ${g.era === '1941' ? 'Terrain matching only: no GPS in 1942.' : g.flags.jammed ? 'GPS jammed: terrain matching only.' : o.kit === TANG.kit ? 'GPS and terrain matching.' : 'Terrain matching, then the scene-matching camera.'}`, 'missile');
   transient(g, o, 'us');
   launchSeen(g);
   return wpn;
@@ -515,8 +595,8 @@ const TORP_SLOW = 20;
 const LOFT = 0.15;
 /** Seconds between the best arrival at the farthest target and the wave's time on target. */
 const WAVE_MARGIN = 10;
-const LOITERS = new Set<WaveKey>(['nsm', 'mst', 'tlam']);
-const LOFTS = new Set<WaveKey>(['mjolnir', 'asroc']);
+const LOITERS = new Set<WeaponKey>(['nsm', 'mst', 'tlam', 'harpoon', 'tasm']);
+const LOFTS = new Set<WeaponKey>(['mjolnir', 'asroc', 'subroc', 'sealance']);
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
 
 /** Where the solution puts a contact `secs` from now, if it has the contact's course and speed. */
@@ -524,19 +604,19 @@ function predict(c: Contact, secs: number): Vec {
   return c.motion ? offset(c.est!, c.motion.crs, (c.motion.spd * secs) / 3600) : { x: c.est!.x, y: c.est!.y };
 }
 /** Where a wave weapon fired from `from` should go for a contact. Torpedoes are slow enough that the target moves a long way: aim where it will be. */
-function aimPoint(c: Contact, type: WaveKey, from: Vec) {
+function aimPoint(c: Contact, type: WeaponKey, from: Vec) {
   let p: Vec = c.est!;
   if (!WEAPONS[type].missile) for (let k = 0; k < 4; k++) p = predict(c, waveFlight(type, dist(from, p)));
   return p;
 }
 /** Seconds a wave weapon takes to reach a point `d` nm away at its best speed. */
-function waveFlight(type: WaveKey, d: number) {
+function waveFlight(type: WeaponKey, d: number) {
   const w = WEAPONS[type];
   if (type === 'mk96') return (Math.max(0, d - w.seeker) / w.spd + Math.min(d, w.seeker) / MK96_SPRINT) * 3600;
   return (d / w.spd) * 3600;
 }
 /** How many seconds longer than its best a weapon can take over `d` nm. */
-function waveStretch(type: WaveKey, d: number) {
+function waveStretch(type: WeaponKey, d: number) {
   const w = WEAPONS[type], best = waveFlight(type, d);
   if (LOITERS.has(type)) return (Math.max(0, w.maxRun - d - 5) / w.spd) * 3600;
   if (LOFTS.has(type)) return best * (1 / LOFT - 1);
@@ -544,21 +624,24 @@ function waveStretch(type: WaveKey, d: number) {
 }
 
 /** What the fire-control computer would do with this plan, without doing it. */
-export function planWave(g: Game, type: WaveKey, items: WaveItem[]): WavePlan {
+export function planWave(g: Game, slot: WaveKey, items: WaveItem[]): WavePlan {
+  // The boat's own weapon for this line of the plan (a 1980s boat's Harpoon for NSM, and so on).
+  const type = slot === 'tlam' ? (g.own.kit.tlam ? 'tlam' : null) : slotWeapon(g, slot);
+  if (!type) return { ok: false, why: `${boatName(g)} doesn't carry that weapon.` };
   const o = g.own, w = WEAPONS[type];
   const list = items.filter((it) => it.n > 0);
   if (!list.length) return { ok: false, why: 'Pick how many to send at one target or more.' };
   if (w.missile && underIce(g)) return { ok: false, why: 'Ice overhead: missiles need open water.' };
   if (w.missile && o.depthT > MISSILE_MAX_DEPTH) return { ok: false, why: 'Missiles need 150 ft or shallower.' };
   if (type === 'mst' && g.flags.jammed) return { ok: false, why: 'Satellite links are jammed: no anti-ship Tomahawk.' };
-  if (w.role === 'aa') return planAir(g, type, list);
+  if (w.role === 'aa') return planAir(g, type, list, slot);
   const legs: { it: WaveItem; d: number; name: string }[] = [];
   for (const it of list) {
     if (it.n > 4) return { ok: false, why: 'Four weapons a target at most.' };
     const at = it.site ? g.sites.find((x) => x.id === it.target) : contactById(g, it.target);
     if (!at) return { ok: false, why: 'A target in the plan is gone.' };
     const name = it.site ? (at as Site).name : contactLabel(at as Contact);
-    if (!!it.site !== (type === 'tlam') && type !== 'mjolnir') return { ok: false, why: `${w.short} can't be sent at ${name}.` };
+    if (!!it.site !== (slot === 'tlam') && slot !== 'mjolnir') return { ok: false, why: `${w.short} can't be sent at ${name}.` };
     let p: Vec;
     if (it.site) p = at as Site;
     else {
@@ -571,8 +654,8 @@ export function planWave(g: Game, type: WaveKey, items: WaveItem[]): WavePlan {
     if (d < (w.minRun ?? 0) || d > max) return { ok: false, why: `${name} is ${fmtRng(d)} away: ${w.short} reaches ${w.minRun ?? 0} to ${max} nm.` };
     for (let i = 0; i < it.n; i++) legs.push({ it, d, name });
   }
-  const bank = w.vls ? o.vls : o.tubes, free = bank.filter((x) => x <= 0).length;
-  if (legs.length > free) return { ok: false, why: `The plan needs ${legs.length} ${w.vls ? 'vertical' : 'torpedo'} tubes; ${free} are loaded.` };
+  const bank = bankFor(o, type), free = bank.filter((x) => x <= 0).length;
+  if (legs.length > free) return { ok: false, why: `The plan needs ${legs.length} ${bank === o.vls ? 'vertical' : 'torpedo'} tubes; ${free} are loaded.` };
   const tot = g.t + Math.ceil(Math.max(...legs.map((l) => waveFlight(type, l.d)))) + WAVE_MARGIN;
   const shots: WaveShot[] = [];
   for (const { it, d, name } of legs) {
@@ -581,11 +664,11 @@ export function planWave(g: Game, type: WaveKey, items: WaveItem[]): WavePlan {
     const how: WaveHow = slack <= WAVE_MARGIN + 2 ? 'direct' : LOITERS.has(type) ? 'loiter' : LOFTS.has(type) ? 'loft' : 'slow';
     shots.push({ target: it.target, site: !!it.site, how, flight: Math.round(flight + slack) });
   }
-  return { ok: true, type, tot, shots };
+  return { ok: true, type: slot, tot, shots };
 }
 
 /** Air salvo: every JATM or SM-6 goes at once down its aircraft's bearing; no time on target. */
-function planAir(g: Game, type: WaveKey, list: WaveItem[]): WavePlan {
+function planAir(g: Game, type: WeaponKey, list: WaveItem[], slot: WaveKey): WavePlan {
   const o = g.own, w = WEAPONS[type], shots: WaveShot[] = [];
   for (const it of list) {
     if (it.n > 4) return { ok: false, why: 'Four weapons a target at most.' };
@@ -598,15 +681,16 @@ function planAir(g: Game, type: WaveKey, list: WaveItem[]): WavePlan {
     for (let i = 0; i < it.n; i++) shots.push({ target: it.target, site: false, how: 'direct', flight: Math.round((d / w.spd) * 3600) });
   }
   // A JATM canister holds seven: count the rounds left in the open one plus seven a free tube.
-  const free = o.vls.filter((x) => x <= 0).length, rounds = type === 'jatm' ? o.jatm + free * JATM_PER_CANISTER : free;
-  if (shots.length > rounds) return { ok: false, why: type === 'jatm' ? `The plan needs ${shots.length} JATM; ${rounds} are ready.` : `The plan needs ${shots.length} vertical tubes; ${free} are loaded.` };
-  return { ok: true, type, tot: g.t + Math.max(...shots.map((x) => x.flight)), shots };
+  const free = o.vls.filter((x) => x <= 0).length, rounds = type === 'jatm' ? o.jatm + free * JATM_PER_CANISTER : type === 'stinger' ? o.stingers : free;
+  if (shots.length > rounds) return { ok: false, why: type === 'jatm' || type === 'stinger' ? `The plan needs ${shots.length} ${w.short}; ${rounds} are ready.` : `The plan needs ${shots.length} vertical tubes; ${free} are loaded.` };
+  return { ok: true, type: slot, tot: g.t + Math.max(...shots.map((x) => x.flight)), shots };
 }
 
-function fireWave(g: Game, type: WaveKey, items: WaveItem[]) {
+function fireWave(g: Game, slot: WaveKey, items: WaveItem[]) {
   if (finished(g)) return;
-  const plan = planWave(g, type, items);
+  const plan = planWave(g, slot, items);
   if (!plan.ok) return log(g, 'warn', `Attack plan: ${plan.why}`);
+  const type = slot === 'tlam' ? 'tlam' : slotWeapon(g, slot)!;
   const id = g.seq++, targets = new Set(plan.shots.map((x) => `${x.site}${x.target}`)).size;
   if (WEAPONS[type].role === 'aa') {
     log(g, 'good', `Attack plan: ${plan.shots.length} ${WEAPONS[type].short} at ${targets} aircraft, all fired now.`);
@@ -629,7 +713,7 @@ function updateWaves(g: Game) {
     for (const w of g.weapons) {
       if (w.wave !== wv.id || w.dead || WEAPONS[w.type].missile) continue;
       const c = contactById(g, w.contactId), at = w.target ?? (c?.est ? predict(c, wv.tot - g.t) : w.aim);
-      late = Math.max(late, g.t + waveFlight(w.type as WaveKey, dist(w, at)));
+      late = Math.max(late, g.t + waveFlight(w.type, dist(w, at)));
     }
     if (late <= wv.tot + 3) continue;
     wv.tot = Math.ceil(late);
@@ -753,7 +837,11 @@ export const orders = {
     const cl = CLASSES[key];
     log(g, isFriendlyClass(key) ? 'good' : 'contact', `${c.name} classified ${cl.name}, ${cl.type}${isFriendlyClass(key) ? '. Friendly, do not fire.' : '.'}`);
   },
-  fire(g: Game, type: FireKey) { fireWeapon(g, type); },
+  fire(g: Game, type: FireKey) {
+    const real = slotWeapon(g, type);
+    if (!real) return log(g, 'warn', `${boatName(g)} doesn't carry that weapon.`);
+    fireWeapon(g, real);
+  },
   /** Lay a mine from a torpedo tube where Tang is now. Missions that send Tang out with mines set `minesAboard`. */
   layMine(g: Game) {
     const o = g.own;
@@ -768,7 +856,10 @@ export const orders = {
     log(g, 'good', `Tube ${tube + 1}: mine laid. ${g.flags.minesAboard} left aboard.`);
   },
   /** Land-attack Tomahawk at one of the mission's fixed sites ashore. */
-  strike(g: Game, siteId: number, type: 'tlam' | 'mjolnir' = 'tlam') { strikeSite(g, siteId, type); },
+  strike(g: Game, siteId: number, type: 'tlam' | 'mjolnir' = 'tlam') {
+    if (type === 'tlam' ? !g.own.kit.tlam : !g.own.kit.mjolnir) return log(g, 'warn', `${boatName(g)} doesn't carry that weapon.`);
+    strikeSite(g, siteId, type);
+  },
   /** A timed attack wave: see planWave. */
   wave(g: Game, type: WaveKey, items: WaveItem[]) { fireWave(g, type, items); },
   radar(g: Game, on = !g.own.radar) {
@@ -1103,7 +1194,7 @@ function transient(g: Game, src: Vec & { depthT?: number; deep?: boolean }, side
   if (side === 'us') {
     for (const v of g.vessels) {
       if (v === g.own || !v.alive || !v.ai || v.cls.threshold === null) continue;
-      if (excess(SL_LAUNCH, src, v, v.cls.threshold) > 0) {
+      if (excess(SL_LAUNCH, src, v, v.cls.threshold - g.mods.ear) > 0) {
         v.ai.knows = { x: src.x + gauss(g.r) * 0.8, y: src.y + gauss(g.r) * 0.8, t: g.t, deep: deepOf(src) };
         if (v.ai.mode === 'patrol') v.ai.mode = 'attack';
       }
@@ -1148,12 +1239,12 @@ function updateWeapon(g: Game, w: Weapon, dt: number) {
   // ASROC flies straight to the drop point and puts a Mk 54 in the water there.
   // TLAM: cruise to the site. Terrain matching over 2029 maps works on 1942 ground; the
   // terminal camera's scenes are 87 years out of date, so a few miss.
-  if (w.side === 'us' && w.tot !== undefined && LOITERS.has(w.type as WaveKey)) {
+  if (w.side === 'us' && w.tot !== undefined && LOITERS.has(w.type)) {
     if (!w.departed && loiter(g, w, spec, dt)) return;
     // On its way: throttle back as much as a quarter to land on the second.
     const left = w.tot - g.t;
     w.spd = left > 1 ? clamp((dist(w, w.target ?? w.aim) / left) * 3600, spec.spd * 0.75, spec.spd) : spec.spd;
-  } else if (w.side === 'us' && w.tot !== undefined && LOFTS.has(w.type as WaveKey)) {
+  } else if (w.side === 'us' && w.tot !== undefined && LOFTS.has(w.type)) {
     // A higher, longer arc: it covers the ground more slowly.
     const left = w.tot - g.t;
     w.spd = left > 1 ? clamp((dist(w, w.target ?? w.aim) / left) * 3600, spec.spd * LOFT, spec.spd) : spec.spd;
@@ -1179,8 +1270,10 @@ function updateWeapon(g: Game, w: Weapon, dt: number) {
     w.ordHdg = brg(w, w.aim);
     if (dist(w, w.aim) <= step) {
       w.dead = true;
-      dropTorpedo(g, 'mk54', 'us', w.aim, w.hdg, `Mk 54 (${w.label})`, w.contactId);
-      log(g, 'good', `${w.label}: Mk 54 in the water at the drop point. Searching.`);
+      if (w.type === 'subroc') return depthBomb(g, w);
+      const fish = w.type === 'sealance' ? 'Mk 50' : 'Mk 54';
+      dropTorpedo(g, 'mk54', 'us', w.aim, w.hdg, `${fish} (${w.label})`, w.contactId);
+      log(g, 'good', `${w.label}: ${fish} in the water at the drop point. Searching.`);
       return;
     }
     return moveWeapon(g, w, spec, dt);
@@ -1269,6 +1362,16 @@ function moveWeapon(g: Game, w: Weapon, spec: (typeof WEAPONS)[WeaponKey], dt: n
   }
 }
 
+/** A SUBROC's depth bomb goes off where it came down: every submarine close enough is badly hurt, whoever's it is. */
+function depthBomb(g: Game, w: Weapon) {
+  g.blasts.push({ x: w.aim.x, y: w.aim.y, t: g.t, missile: false });
+  log(g, 'good', `${w.label}: the depth bomb has gone off at the drop point.`, 'boom');
+  for (const v of g.vessels) {
+    if (!v.alive || v.cls.kind !== 'sub' || dist(v, w.aim) > SUBROC_KILL) continue;
+    hit(g, { ...w, type: 'subroc', label: w.label }, v, SUBROC_DAMAGE);
+  }
+}
+
 function dropTorpedo(g: Game, type: 'mk54' | 'apr3', side: Side, at: Vec, hdg: number, label: string, contactId: number | null) {
   const spec = WEAPONS[type];
   g.weapons.push({
@@ -1312,10 +1415,11 @@ function seek(g: Game, w: Weapon) {
   else if (best === g.own) log(g, 'danger', 'Torpedo seeker has acquired us! Evade!', 'alarm');
 }
 
-function hit(g: Game, w: Weapon, v: Vessel) {
+function hit(g: Game, w: Weapon, v: Vessel, damage?: number) {
   const spec = WEAPONS[w.type];
   w.dead = true;
-  v.hp -= v.cls.kind === 'surface' ? spec.surfaceDamage ?? spec.damage : spec.damage;
+  // The challenge level scales what a hit does to us.
+  v.hp -= (damage ?? (v.cls.kind === 'surface' ? spec.surfaceDamage ?? spec.damage : spec.damage)) * (v === g.own ? g.mods.dmg : 1);
   // An NSM's seeker matches the ship against its library and goes for a weak point.
   const spot = w.type === 'nsm' && v.cls.kind === 'surface' && v.side !== 'us' ? (g.r() < 0.4 ? 'screws' : g.r() < 0.5 ? 'bridge' : 'magazine') : null;
   if (spot === 'magazine') v.hp -= NSM_MAGAZINE;
@@ -1323,8 +1427,8 @@ function hit(g: Game, w: Weapon, v: Vessel) {
   if (spot === 'bridge' && v.ai) v.ai.cool = Infinity; // nobody left to order her weapons fired
   g.blasts.push({ x: v.x, y: v.y, t: g.t, missile: spec.missile });
   if (v.side === 'us') {
-    if (v.hp <= 0) { v.alive = false; log(g, 'danger', 'Torpedo hit. Flooding aft. We are lost.', 'boom'); return end(g, false, 'USS Tang was sunk.'); }
-    return log(g, 'danger', 'Torpedo hit! Flooding, but holding.', 'boom');
+    if (v.hp <= 0) { v.alive = false; log(g, 'danger', 'Torpedo hit. Flooding aft. We are lost.', 'boom'); return end(g, false, `${boatName(g)} was sunk.`); }
+    return log(g, 'danger', g.mods.dmg ? 'Torpedo hit! Flooding, but holding.' : 'Exercise torpedo hit! In a real fight that would have hurt.', 'boom');
   }
   const sunk = v.hp <= 0;
   if (w.side === 'us') {
@@ -1414,7 +1518,7 @@ const isEscort = (v: Vessel) => /destroyer|corvette/.test(v.cls.type);
 const ADJ: Record<string, string> = {
   Germany: 'German', Japan: 'Japanese', Russia: 'Russian', UK: 'British', US: 'US', Italy: 'Italian', Netherlands: 'Dutch',
   China: 'Chinese', India: 'Indian', Iran: 'Iranian', Brazil: 'Brazilian', 'South Africa': 'South African', Venezuela: 'Venezuelan',
-  Australia: 'Australian', Norway: 'Norwegian', Turkey: 'Turkish', Pakistan: 'Pakistani', Liberia: 'merchant',
+  Australia: 'Australian', Norway: 'Norwegian', Turkey: 'Turkish', Pakistan: 'Pakistani', Liberia: 'merchant', USSR: 'Soviet',
 };
 /** "The German group", "The Japanese force": how the log names the enemy. */
 export const groupName = (g: Game) => {
@@ -1759,7 +1863,7 @@ function heloAI(g: Game, v: Vessel, dt: number) {
   if (ai.mode === 'dip') {
     v.ordSpd = 0;
     ai.dipT! -= dt;
-    const se = excess(vesselSL(o), o, { x: v.x, y: v.y, hdg: 0, spd: 0, depthT: v.depthT, array: true }, DIP_THRESHOLD) + gauss(g.r) * 2;
+    const se = excess(vesselSL(o), o, { x: v.x, y: v.y, hdg: 0, spd: 0, depthT: v.depthT, array: true }, DIP_THRESHOLD - g.mods.ear) + gauss(g.r) * 2;
     ai.hits = se > 0 ? ai.hits! + dt : Math.max(0, ai.hits! - dt);
     if (ai.hits! >= 15) {
       ai.hits = 0;
@@ -1801,7 +1905,7 @@ function updateBuoys(g: Game, dt: number) {
   for (const b of g.buoys) {
     b.life -= dt;
     if (!il) continue;
-    const se = excess(vesselSL(o), o, { x: b.x, y: b.y, hdg: 0, spd: 0, depthT: b.deep ? 2 : 1, array: true }, BUOY_THRESHOLD) + gauss(g.r) * 2;
+    const se = excess(vesselSL(o), o, { x: b.x, y: b.y, hdg: 0, spd: 0, depthT: b.deep ? 2 : 1, array: true }, BUOY_THRESHOLD - g.mods.ear) + gauss(g.r) * 2;
     b.hits = se > 0 ? b.hits + dt : Math.max(0, b.hits - dt);
     if (b.hits >= 10) {
       b.hits = 0;
@@ -1824,6 +1928,8 @@ function updateSignatures(g: Game) {
     if (!c.held || !v.alive) continue;
     c.sig = signatureView(v.cls, c.seAvg, v.spd, () => gauss(g.r));
     c.matches = matchClasses(c.sig, lib.filter((k) => (CLASSES[k].kind === 'air') === c.air), c.sighted);
+    // At the top challenge level the sonar crew calls no class: the captain reads the lines against the book.
+    if (g.mods.noId && !c.sighted) c.matches = [];
   }
 }
 
@@ -1839,8 +1945,8 @@ function depthCharges(g: Game) {
   for (const c of due) g.blasts.push({ x: c.x, y: c.y, t: g.t, missile: false });
   if (near > 3) return;
   if (near < 0.12 && o.depthT <= CHARGE_DEEPEST) {
-    o.hp -= 1;
-    if (o.hp <= 0) { o.alive = false; log(g, 'danger', 'Depth charges right on top of us. The hull is breached.', 'boom'); return end(g, false, 'USS Tang was sunk by depth charges.'); }
+    o.hp -= g.mods.dmg;
+    if (o.hp <= 0) { o.alive = false; log(g, 'danger', 'Depth charges right on top of us. The hull is breached.', 'boom'); return end(g, false, `${boatName(g)} was sunk by depth charges.`); }
     log(g, 'danger', `Depth charges close aboard! Damage aft, flooding under control. ${o.depthT > LAYER_AT ? '' : 'Go deep: they are set shallow.'}`, 'boom');
   } else log(g, 'warn', near < 0.5 ? (o.depthT > CHARGE_DEEPEST ? 'Depth charges, well above us. They are set too shallow to reach 700 feet.' : 'Depth charges, close! Go deep.') : 'Depth charges exploding in the distance.', 'boom');
 }
@@ -1956,10 +2062,11 @@ function subAI(g: Game, v: Vessel, dt: number) {
   if (ai.mode === 'raider') return raiderAI(g, v, dt);
   // A decoy drone plays a loud recording of Tang, far louder than Tang creeping: whichever sounds louder is the one hunted.
   let heard: Vec & { deep: boolean } = { x: o.x, y: o.y, deep: o.depthT > LAYER_AT };
-  let se = excess(vesselSL(o), o, v, v.cls.threshold!) + gauss(g.r) * 2;
+  const thr = v.cls.threshold! - g.mods.ear;
+  let se = excess(vesselSL(o), o, v, thr) + gauss(g.r) * 2;
   for (const d of g.drones) {
     if (d.mode !== 'decoy') continue;
-    const sd = excess(Math.max(vesselSL(o) + 3, DRONE_DECOY_SL), d, v, v.cls.threshold!) + gauss(g.r) * 2;
+    const sd = excess(Math.max(vesselSL(o) + 3, DRONE_DECOY_SL), d, v, thr) + gauss(g.r) * 2;
     if (sd > se) { se = sd; heard = { x: d.x, y: d.y, deep: d.deep }; }
   }
   if (se > 0) {
@@ -1976,7 +2083,7 @@ function subAI(g: Game, v: Vessel, dt: number) {
     if (w.side !== 'us' || w.dead || WEAPONS[w.type].missile) continue;
     const d = dist(w, v);
     const closing = Math.abs(angDiff(w.hdg, brg(w, v))) < 50;
-    if (d < 7 && closing && excess(torpSL(w), w, v, v.cls.threshold!) > 0 && (!threat || d < dist(threat, v))) threat = w;
+    if (d < 7 && closing && excess(torpSL(w), w, v, thr) > 0 && (!threat || d < dist(threat, v))) threat = w;
   }
   if (threat && ai.mode !== 'evade') {
     ai.mode = 'evade'; ai.evadeT = 240;

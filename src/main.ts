@@ -6,7 +6,7 @@ import { carryFor, changedFor, interlude, record, resetCampaign, results, unlock
 import { Plot, SPANS } from './render/plot';
 import { Waterfall } from './ui/waterfall';
 import { SignatureDisplay } from './ui/signature';
-import { addLog, updatePanel } from './ui/panel';
+import { addLog, loadout, updatePanel } from './ui/panel';
 import { play, unlockAudio } from './ui/audio';
 import { Periscope } from './ui/periscope';
 import { Solution } from './ui/solution';
@@ -366,10 +366,12 @@ function setUp(key: ScenarioKey) {
   waterfall.clear();
   signature.clear();
   plot.reset(key === 'duel' ? 2 : 3);
-  $('tlamRow').hidden = !g.sites.length;
+  loadout(g);
+  weaponTab(false);
+  $('tlamRow').hidden = !g.sites.length || !g.own.kit.tlam;
   $('mineRow').hidden = !g.flags.minesAboard;
   $('tlamSite').innerHTML = g.sites.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join('');
-  $('mjLandRow').hidden = !g.sites.length;
+  $('mjLandRow').hidden = !g.sites.length || !g.own.kit.mjolnir;
   $('mjSite').innerHTML = $('tlamSite').innerHTML;
   periscope.close();
   solution.close();

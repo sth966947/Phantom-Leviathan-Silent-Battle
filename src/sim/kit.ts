@@ -2,7 +2,8 @@
 // modern-war helpers, and the pause screen's objective list.
 
 import { brg, dist, offset, type Vec } from './math';
-import { fireStraight, log, makeAI, makeVessel, shellfire, type AI, type Game, type Goal, type Side, type Vessel } from './sim';
+import { fireStraight, log, makeAI, makeVessel, shellfire, type AI, type Game, type Goal, type Mods, type Side, type Vessel } from './sim';
+import type { BoatProfile } from './boats';
 
 /** A mission's key: a WWII battle by name, or a modern war mission by its war id (A8, P3, R1...). */
 export type MissionKey = string;
@@ -16,6 +17,10 @@ export interface Mission {
   build: (g: Game, r: () => number, carry: Carry) => void;
   /** Which modern mission file it lives in (set by modern/index.ts). */
   file?: string;
+  /** The boat sent on it, if not Tang with her 2029 kit (the Red Storm Rising campaign, boats.ts). */
+  boat?: BoatProfile;
+  /** Challenge settings, if not the defaults. */
+  mods?: Partial<Mods>;
 }
 /** Extra or replacement objectives for one mission, given the ones read from its goal. */
 export type ObjectiveFn = (g: Game, base: Objective[]) => Objective[];

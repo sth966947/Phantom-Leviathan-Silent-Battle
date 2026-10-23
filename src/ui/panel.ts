@@ -1,5 +1,6 @@
 // Ship status, contact list, identification and weapons readouts, plus the log.
-import { ARRAY, finished, DRONE_LINK, depthFeet, JATM_PER_CANISTER, WEAPONS, arrayActive, atPeriscopeDepth, bearingRate, blackwingLink, contactById, contactLabel, isFriendlyClass, missileDepthOk, inPeriscope, radarTracked, targetContact, vesselSL, type Game, type GameEvent } from '../sim/sim';
+import { ARRAY, finished, DRONE_LINK, depthFeet, JATM_PER_CANISTER, WEAPONS, arrayActive, atPeriscopeDepth, bankFor, bearingRate, blackwingLink, contactById, contactLabel, isFriendlyClass, missileDepthOk, inPeriscope, radarTracked, slotWeapon, targetContact, vesselSL, type FireKey, type Game, type GameEvent, type WeaponKey } from '../sim/sim';
+import { TANG } from '../sim/boats';
 import { CLASSES } from '../sim/classes';
 import { angDiff, dist, fmtBrg, fmtRng } from '../sim/math';
 
@@ -67,6 +68,44 @@ function identHTML(g: Game) {
   return { prop, matches };
 }
 
+// ---- The boat's own weapons ----------------------------------------------------------------------
+/** What a 1980s boat's weapon is called on its button, with what the hover text says. */
+const OLD: Partial<Record<WeaponKey, [string, string]>> = {
+  mk48old: ['Mk 48', 'Mk 48 Mod 4, wire-guided heavyweight torpedo, 19 nm. Blown out of the tube by an impulse, so the launch can be heard. Ships and submarines.'],
+  harpoon: ['Harpoon', 'UGM-84 Harpoon in a capsule from a torpedo tube, out to 65 nm. Sea-skimming, active radar seeker. Surface ships only, 150 ft or shallower.'],
+  tasm: ['Tomahawk anti-ship', 'Tomahawk anti-ship (TASM), out to 250 nm. No updates in flight: it flies to where the target was and searches there. Surface ships only, 150 ft or shallower.'],
+  subroc: ['SUBROC', 'UUM-44 SUBROC: a rocket out of a torpedo tube to the solution 5 to 30 nm out, where its depth bomb goes off. Hurts any submarine within 0.7 nm of it.'],
+  sealance: ['Sea Lance', 'UUM-125 Sea Lance: a rocket out of a torpedo tube to the solution 3 to 35 nm out, where it drops a Mk 50 torpedo.'],
+  stinger: ['Stinger', 'Stinger from the mast launcher at periscope depth: helicopters and low patrol planes within 4 nm. Down the selected air contact\'s bearing. Takes no tube.'],
+};
+const SLOTS: [string, FireKey][] = [['fireMk48', 'mk48'], ['fireNsm', 'nsm'], ['fireMst', 'mst'], ['fireAsroc', 'asroc'], ['fireJatm', 'jatm'], ['fireSm6', 'sm6'], ['fireMk96', 'mk96'], ['fireMjolnir', 'mjolnir']];
+/**
+ * Set the boat's name and weapon buttons for the mission: Tang shows all her 2029 kit; a 1980s boat's
+ * buttons carry its own weapons, and whatever it lacks (the experimental tab, the drones) is hidden.
+ */
+export function loadout(g: Game) {
+  const k = g.own.kit, tang = k === TANG.kit;
+  setText('ownTitle', `Own ship · ${g.own.name}`);
+  for (const [id, slot] of SLOTS) {
+    const b = $(id) as HTMLButtonElement;
+    b.dataset.html ??= b.innerHTML; b.dataset.title ??= b.title;
+    const w = slotWeapon(g, slot), old = w ? OLD[w] : undefined;
+    b.hidden = !w;
+    b.innerHTML = old ? `${old[0]} ${b.dataset.html.replace(/^[^<]*/, '')}` : b.dataset.html;
+    b.title = old ? old[1] : b.dataset.title;
+  }
+  $('tabExp').hidden = !(k.mk96 || k.mjolnir);
+  $('fireTlam').hidden = !k.tlam;
+  $('wVls').hidden = ($('wVls').previousElementSibling as HTMLElement).hidden = !g.own.vls.length;
+  $('wJatm').hidden = ($('wJatm').previousElementSibling as HTMLElement).hidden = k.jatm !== 'jatm';
+  (document.querySelector('.card.drone') as HTMLElement).hidden = !tang && !k.drones && !k.blackwings;
+  // Vertical-tube weapons go out of the torpedo tubes on a boat that has none.
+  for (const el of document.querySelectorAll<HTMLElement>('#paneStd .wlabel')) {
+    el.dataset.text ??= el.textContent!;
+    el.textContent = !tang && el.dataset.text.startsWith('Vertical') ? (g.own.vls.length ? 'Vertical or torpedo tubes · 150 ft or shallower' : 'Torpedo tubes · missiles 150 ft or shallower') : el.dataset.text;
+  }
+}
+
 export function updatePanel(g: Game, steerId: number | null = null) {
   const o = g.own;
   setText('clock', clock(g.startClock + g.t));
@@ -93,7 +132,7 @@ export function updatePanel(g: Game, steerId: number | null = null) {
   setText('wVls', `${ready(o.vls)} of ${o.vls.length} ready${next(o.vls)}`);
   setText('wTubesX', $('wTubes').textContent!);
   setText('wVlsX', $('wVls').textContent!);
-  setText('wDecoys', String(o.decoys));
+  setText('wDecoys', o.kit.jatm === 'stinger' ? `${o.decoys} · Stingers ${o.stingers}` : String(o.decoys));
   const up = g.uavs.filter((u) => g.t >= u.airAt);
   setText('wBlackwing', `${o.blackwings} aboard${g.uavs.length ? ` · ${up.length ? `${up.length} up` : 'rising'}${up.length ? `, ${Math.ceil(Math.min(...up.map((u) => u.life)) / 60)} min` : ''}` : ''}`);
   // The drone the buttons act on: the one being steered, else the newest.
@@ -108,13 +147,16 @@ export function updatePanel(g: Game, steerId: number | null = null) {
   setText('wJatm', o.jatm ? `${o.jatm} of ${JATM_PER_CANISTER} left` : `fresh, ${JATM_PER_CANISTER} rounds`);
   const over = finished(g), depthOk = missileDepthOk(g);
   const ship = targetContact(g, false), air = targetContact(g, true);
-  const asrocRange = ship?.est ? (() => { const r = dist(o, ship.est!); return r >= WEAPONS.asroc.minRun! && r <= WEAPONS.asroc.maxRun; })() : false;
+  // Each button's own weapon on this boat, and the tubes it goes out of.
+  const bank = (slot: FireKey) => { const w = slotWeapon(g, slot); return w ? bankFor(o, w) : o.vls; };
+  const asw = WEAPONS[slotWeapon(g, 'asroc') ?? 'asroc'];
+  const asrocRange = ship?.est ? (() => { const r = dist(o, ship.est!); return r >= asw.minRun! && r <= asw.maxRun; })() : false;
   const dis = (id: string, off: boolean) => { ($(id) as HTMLButtonElement).disabled = over || off; };
   dis('fireMk48', !ready(o.tubes));
   dis('fireNsm', !ready(o.tubes) || !depthOk || !ship);
-  dis('fireMst', !ready(o.vls) || !depthOk || !ship);
-  dis('fireAsroc', !ready(o.vls) || !depthOk || !asrocRange);
-  dis('fireJatm', (!o.jatm && !ready(o.vls)) || !depthOk);
+  dis('fireMst', !ready(bank('mst')) || !depthOk || !ship);
+  dis('fireAsroc', !ready(bank('asroc')) || !depthOk || !asrocRange);
+  dis('fireJatm', o.kit.jatm === 'stinger' ? !o.stingers || !atPeriscopeDepth(g) : (!o.jatm && !ready(o.vls)) || !depthOk);
   dis('fireSm6', !ready(o.vls) || !depthOk);
   dis('fireMk96', !ready(o.tubes));
   const mjRange = ship?.est ? (() => { const r = dist(o, ship.est!); return r >= WEAPONS.mjolnir.minRun! && r <= WEAPONS.mjolnir.maxRun; })() : false;
@@ -124,7 +166,7 @@ export function updatePanel(g: Game, steerId: number | null = null) {
     dis(id, !dr);
     $(id).classList.toggle('on', dr?.mode === m);
   }
-  dis('fireTlam', !ready(o.vls) || !depthOk || !g.sites.length);
+  dis('fireTlam', !ready(bankFor(o, 'tlam')) || !depthOk || !g.sites.length);
   const mjSite = g.sites.find((x) => x.id === Number(($('mjSite') as HTMLSelectElement).value));
   dis('fireMjLand', !ready(o.vls) || !depthOk || !mjSite || dist(o, mjSite) < WEAPONS.mjolnir.minRun! || dist(o, mjSite) > WEAPONS.mjolnir.maxRun);
   dis('blackwing', !o.blackwings);

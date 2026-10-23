@@ -5,9 +5,12 @@
 // contact shows only the first one or two. `blades` and `shaftHzPerKt` give the
 // propeller blade-rate line (blades x shaft rate), which shifts with speed.
 
+import { CLASSES_80S, REFERENCE_80S } from './classes80s';
+
 export type Kind = 'sub' | 'surface' | 'air';
 export type Nation = 'US' | 'UK' | 'Germany' | 'Russia' | 'Japan' | 'Netherlands' | 'Italy'
-  | 'China' | 'India' | 'Iran' | 'Brazil' | 'South Africa' | 'Venezuela' | 'Australia' | 'Norway' | 'Turkey' | 'Pakistan' | 'Liberia';
+  | 'China' | 'India' | 'Iran' | 'Brazil' | 'South Africa' | 'Venezuela' | 'Australia' | 'Norway' | 'Turkey' | 'Pakistan' | 'Liberia'
+  | 'USSR';
 
 export interface ClassCard {
   key: string;
@@ -624,6 +627,8 @@ export const CLASSES: Record<string, ClassCard> = {
     key: 'rescueship', name: 'Submarine rescue ship (SRDRS)', type: 'rescue support ship', nation: 'US', kind: 'surface', friendly: true,
     slBase: 86, maxSpd: 14, threshold: null, hp: 3, tonals: [60, 30, 90, 120], blades: 4, shaftHzPerKt: 0.18,
   },
+  // The Red Storm Rising campaign's 1980s fleets (classes80s.ts).
+  ...CLASSES_80S,
 };
 
 /** Which classes the signature library offers for each scenario's era. */
@@ -1520,4 +1525,5 @@ export const REFERENCE: Record<string, Reference> = {
     armor: 'None',
     notes: 'Friendly. Chartered offshore support ship: bridge forward, long open working deck aft with an A-frame. Thrusters keep her loud even when stopped.',
   },
+  ...REFERENCE_80S,
 };

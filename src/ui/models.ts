@@ -110,7 +110,7 @@ function livery(key: string): Livery {
     if (n === 'Italy') return L('#8a9298', '#9ea6ac', '#9a8462');
     return L('#80888e', '#949ca2', '#7a7468');
   }
-  if (n === 'Russia') return L('#56626e', '#7c8894', '#3e444a');
+  if (n === 'Russia' || n === 'USSR') return L('#56626e', '#7c8894', '#3e444a');
   if (n === 'China') return L('#727a84', '#9ea8b0', '#4e545a');
   if (/icebreaker|research|coast guard/.test(type)) return L('#9a2a22', '#e0e0d8', '#5a5a5a', '#e8c040');
   return L('#788290', '#8c96a2', '#4a5056');
@@ -256,6 +256,26 @@ const SUBS: Record<string, SubSpec> = {
   taigei: { len: 84, beam: 9.1, sail: [0.32, 0.12, 5.5], style: 'ssk', col: '#2c3035' },
   collins: { len: 78, beam: 7.8, sail: [0.36, 0.12, 4.8], style: 'ssk', col: '#2c3035' },
   reis: { len: 68, beam: 6.3, sail: [0.36, 0.13, 4.4], style: 'ssk', col: '#2c3035' },
+  // Red Storm Rising: the US boats of the 1980s and the Soviet Northern Fleet's (classes80s.ts).
+  permit: { len: 85, beam: 9.6, sail: [0.28, 0.1, 6], style: 'ssn', col: '#2a2e33' },
+  sturgeon: { len: 89, beam: 9.7, sail: [0.27, 0.1, 7.5], style: 'ssn', col: '#2a2e33' },
+  la688: { len: 110, beam: 10, sail: [0.27, 0.09, 6.5], style: 'ssn', col: '#2a2e33' },
+  la688i: { len: 110, beam: 10, sail: [0.27, 0.09, 6.5], style: 'ssn', col: '#2a2e33' },
+  seawolf: { len: 107, beam: 12.2, sail: [0.27, 0.1, 6], style: 'ssn', col: '#2a2e33' },
+  alfa: { len: 81, beam: 9.5, sail: [0.42, 0.15, 4], style: 'ssn', col: '#25292e' },
+  victor1: { len: 94, beam: 10, sail: [0.42, 0.13, 5], style: 'ssn', col: '#25292e' },
+  victor2: { len: 102, beam: 10, sail: [0.42, 0.12, 5], style: 'ssn', col: '#25292e' },
+  victor3: { len: 106, beam: 10.8, sail: [0.42, 0.12, 5], style: 'ssn', col: '#25292e' },
+  sierra: { len: 112, beam: 12.5, sail: [0.4, 0.15, 5.5], style: 'ssn', col: '#25292e' },
+  mike: { len: 117, beam: 11, sail: [0.38, 0.14, 4.5], style: 'ssn', col: '#25292e' },
+  november: { len: 107, beam: 8, sail: [0.35, 0.12, 5.5], style: 'ssn', col: '#2c3035' },
+  charlie: { len: 104, beam: 10, sail: [0.32, 0.13, 5.5], style: 'ssn', col: '#25292e' },
+  echo2: { len: 115, beam: 9, sail: [0.38, 0.11, 5.5], hump: [0.1, 0.85, 1], style: 'ssn', col: '#2c3035' },
+  typhoon: { len: 175, beam: 23, sail: [0.55, 0.14, 7], hump: [0.12, 0.5, 1.4], style: 'ssn', col: '#23272c' },
+  delta: { len: 155, beam: 12, sail: [0.3, 0.09, 6], hump: [0.36, 0.62, 4], style: 'ssn', col: '#23272c' },
+  yankee: { len: 132, beam: 11.6, sail: [0.3, 0.1, 6], hump: [0.36, 0.6, 2.8], style: 'ssn', col: '#23272c' },
+  foxtrot: { len: 90, beam: 7.5, sail: [0.42, 0.13, 5], style: 'ssk', col: '#2c3035' },
+  tango: { len: 92, beam: 9, sail: [0.38, 0.13, 5], style: 'ssk', col: '#2c3035' },
 };
 export const subSpec = (key: string): SubSpec => SUBS[key] ?? { len: 90, beam: 9, sail: [0.32, 0.12, 5], style: 'ssk', col: '#2c3035' };
 
@@ -344,6 +364,7 @@ const AIRS: Record<string, AirSpec> = {
   p3am: { len: 35.6, span: 30.4, fus: 1.7, sweep: 3, chord: 4.2, wingAt: 0.42, wingZ: -0.6, eng: { kind: 'prop', y: [4.8, 9.5] }, col: '#a5abb0' },
   ka27: { len: 11.3, span: 0, fus: 1.6, sweep: 0, chord: 0, wingAt: 0.5, wingZ: 0, eng: { kind: 'buried', y: [] }, heli: true, col: '#6e786c' },
   ka28: { len: 11.3, span: 0, fus: 1.6, sweep: 0, chord: 0, wingAt: 0.5, wingZ: 0, eng: { kind: 'buried', y: [] }, heli: true, col: '#7a8478' },
+  ka25: { len: 9.8, span: 0, fus: 1.5, sweep: 0, chord: 0, wingAt: 0.5, wingZ: 0, eng: { kind: 'buried', y: [] }, heli: true, col: '#7c8676' },
   ar196: { len: 11, span: 12.4, fus: 0.65, sweep: 0, chord: 2.2, wingAt: 0.4, wingZ: -0.8, eng: { kind: 'prop', y: [0] }, floats: 'twin', col: '#8a9488' },
   kate: { len: 10.3, span: 15.5, fus: 0.65, sweep: 3, chord: 2.4, wingAt: 0.42, wingZ: -0.9, eng: { kind: 'prop', y: [0] }, col: '#6a7a52' },
   jake: { len: 11.3, span: 14.5, fus: 0.65, sweep: 2, chord: 2.3, wingAt: 0.42, wingZ: -0.9, eng: { kind: 'prop', y: [0] }, floats: 'twin', col: '#7a8460' },
