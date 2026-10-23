@@ -5,7 +5,7 @@
 // contact shows only the first one or two. `blades` and `shaftHzPerKt` give the
 // propeller blade-rate line (blades x shaft rate), which shifts with speed.
 
-import { CLASSES_80S, REFERENCE_80S } from './classes80s';
+import { ALIAS_80S, CHANGES_80S, CLASSES_80S, REFERENCE_80S } from './classes80s';
 
 export type Kind = 'sub' | 'surface' | 'air';
 export type Nation = 'US' | 'UK' | 'Germany' | 'Russia' | 'Japan' | 'Netherlands' | 'Italy'
@@ -630,6 +630,9 @@ export const CLASSES: Record<string, ClassCard> = {
   // The Red Storm Rising campaign's 1980s fleets (classes80s.ts).
   ...CLASSES_80S,
 };
+
+// Ships that serve in the 1980s war too, under their Soviet names (classes80s.ts).
+for (const [k, base] of Object.entries(ALIAS_80S)) CLASSES[k] = { ...CLASSES[base], ...CHANGES_80S[k], key: k, nation: 'USSR' };
 
 /** Which classes the signature library offers for each scenario's era. */
 export const LIBRARY: Record<'1941' | '2029', string[]> = {

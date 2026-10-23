@@ -2,6 +2,7 @@
 // drawn from its class silhouette at the real range and aspect, with the ID book
 // alongside so the player can compare shapes and accept a class.
 import { CLASSES } from '../sim/classes';
+import { ALIAS_80S } from '../sim/classes80s';
 import { contactById, contactLabel, inPeriscope, isFriendlyClass, orders, type Game, type Vessel } from '../sim/sim';
 import { angDiff, brg, dist, fmtBrg, fmtRng } from '../sim/math';
 
@@ -760,7 +761,7 @@ const AIR: Record<string, AirSil> = {
     },
   },
 };
-export const silOf = (key: string): Sil | null => SHIPS[key] ?? AIR[key] ?? null;
+export const silOf = (key: string): Sil | null => SHIPS[key] ?? AIR[key] ?? (ALIAS_80S[key] ? silOf(ALIAS_80S[key]) : null);
 
 /** Draw a silhouette with its waterline (or centre, for aircraft) at the origin, bow toward +x. */
 export function drawSil(c: CanvasRenderingContext2D, sil: Sil, lenPx: number, foreshorten: number, ppm: number) {

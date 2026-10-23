@@ -298,7 +298,7 @@ const AIR_VISUAL_RANGE = 10;    // nm, aircraft against the sky
 /** Mast radar, nm. Ships: seen and identified out to 25. Aircraft: low fliers (helicopters, attack runs) inside 15, high fliers out to 100, identified inside 15. */
 export const RADAR = { classify: 50, classifyAir: 15, horizon: 50, airLow: 15, airHigh: 100, sweep: 4, esm: 100 };
 /** Helicopters stay down on the water; fixed-wing aircraft come down only to attack. */
-const HELOS = new Set(['ka27', 'ka28', 'ka25']);
+const HELOS = new Set(['ka27', 'ka28', 'ka25', 'helix']);
 export const flyingLow = (v: Vessel) => v.cls.kind === 'air' && (HELOS.has(v.cls.key) || v.ai?.mode === 'prosecute');
 /** Feet below the surface for a depth setting: periscope depth 60 ft, 150 ft, 700 ft. */
 export const depthFeet = (depthT: number) => (depthT <= 1 ? 60 + 90 * depthT : 150 + 550 * (depthT - 1));
@@ -307,7 +307,7 @@ export const LAYER_FT = depthFeet(LAYER_AT);
 export const depthT = (ft: number) => (ft <= 150 ? (ft - 60) / 90 : 1 + (ft - 150) / 550);
 export const MIN_FT = 60, MAX_FT = 800;
 /** Typical cruising height in feet. Low fliers stay down where radar sees them only close in. */
-const CRUISE_FT: Record<string, number> = { il38: 8000, kq200: 8000, p8i: 7000, p8a: 7000, p3am: 6000, h6k: 28000, h6j: 25000, tu142: 25000, tu22m3: 30000, ar196: 1500, kate: 10000, mavis: 6000, jake: 2500, fw200: 3000 };
+const CRUISE_FT: Record<string, number> = { may: 8000, bear: 25000, il38: 8000, kq200: 8000, p8i: 7000, p8a: 7000, p3am: 6000, h6k: 28000, h6j: 25000, tu142: 25000, tu22m3: 30000, ar196: 1500, kate: 10000, mavis: 6000, jake: 2500, fw200: 3000 };
 export const altitudeFt = (v: Vessel) => (flyingLow(v) ? (HELOS.has(v.cls.key) ? 300 : 600) : CRUISE_FT[v.cls.key] ?? 8000);
 const PD_MAX = 0.3; // depthT at or above which masts are out of the water
 
@@ -1522,7 +1522,8 @@ const ADJ: Record<string, string> = {
 };
 /** "The German group", "The Japanese force": how the log names the enemy. */
 export const groupName = (g: Game) => {
-  const e = g.vessels.find((v) => v.side === 'enemy' && v.cls.kind === 'surface');
+  // A Soviet ship in the group names it (the 1980s fleet mixes in a few classes it shares with 2029).
+  const e = g.vessels.find((v) => v.side === 'enemy' && v.cls.kind === 'surface' && v.cls.nation === 'USSR') ?? g.vessels.find((v) => v.side === 'enemy' && v.cls.kind === 'surface');
   return e ? `The ${ADJ[e.cls.nation]} ${g.vessels.filter((v) => v.side === 'enemy' && v.cls.kind === 'surface').length > 3 ? 'force' : 'group'}` : 'The enemy';
 };
 

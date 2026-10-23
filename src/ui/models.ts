@@ -2,6 +2,7 @@
 // (deck profile and parts), submarines lofted from a few numbers per class, aircraft from a short
 // spec per type. Local frame: x forward (bow +), y to port, z up, metres; ships' waterline at z = 0.
 import { CLASSES } from '../sim/classes';
+import { ALIAS_80S } from '../sim/classes80s';
 import { silOf, type ShipSil } from './periscope';
 import { hex, mean, outward, sub, unit, type RGB } from './ps1';
 import type { V3 } from './strikescene';
@@ -277,7 +278,7 @@ const SUBS: Record<string, SubSpec> = {
   foxtrot: { len: 90, beam: 7.5, sail: [0.42, 0.13, 5], style: 'ssk', col: '#2c3035' },
   tango: { len: 92, beam: 9, sail: [0.38, 0.13, 5], style: 'ssk', col: '#2c3035' },
 };
-export const subSpec = (key: string): SubSpec => SUBS[key] ?? { len: 90, beam: 9, sail: [0.32, 0.12, 5], style: 'ssk', col: '#2c3035' };
+export const subSpec = (key: string): SubSpec => SUBS[key] ?? SUBS[ALIAS_80S[key]] ?? { len: 90, beam: 9, sail: [0.32, 0.12, 5], style: 'ssk', col: '#2c3035' };
 
 /** A submarine's hull radius along its length, `f` 0 at the stern to 1 at the bow. */
 function subRadius(s: SubSpec, f: number) {
@@ -372,7 +373,7 @@ const AIRS: Record<string, AirSpec> = {
   fw200: { len: 23.5, span: 33, fus: 1.25, sweep: 4, chord: 3.8, wingAt: 0.42, wingZ: -0.6, eng: { kind: 'prop', y: [4.2, 8.6] }, col: '#707a68' },
   g4m: { len: 20, span: 25, fus: 1.25, sweep: 2, chord: 3.8, wingAt: 0.42, wingZ: 0, eng: { kind: 'prop', y: [3.4] }, col: '#6a7a54' },
 };
-export const airSpec = (key: string): AirSpec => AIRS[key] ?? AIRS.il38;
+export const airSpec = (key: string): AirSpec => AIRS[key] ?? AIRS[ALIAS_80S[key]] ?? AIRS.il38;
 
 /** An aircraft, nose toward +x. `engines` returns where its engines are, for fire. */
 export function airModel(key: string): { model: Model; engines: V3[]; rotors: MPart[] } {

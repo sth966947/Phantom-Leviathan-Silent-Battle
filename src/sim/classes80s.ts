@@ -143,7 +143,81 @@ export const CLASSES_80S: Record<string, ClassCard> = {
   },
 };
 
+/**
+ * Ships that serve in both wars fly here under their 1980s Soviet names, on their 2029 card's numbers
+ * with these changes. Each looks like the class it copies (`ALIAS_80S` points the drawings at it).
+ */
+export const ALIAS_80S: Record<string, string> = {
+  kirov80: 'kirov', udaloy80: 'udaloy', ropucha80: 'ropucha', akula80: 'akula', kilo80: 'kilo', oscar80: 'oscar', may: 'il38', bear: 'tu142', helix: 'ka27',
+};
+export const CHANGES_80S: Record<string, Partial<ClassCard>> = {
+  kirov80: { name: 'Kirov', type: 'nuclear battlecruiser' },
+  udaloy80: { name: 'Udaloy', type: 'ASW destroyer' },
+  ropucha80: { name: 'Ropucha', type: 'landing ship' },
+  // The first Akulas of 1988 are a little louder than the improved boats of 2029, and so is the first Kilo.
+  akula80: { name: 'Akula', slBase: 99 },
+  kilo80: { name: 'Kilo', slBase: 88 },
+  oscar80: { name: 'Oscar', type: 'SSGN' },
+  may: { name: 'Il-38 May' },
+  bear: { name: 'Tu-142 Bear-F' },
+  helix: { name: 'Ka-27 Helix' },
+};
+
 export const REFERENCE_80S: Record<string, Reference> = {
+  kirov80: {
+    displacement: '28,000 t full load',
+    armament: ['20 × SS-N-19 Shipwreck anti-ship missiles under the forecastle', 'SA-N-6 and SA-N-4 SAMs', 'SS-N-14 or SA-N-9, guns', 'Torpedo tubes, 3 helicopters'],
+    armor: 'Light armour over the reactors and magazines',
+    notes: 'Nuclear battlecruiser, the biggest surface warship built since the Second World War. Tall tower mast, big pyramid superstructure. Two shafts.',
+  },
+  udaloy80: {
+    displacement: '8,500 t full load',
+    armament: ['8 × SS-N-14 ASW missiles in two quad launchers', 'SA-N-9 SAMs', '2 × 100 mm guns', '8 × 533 mm torpedo tubes, 2 helicopters'],
+    armor: 'None',
+    notes: 'Big ASW destroyer with two hull sonars and two helicopters. Two pairs of funnels. The sub hunter to fear. Two shafts.',
+  },
+  ropucha80: {
+    displacement: '4,400 t full load',
+    armament: ['2 × 57 mm guns', 'SA-N-5 launchers', 'Naval infantry and up to 10 tanks'],
+    armor: 'None',
+    notes: 'Tank landing ship with doors at both ends and a long superstructure. Polish-built. Two shafts.',
+  },
+  akula80: {
+    displacement: '12,700 t submerged',
+    armament: ['4 × 533 mm and 4 × 650 mm torpedo tubes', 'Torpedoes and ASW missiles'],
+    armor: 'None',
+    notes: 'New in 1988: the quietest Soviet attack boat, thanks to quieting technology bought from the West. Long sail blended into a hump with a towed array pod on the rudder.',
+  },
+  kilo80: {
+    displacement: '3,000 t submerged',
+    armament: ['6 × 533 mm torpedo tubes', 'Torpedoes and mines'],
+    armor: 'None',
+    notes: 'New diesel boat for the 1980s: a fat teardrop hull, very quiet on the battery. Single six-bladed screw.',
+  },
+  oscar80: {
+    displacement: '16,000 t submerged',
+    armament: ['24 × SS-N-19 anti-ship missiles in tubes outside the pressure hull', '4 × 533 mm and 4 × 650 mm torpedo tubes'],
+    armor: 'None',
+    notes: 'The carrier killer: a very broad double hull with the missile tubes along each side. Big and fairly loud. Two screws.',
+  },
+  may: {
+    displacement: '63,500 kg max takeoff',
+    armament: ['Sonobuoys', 'Torpedoes and depth bombs', 'Search radar in a chin radome, MAD tail boom'],
+    armor: 'None',
+    notes: 'Four-turboprop patrol plane built on the Il-18 airliner, from the Kola bases.',
+  },
+  bear: {
+    displacement: '185,000 kg max takeoff',
+    armament: ['Sonobuoys', 'Torpedoes and depth bombs'],
+    armor: 'None',
+    notes: 'Long-range sub hunter on the Tu-95 bomber: swept wings, four big contra-rotating turboprops. Hunts far out over the Norwegian Sea.',
+  },
+  helix: {
+    displacement: '12,000 kg max takeoff',
+    armament: ['Dipping sonar, sonobuoys', 'A torpedo or depth bombs'],
+    armor: 'None',
+    notes: 'The new coaxial-rotor ASW helicopter of the 1980s, replacing the Ka-25 on the newer ships. Twin fins.',
+  },
   permit: {
     displacement: '4,300 t submerged',
     armament: ['4 × 533 mm torpedo tubes amidships', 'Mk 48 torpedoes, Harpoon, SUBROC', 'Mines'],
