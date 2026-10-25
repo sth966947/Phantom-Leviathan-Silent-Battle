@@ -88,7 +88,7 @@ function engage(g: Game, i: number, want: string[], o: { minPct?: number; missil
   }
   const clearShot = !friendsNear(g, tg.est!, 3);
   if (tg.q > 0.6 && r < 8 && r >= (o.minR ?? 0) && i % 90 === 0 && clearShot && !o.standoff) orders.fire(g, 'mk48');
-  if (o.missile !== false && !sub && tg.q > 0.6 && r < 30 && r > 4 && i % 120 === 0 && missileDepthOk(g)) orders.fire(g, g.flags.jammed ? 'harpoon' : 'mst');
+  if (o.missile !== false && !sub && tg.q > 0.6 && r < 30 && r > 4 && i % 120 === 0 && missileDepthOk(g)) orders.fire(g, g.flags.jammed ? 'nsm' : 'mst');
   if (sub && tg.q > 0.6 && r > Math.max(1, o.minR ?? 0) && r < 15 && i % 120 === 0 && missileDepthOk(g) && clearShot) orders.fire(g, 'asroc');
   return tg;
 }

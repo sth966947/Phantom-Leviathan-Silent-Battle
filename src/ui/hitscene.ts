@@ -29,7 +29,7 @@ export function approachTime(kind: ShotKind, weapon: string) {
   if (kind === 'land') return 2.1;
   if (kind === 'air') return 1.8;
   if (weapon === 'mk96') return 1.1; // the last stretch at 250 knots
-  if (weapon === 'mk48' || weapon === 'mk54' || weapon === 'wwtorp') return kind === 'sub' ? 2.6 : 2.4;
+  if (weapon === 'mk48' || weapon === 'mk54' || weapon === 'wwtorp' || weapon === 'mk48old' || weapon === 'subroc') return kind === 'sub' ? 2.6 : 2.4;
   return 2.2;
 }
 /** What becomes of the target, for the caption. */
@@ -47,7 +47,8 @@ export function fate(s: ShotSpec): 'break' | 'founder' | 'magazine' | 'damaged' 
 
 const ease = (a: number, b: number, x: number) => { const k = Math.max(0, Math.min(1, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
-const isTorp = (w: string) => w === 'mk48' || w === 'mk54' || w === 'wwtorp' || w === 'mk96';
+// A SUBROC's depth bomb comes up from under the target like a torpedo's warhead.
+const isTorp = (w: string) => w === 'mk48' || w === 'mk54' || w === 'wwtorp' || w === 'mk96' || w === 'mk48old' || w === 'subroc';
 
 /** Per-shot cache: models are built once, not every frame. */
 export type ShotCache = Record<string, unknown>;

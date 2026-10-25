@@ -11,6 +11,7 @@ import {
   markAt,
 } from './kit';
 import { MODERN_EXTRA, MODERN_MISSIONS } from './modern';
+import { isRsr, rsrExtra, rsrMission } from './rsr';
 
 export type { Carry, Mission, MissionKey, Objective };
 
@@ -85,7 +86,7 @@ const BUILT: Record<MissionKey, Mission> = {
   kidobutai: {
     key: 'kidobutai', title: 'Kido Butai', era: '1941', place: '230 nm north of Oahu', date: '7 Dec 1941, 0530',
     library: ['akagi', 'kaga', 'soryu', 'shokaku', 'kongo', 'kagero', 'kate'],
-    brief: 'Admiral Nagumo\'s six carriers are coming south to launch the strike on Pearl Harbor at 0600. Tang is twenty miles ahead of them. Every carrier you sink before it launches is a wave that never reaches Oahu, and every one you sink is missing at Midway. Their destroyers will come hunting when the torpedoes hit: go deep, they can\'t reach 700 feet. At periscope depth, radar sees the strike flights out to 100 nm, and SM-6 can bring them down. Sink at least three carriers.',
+    brief: 'Admiral Nagumo\'s six carriers are coming south to launch the strike on Pearl Harbor at 0600. Tang is twenty miles ahead of them. Every carrier you sink before it launches is a wave that never reaches Oahu, and every one you sink is missing at Midway. Their destroyers will come hunting when the torpedoes hit: go deep, they can\'t reach 700 feet. At periscope depth, radar sees the strike flights out to 100 nm, and SM-6 can bring them down. Sink at least four carriers.',
     build(g, r, carry) {
       g.startClock = clock(5, 30);
       g.timeLimit = 3 * 3600;
@@ -102,7 +103,7 @@ const BUILT: Record<MissionKey, Mission> = {
       const carriers = ships.filter((s): s is Vessel => !!s && s.cls.type.includes('carrier'));
       screen(g, guide, 'kagero', JP_DD.slice(0, 8), [[0, 9], [45, 10], [90, 10], [135, 9], [225, 9], [270, 10], [315, 10], [180, 8]]);
       const oahu = offset(lead, 180, 230);
-      setGoal(g, { targets: ids(carriers), need: Math.min(3, carriers.length), win: 'Three carriers are burning. Nagumo has turned north and called off the attack.', timeout: 'The Kido Butai turned north with its carriers. Pearl Harbor was hit.' });
+      setGoal(g, { targets: ids(carriers), need: Math.min(4, carriers.length), win: 'Four carriers are burning. Nagumo has turned north and called off the attack.', timeout: 'The Kido Butai turned north with its carriers. Pearl Harbor was hit.' });
       g.script = (gg) => {
         at(gg, 1800, 'wave1', () => launchStrike(gg, carriers, oahu, 'First wave'));
         at(gg, 4500, 'wave2', () => launchStrike(gg, carriers, oahu, 'Second wave'));
@@ -294,7 +295,7 @@ const BUILT: Record<MissionKey, Mission> = {
   philsea: {
     key: 'philsea', title: 'Philippine Sea', era: '1941', place: 'West of the Marianas', date: '19 Jun 1944, 0800',
     library: ['taiho', 'shokaku', 'takao', 'kagero', 'kongo', 'kate'],
-    brief: 'Admiral Ozawa has thrown everything at Spruance\'s Task Force 58. His carriers are launching wave after wave east. Historically, the submarines Albacore and Cavalla sank Taihō and Shōkaku this morning. Tang is inside their screen. Sink the big carriers. Every strike flight you shoot down with SM-6 is one less over the fleet.',
+    brief: 'Admiral Ozawa has thrown everything at Spruance\'s Task Force 58. His carriers are launching wave after wave east. Historically, the submarines Albacore and Cavalla sank Taihō and Shōkaku this morning. Tang is inside their screen. Sink all three big carriers: Taihō, Shōkaku and Zuikaku. Every strike flight you shoot down with SM-6 is one less over the fleet.',
     build(g, r, carry) {
       g.startClock = clock(8);
       g.timeLimit = 3 * 3600;
@@ -306,7 +307,7 @@ const BUILT: Record<MissionKey, Mission> = {
       screen(g, taiho, 'takao', ['Myōkō', 'Haguro'], [[60, 6], [300, 6]]);
       screen(g, taiho, 'kagero', JP_DD.slice(2, 8), RING);
       const tf58 = offset(lead, course, 300);
-      setGoal(g, { targets: ids(carriers), need: Math.min(2, carriers.length), win: 'Ozawa\'s big carriers are gone. The Marianas are open.', timeout: 'Ozawa\'s carriers escaped west with their air groups spent.' });
+      setGoal(g, { targets: ids(carriers), need: Math.min(3, carriers.length), win: 'Ozawa\'s big carriers are gone. The Marianas are open.', timeout: 'Ozawa\'s carriers escaped west with their air groups spent.' });
       g.script = (gg) => {
         at(gg, 30, 'raid1', () => launchStrike(gg, carriers, tf58, 'Raid I'));
         at(gg, 2700, 'raid2', () => launchStrike(gg, carriers, tf58, 'Raid II'));
@@ -317,7 +318,7 @@ const BUILT: Record<MissionKey, Mission> = {
   leyte: {
     key: 'leyte', title: 'Leyte Gulf: Palawan Passage', era: '1941', place: 'Palawan Passage', date: '23 Oct 1944, 0530',
     library: ['yamato', 'kongo', 'takao', 'kagero', 'jake'],
-    brief: 'Admiral Kurita\'s Center Force is threading the Palawan Passage toward Leyte Gulf: Yamato and Musashi, three more battleships and ten heavy cruisers. At dawn on this day the submarines Darter and Dace sank the flagship Atago and Maya and crippled Takao. Tang can do more. Sink three of the big ships before Kurita clears the passage.',
+    brief: 'Admiral Kurita\'s Center Force is threading the Palawan Passage toward Leyte Gulf: Yamato and Musashi, three more battleships and ten heavy cruisers. At dawn on this day the submarines Darter and Dace sank the flagship Atago and Maya and crippled Takao. Tang can do more. Sink five of the big ships before Kurita clears the passage.',
     build(g, r, carry) {
       g.startClock = clock(5, 30);
       g.timeLimit = 3 * 3600;
@@ -330,7 +331,7 @@ const BUILT: Record<MissionKey, Mission> = {
       screen(g, atago, 'kongo', ['Kongō', 'Haruna'], [[200, 9], [160, 9]]);
       screen(g, atago, 'kagero', JP_DD.slice(0, 6), [[30, 3], [330, 3], [120, 5], [240, 5], [150, 8], [210, 8]]);
       const big = [...bbs, ...cruisers];
-      setGoal(g, { targets: ids(big), need: Math.min(3, big.length), win: 'Center Force is crippled in the Palawan Passage. Leyte\'s landing beaches are safe.', timeout: 'Kurita cleared the passage with his battleships.' });
+      setGoal(g, { targets: ids(big), need: Math.min(5, big.length), win: 'Center Force is crippled in the Palawan Passage. Leyte\'s landing beaches are safe.', timeout: 'Kurita cleared the passage with his battleships.' });
     },
   },
 
@@ -949,8 +950,8 @@ const BUILT: Record<MissionKey, Mission> = {
 
   darkwater: {
     key: 'darkwater', title: 'Dark Water', era: '2029', place: 'Iceland Basin', date: 'April 2029, 1500',
-    library: ['udaloy', 'ka27', 'il38', 'virginia'],
-    brief: 'GPS and the satellite links are jammed. Nobody will cue you today, and the anti-ship Tomahawk can\'t get its in-flight updates, so it\'s torpedoes and NSM. A Udaloy group is hunting in the Iceland Basin with a Ka-27 and an Il-38 working for it. Sink the flagship, Vice-Admiral Kulakov, and the hunt falls apart. The Udaloys have strong hull sonar and will come after you as soon as they hear you.',
+    library: ['udaloy', 'kilo', 'ka27', 'il38', 'virginia'],
+    brief: 'GPS and the satellite links are jammed. Nobody will cue you today, and the anti-ship Tomahawk can\'t get its in-flight updates, so it\'s torpedoes and NSM. A group of three Udaloys is hunting in the Iceland Basin with a Ka-27 and an Il-38 working for it, and the Kilo Yakutsk is lying quiet somewhere near them. Sink all three, the flagship Vice-Admiral Kulakov, Severomorsk and Admiral Kharlamov, and the hunt is over. The Udaloys have strong hull sonar and will come after you as soon as they hear you.',
     build(g, r) {
       g.startClock = clock(15);
       g.timeLimit = 3 * 3600;
@@ -959,9 +960,11 @@ const BUILT: Record<MissionKey, Mission> = {
       const second = add(g, 'udaloy', 'Severomorsk', 'enemy', offset(flag, flag.hdg + 90, 4), flag.hdg, 12, { mode: 'patrol', legT: 600 });
       add(g, 'ka27', 'Ka-27PL Helix', 'enemy', offset(flag, r() * 360, 3), 0, 120, { mode: 'search', center: { x: flag.x, y: flag.y }, wp: offset(flag, r() * 360, 6), torps: 1, datum: null, hits: 0, dipT: 0 });
       add(g, 'il38', 'Il-38N May', 'enemy', offset(flag, r() * 360, 50), 0, 230, { mode: 'search', center: { x: flag.x, y: flag.y }, wp: { x: flag.x, y: flag.y }, buoyT: 0, torps: 2, datum: null });
+      const third = add(g, 'udaloy', 'Admiral Kharlamov', 'enemy', offset(flag, flag.hdg - 90, 4), flag.hdg, 12, { mode: 'patrol', legT: 600 });
+      add(g, 'kilo', 'Kilo (Yakutsk)', 'enemy', offset(flag, r() * 360, 5 + r() * 3), r() * 360, 4, { mode: 'patrol', legT: 500, decoys: 2 }, 1);
       g.flags.jammed = 1;
-      g.script = (gg) => pointDefence(gg, [flag, second], 0.6);
-      setGoal(g, { targets: [flag.id], need: 1, win: 'Vice-Admiral Kulakov is sinking and the hunting group is scattering.', timeout: 'The Udaloy group held the basin.' });
+      g.script = (gg) => pointDefence(gg, [flag, second, third], 0.6);
+      setGoal(g, { targets: [flag.id, second.id, third.id], need: 3, win: 'All three Udaloys are on the bottom. The hunt is over.', timeout: 'The Udaloy group held the basin.' });
     },
   },
 
@@ -996,8 +999,13 @@ const BUILT: Record<MissionKey, Mission> = {
   },
 };
 
-/** Every mission: the WWII campaign and prequels, Act 1's first missions, and the modern war's mission files. */
-export const MISSIONS: Record<MissionKey, Mission> = { ...BUILT, ...MODERN_MISSIONS };
+/**
+ * Every mission: the WWII campaign and prequels, Act 1's first missions, and the modern war's mission files.
+ * Red Storm Rising missions are built from their keys (rsr:...) the first time they're asked for.
+ */
+export const MISSIONS: Record<MissionKey, Mission> = new Proxy({ ...BUILT, ...MODERN_MISSIONS } as Record<MissionKey, Mission>, {
+  get: (t, k) => (typeof k === 'string' && !(k in t) && isRsr(k) ? rsrMission(k) : t[k as string]),
+});
 
 // ---- Objectives: what the pause screen lists, live ---------------------------------------------
 /** Objectives that missions' scripts add or change: escapes, reports, deadlines, trails. */
@@ -1069,6 +1077,6 @@ const EXTRA: Record<MissionKey, ObjectiveFn> = {
 /** The mission's objectives as they stand now. */
 export function objectives(g: Game): Objective[] {
   const base = baseObjectives(g);
-  const fn = EXTRA[g.scenario] ?? MODERN_EXTRA[g.scenario];
+  const fn = EXTRA[g.scenario] ?? MODERN_EXTRA[g.scenario] ?? (isRsr(g.scenario) ? rsrExtra(g.scenario) : undefined);
   return fn ? fn(g, base) : base;
 }

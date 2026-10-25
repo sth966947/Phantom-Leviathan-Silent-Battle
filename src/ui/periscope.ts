@@ -2,6 +2,7 @@
 // drawn from its class silhouette at the real range and aspect, with the ID book
 // alongside so the player can compare shapes and accept a class.
 import { CLASSES } from '../sim/classes';
+import { ALIAS_80S } from '../sim/classes80s';
 import { contactById, contactLabel, inPeriscope, isFriendlyClass, orders, type Game, type Vessel } from '../sim/sim';
 import { angDiff, brg, dist, fmtBrg, fmtRng } from '../sim/math';
 
@@ -329,6 +330,65 @@ const SHIPS: Record<string, ShipSil> = {
       M(0.66, 22), B(0.68, 0.76, 11), T(0.82, 9, 0.035, 0.045), T(0.88, 7.5, 0.035, 0.045)],
   },
 
+  // ---- Red Storm Rising, the 1980s Northern Fleet (classes80s.ts) ----
+  // Busy Cold War profiles: twin launchers, lattice and pyramid masts, big funnels, guns fore and aft.
+  // Kiev: an angled flight deck aft, a long island to starboard, and a forecastle full of missile tubes.
+  kiev: {
+    kind: 'ship', len: 273, deck: [[0, 13], [0.6, 13], [0.64, 11], [0.9, 12], [1, 13]],
+    parts: [S(0.0, 0.64, 15, 1.6), B(0.3, 0.52, 28), B(0.34, 0.48, 36), F(0.4, 0.05, 40), M(0.45, 52),
+      B(0.68, 0.76, 17), T(0.8, 15.5, 0.025, 0.03), B(0.84, 0.88, 16), T(0.92, 15, 0.02, 0.025)],
+  },
+  // Slava: the huge paired SS-N-12 tubes along the forecastle, twin funnels, a 130 mm twin forward.
+  slava: {
+    kind: 'ship', len: 186, deck: [[0, 6], [0.5, 7], [0.85, 8], [1, 10]],
+    parts: [B(0.08, 0.28, 11), B(0.28, 0.6, 15), F(0.34, 0.035, 22), F(0.39, 0.035, 22), B(0.45, 0.6, 20), M(0.52, 38),
+      B(0.6, 0.82, 11), T(0.88, 11, 0.035, 0.05)],
+  },
+  // Kara: a tall pyramid block with the radars, and one big square funnel abaft it.
+  kara: {
+    kind: 'ship', len: 173, deck: [[0, 5.5], [0.5, 6.5], [0.85, 7.5], [1, 9]],
+    parts: [B(0.08, 0.3, 10.5), T(0.2, 10, 0.025, 0.03), B(0.3, 0.66, 13), F(0.4, 0.09, 22), B(0.5, 0.62, 22), B(0.53, 0.6, 30), M(0.565, 42),
+      B(0.7, 0.78, 11), T(0.86, 10, 0.025, 0.03)],
+  },
+  kresta: {
+    kind: 'ship', len: 159, deck: [[0, 5], [0.5, 6], [0.85, 7], [1, 9]],
+    parts: [B(0.08, 0.28, 10), B(0.28, 0.64, 13), F(0.38, 0.05, 21), B(0.48, 0.6, 22), B(0.51, 0.58, 31), M(0.545, 38), B(0.7, 0.78, 11), T(0.86, 9.5, 0.025, 0.03)],
+  },
+  // Sovremenny: twin 130 mm turrets fore and aft, a big single funnel, a lattice mast over the bridge.
+  sovremenny: {
+    kind: 'ship', len: 156, deck: [[0, 5.5], [0.5, 6.5], [0.85, 7.5], [1, 9]],
+    parts: [T(0.1, 10, 0.04, 0.055), B(0.2, 0.42, 11), M(0.38, 24), F(0.48, 0.07, 21), B(0.58, 0.76, 14), B(0.62, 0.73, 22), M(0.68, 34),
+      T(0.86, 10.5, 0.04, 0.055)],
+  },
+  // Kashin: two pairs of raked funnels amidships, twin SAM launchers at either end.
+  kashin: {
+    kind: 'ship', len: 144, deck: [[0, 5], [0.5, 6], [0.85, 7], [1, 8.5]],
+    parts: [T(0.1, 8.5, 0.035, 0.03), B(0.2, 0.3, 11), F(0.34, 0.025, 17, 0.012), F(0.38, 0.025, 17, 0.012), M(0.45, 27), F(0.51, 0.025, 17, 0.012),
+      F(0.55, 0.025, 17, 0.012), B(0.6, 0.74, 13), M(0.67, 29), T(0.88, 9, 0.035, 0.03)],
+  },
+  // Krivak: the big quad ASW launcher right forward, then the bridge and one funnel; twin 100 mm guns aft.
+  krivak: {
+    kind: 'ship', len: 123, deck: [[0, 4.5], [0.5, 5.5], [0.85, 6.5], [1, 8]],
+    parts: [T(0.1, 7.5, 0.04, 0.05), T(0.19, 9.5, 0.04, 0.05), F(0.44, 0.06, 16), B(0.52, 0.72, 13), M(0.62, 27), B(0.84, 0.93, 8.5)],
+  },
+  grisha: {
+    kind: 'ship', len: 71, deck: [[0, 3.5], [0.5, 4.5], [0.85, 5.5], [1, 6.5]],
+    parts: [T(0.14, 6.5, 0.05, 0.05), F(0.36, 0.06, 11), B(0.44, 0.7, 9.5), M(0.58, 19), T(0.84, 7, 0.04, 0.04)],
+  },
+  // Ivan Rogov: a high hull with a dock aft, the block superstructure amidships and helicopter decks fore and aft of it.
+  ivanrogov: {
+    kind: 'ship', len: 158, deck: [[0, 9], [0.4, 10], [0.9, 11], [1, 13]],
+    parts: [S(0.04, 0.34, 12, 1.4), B(0.34, 0.62, 22), B(0.4, 0.56, 30), F(0.38, 0.05, 30), M(0.5, 40), S(0.62, 0.86, 12.5, 1.4), T(0.92, 14, 0.025, 0.03)],
+  },
+  sovmerch: {
+    kind: 'ship', len: 190, deck: [[0, 12], [0.6, 13], [1, 15]],
+    parts: [B(0.02, 0.84, 22), B(0.84, 0.94, 28), M(0.9, 34), F(0.2, 0.04, 26)],
+  },
+  chilikin: {
+    kind: 'ship', len: 162, deck: [[0, 9], [0.5, 9], [1, 12]],
+    parts: [B(0.04, 0.22, 19), F(0.12, 0.05, 25), M(0.32, 24), M(0.45, 24), M(0.58, 24), B(0.84, 0.9, 14), M(0.87, 20)],
+  },
+
   // ---- Modern war, 2029 ----
   // Modern warships: hangar aft, a block superstructure with an enclosed or pyramid mast,
   // one small stealthy gun forward. VLS cells sit flush and don't show.
@@ -352,6 +412,17 @@ const SHIPS: Record<string, ShipSil> = {
   ivangren: {
     kind: 'ship', len: 135, deck: [[0, 7], [0.5, 8], [1, 10]],
     parts: [B(0.2, 0.72, 13), B(0.45, 0.72, 18), B(0.52, 0.7, 23), M(0.62, 33), M(0.32, 22), B(0.06, 0.2, 11)],
+  },
+  // Kuznetsov: ski-jump bow, tall island with a flat radar block and one funnel.
+  kuznetsov: {
+    kind: 'ship', len: 305, deck: [[0, 9], [0.5, 10], [0.9, 11], [1, 13]],
+    parts: [B(0.05, 0.92, 20), S(0.0, 0.93, 22, 1.6), S(0.93, 0.965, 24, 1.6), S(0.965, 1, 26.5, 1.6), ...pillars([0.02], 22),
+      B(0.42, 0.56, 33), B(0.45, 0.55, 42), F(0.46, 0.04, 46), M(0.52, 58)],
+  },
+  // Serna: low open well deck, wheelhouse aft.
+  serna: {
+    kind: 'ship', len: 26, deck: [[0, 1.6], [0.8, 1.8], [1, 2.2]],
+    parts: [B(0.05, 0.25, 4), M(0.15, 6)],
   },
   arktika: {
     kind: 'ship', len: 173, deck: [[0, 8], [0.5, 9], [0.85, 10], [1, 12]],
@@ -391,6 +462,11 @@ const SHIPS: Record<string, ShipSil> = {
   type071: {
     kind: 'ship', len: 210, deck: [[0, 9], [0.4, 10], [1, 13]],
     parts: [B(0.28, 0.8, 21), B(0.55, 0.78, 28), M(0.66, 40), F(0.45, 0.04, 26), T(0.9, 15, 0.03, 0.05)],
+  },
+  // Type 726 LCAC: square deck on a skirt, two big ducted fans aft.
+  type726: {
+    kind: 'ship', len: 33, deck: [[0, 3], [0.5, 3], [1, 3]],
+    parts: [B(0.02, 0.14, 8), B(0.16, 0.28, 8), B(0.7, 0.85, 5.5), M(0.78, 8)],
   },
   // Fujian: flat deck, small island well aft. Shandong: ski-jump bow, big island with funnel.
   fujian: {
@@ -657,6 +733,17 @@ const AIR: Record<string, AirSil> = {
   ka28: {
     kind: 'air', len: 16, alt: 25, draw(c, L) { AIR.ka27.draw(c, L); },
   },
+  // Ka-25: the Ka-27's older sister, a boxier cabin and three fins on the tail.
+  ka25: {
+    kind: 'air', len: 15, alt: 25, draw(c, L) {
+      c.fillRect(0.45 * L, -0.12 * L, 0.42 * L, 0.24 * L);                         // cabin
+      c.fillRect(0.12 * L, -0.04 * L, 0.36 * L, 0.07 * L);                         // tail boom
+      for (const x of [0.1, 0.16, 0.22]) c.fillRect(x * L, -0.15 * L, 0.03 * L, 0.18 * L); // three fins
+      c.fillRect(0.6 * L, -0.38 * L, 0.03 * L, 0.26 * L);                          // rotor mast
+      c.fillRect(0.1 * L, -0.38 * L, L * 0.95, 0.02 * L); c.fillRect(0.1 * L, -0.3 * L, L * 0.95, 0.02 * L); // coaxial rotors
+      c.fillRect(0.5 * L, 0.12 * L, 0.03 * L, 0.07 * L); c.fillRect(0.8 * L, 0.12 * L, 0.03 * L, 0.07 * L); // gear
+    },
+  },
   p8i: {
     kind: 'air', len: 39.5, alt: 300, draw(c, L) { drawP8(c, L, true); },
   },
@@ -674,7 +761,7 @@ const AIR: Record<string, AirSil> = {
     },
   },
 };
-export const silOf = (key: string): Sil | null => SHIPS[key] ?? AIR[key] ?? null;
+export const silOf = (key: string): Sil | null => SHIPS[key] ?? AIR[key] ?? (ALIAS_80S[key] ? silOf(ALIAS_80S[key]) : null);
 
 /** Draw a silhouette with its waterline (or centre, for aircraft) at the origin, bow toward +x. */
 export function drawSil(c: CanvasRenderingContext2D, sil: Sil, lenPx: number, foreshorten: number, ppm: number) {

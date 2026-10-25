@@ -167,3 +167,40 @@ describe('Mining zones on the plot', () => {
     expect(a.label).toBe('Zone A: 1 of 3 mines');
   });
 });
+
+describe('fleet missions', () => {
+  it('a landing left alone gets its craft ashore, and the beach mark counts them', () => {
+    for (const [key, limit] of [['A27', 6], ['P28', 6]] as const) {
+      const g = create(key, 2);
+      const beach = g.marks?.find((m) => m.label.startsWith('Beach'));
+      expect(beach).toBeDefined();
+      // Landing craft are already in the water at the start.
+      expect(g.vessels.filter((v) => v.cls.type.includes('landing craft') && v.alive).length).toBe(4);
+      g.own.ordDepth = 2; g.own.ordSpd = 0;
+      for (let i = 0; i < 3 * 3600 && !g.over; i++) tick(g, 1);
+      expect(g.over?.win).toBe(false);
+      expect(g.flags.ashore).toBe(limit);
+      expect(beach!.label).toContain(`${limit} of ${limit} ashore`);
+    }
+  });
+  it('sinking the landing ships wins, and the fight can go on', () => {
+    const g = create('P28', 2);
+    for (const v of g.vessels.filter((x) => g.goal.targets.includes(x.id)).slice(0, 2)) { v.hp = 0; v.alive = false; }
+    tick(g, 1);
+    expect(g.over).toMatchObject({ win: true, live: true });
+  });
+  it('carrier groups replace ships sunk earlier in the war', () => {
+    const a = create('A26', 4, { sunk: ['Pyotr Velikiy'] });
+    expect(a.vessels.some((v) => v.name === 'Admiral Nakhimov')).toBe(true);
+    expect(a.vessels.some((v) => v.name === 'Pyotr Velikiy')).toBe(false);
+    const p = create('P27', 4, { sunk: ['Shandong'] });
+    expect(p.vessels.find((v) => v.id === p.goal.targets[0])?.name).toBe('Fujian');
+  });
+  it('Kuznetsov and two escorts is a win as well as Kuznetsov and the battlecruiser', () => {
+    const g = create('A26', 4);
+    for (const v of g.vessels.filter((x) => ['kuznetsov', 'udaloy'].includes(x.cls.key))) { v.hp = 0; v.alive = false; }
+    tick(g, 1);
+    expect(g.over).toMatchObject({ win: true });
+    expect(objectives(g)[0].state).toBe('done');
+  });
+});

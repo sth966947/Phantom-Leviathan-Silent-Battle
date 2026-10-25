@@ -5,9 +5,12 @@
 // contact shows only the first one or two. `blades` and `shaftHzPerKt` give the
 // propeller blade-rate line (blades x shaft rate), which shifts with speed.
 
+import { ALIAS_80S, CHANGES_80S, CLASSES_80S, REFERENCE_80S } from './classes80s';
+
 export type Kind = 'sub' | 'surface' | 'air';
 export type Nation = 'US' | 'UK' | 'Germany' | 'Russia' | 'Japan' | 'Netherlands' | 'Italy'
-  | 'China' | 'India' | 'Iran' | 'Brazil' | 'South Africa' | 'Venezuela' | 'Australia' | 'Norway' | 'Turkey' | 'Pakistan' | 'Liberia';
+  | 'China' | 'India' | 'Iran' | 'Brazil' | 'South Africa' | 'Venezuela' | 'Australia' | 'Norway' | 'Turkey' | 'Pakistan' | 'Liberia'
+  | 'USSR';
 
 export interface ClassCard {
   key: string;
@@ -374,6 +377,16 @@ export const CLASSES: Record<string, ClassCard> = {
     key: 'ivangren', name: 'Ivan Gren', type: 'landing ship', nation: 'Russia', kind: 'surface',
     slBase: 85, maxSpd: 18, threshold: null, hp: 4, tonals: [50, 26, 78, 104], blades: 4, shaftHzPerKt: 0.19, emitter: true,
   },
+  // Old steam plant, eight boilers and four shafts: loud, with a deep 23 Hz feed-pump line, and worn out (24 kt flat out).
+  kuznetsov: {
+    key: 'kuznetsov', name: 'Admiral Kuznetsov', type: 'aircraft carrier', nation: 'Russia', kind: 'surface',
+    slBase: 88, maxSpd: 24, threshold: null, hp: 14, tonals: [50, 23, 92, 46, 150], blades: 5, shaftHzPerKt: 0.13, emitter: true,
+  },
+  // Gas-turbine air-cushion craft: a high fan and turbine line, no screw in the water.
+  serna: {
+    key: 'serna', name: 'Serna landing craft', type: 'landing craft', nation: 'Russia', kind: 'surface',
+    slBase: 84, maxSpd: 30, threshold: null, hp: 1, tonals: [66, 132, 198], blades: 3, shaftHzPerKt: 0.5,
+  },
   // Turbo-electric nuclear icebreaker: reactor coolant pumps and a deep motor line, very loud.
   arktika: {
     key: 'arktika', name: 'Arktika (Project 22220)', type: 'nuclear icebreaker', nation: 'Russia', kind: 'surface',
@@ -432,6 +445,11 @@ export const CLASSES: Record<string, ClassCard> = {
   type071: {
     key: 'type071', name: 'Type 071 Yuzhao', type: 'amphibious transport dock (LPD)', nation: 'China', kind: 'surface',
     slBase: 85, maxSpd: 20, threshold: null, hp: 7, tonals: [50, 31, 82, 164], blades: 5, shaftHzPerKt: 0.16, emitter: true,
+  },
+  // Hovercraft: gas turbines and lift fans, very loud for its size, no shaft in the water.
+  type726: {
+    key: 'type726', name: 'Type 726 Yuyi LCAC', type: 'air-cushion landing craft', nation: 'China', kind: 'surface',
+    slBase: 90, maxSpd: 40, threshold: null, hp: 1, tonals: [75, 150, 225], blades: 4, shaftHzPerKt: 0.4,
   },
   // The two carriers share a 29 Hz feed-pump line from their steam plants.
   fujian: {
@@ -609,7 +627,12 @@ export const CLASSES: Record<string, ClassCard> = {
     key: 'rescueship', name: 'Submarine rescue ship (SRDRS)', type: 'rescue support ship', nation: 'US', kind: 'surface', friendly: true,
     slBase: 86, maxSpd: 14, threshold: null, hp: 3, tonals: [60, 30, 90, 120], blades: 4, shaftHzPerKt: 0.18,
   },
+  // The Red Storm Rising campaign's 1980s fleets (classes80s.ts).
+  ...CLASSES_80S,
 };
+
+// Ships that serve in the 1980s war too, under their Soviet names (classes80s.ts).
+for (const [k, base] of Object.entries(ALIAS_80S)) CLASSES[k] = { ...CLASSES[base], ...CHANGES_80S[k], key: k, nation: 'USSR' };
 
 /** Which classes the signature library offers for each scenario's era. */
 export const LIBRARY: Record<'1941' | '2029', string[]> = {
@@ -1163,6 +1186,18 @@ export const REFERENCE: Record<string, Reference> = {
     armor: 'None',
     notes: 'Larger successor to Ropucha. Blocky superstructure forward of amidships, crane on the cargo deck, bow ramp. Two shafts.',
   },
+  kuznetsov: {
+    displacement: '58,500 t full load',
+    armament: ['12 × P-700 Granit anti-ship missiles (being removed)', 'Kinzhal SAMs, Kashtan and AK-630 close-in guns', 'Su-33 and MiG-29K fighters, Ka-27 and Ka-31 helicopters', '2 × RBU-12000 anti-torpedo rocket launchers'],
+    armor: 'Light protection over magazines',
+    notes: 'The only Russian carrier. Ski-jump bow, angled deck, tall island well aft of amidships with a big flat radar block and one funnel. Steam plant, four shafts, prone to breakdowns.',
+  },
+  serna: {
+    displacement: '100 t full load',
+    armament: ['1 tank or 2 armored vehicles, or about 90 troops', '2 × 7.62 mm machine guns'],
+    armor: 'None',
+    notes: 'Small fast landing craft carried by landing ships. Low open well deck, small wheelhouse aft. Fast, fragile, one hit stops it.',
+  },
   arktika: {
     displacement: '33,500 t full load',
     armament: ['None'],
@@ -1246,6 +1281,12 @@ export const REFERENCE: Record<string, Reference> = {
     armament: ['1 × 76 mm gun', 'Close-in guns', '4 hovercraft, 4 helicopters, 600 to 800 troops'],
     armor: 'None',
     notes: 'Amphibious dock ship: tall boxy superstructure forward, helicopter deck and hangar aft, stern well dock. Two shafts.',
+  },
+  type726: {
+    displacement: '160 t full load',
+    armament: ['1 tank or about 60 tonnes of vehicles and troops', '2 × 14.5 mm machine guns'],
+    armor: 'None',
+    notes: 'Chinese hovercraft landing craft carried in the wells of Type 071 and Type 075. Two big ducted fans aft, low square deck, small cab. Very fast, very fragile.',
   },
   fujian: {
     displacement: '80,000 t full load',
@@ -1487,4 +1528,5 @@ export const REFERENCE: Record<string, Reference> = {
     armor: 'None',
     notes: 'Friendly. Chartered offshore support ship: bridge forward, long open working deck aft with an A-frame. Thrusters keep her loud even when stopped.',
   },
+  ...REFERENCE_80S,
 };

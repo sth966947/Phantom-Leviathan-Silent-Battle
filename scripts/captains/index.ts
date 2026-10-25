@@ -13,6 +13,7 @@ import * as home from './home';
 import * as counter from './counter';
 import * as finale from './finale';
 import * as chance from './chance';
+import * as fleets from './fleets';
 
 export interface CaptainState {
   legs: number; lastLeg: number; sprintT: number; deepT: number; cutBrg: number; cutT: number;
@@ -21,4 +22,4 @@ export interface CaptainState {
 }
 export type Captain = (g: Game, i: number, s: CaptainState) => true | { extra?: string[]; minPct?: number } | void;
 
-export const CAPTAINS: Record<string, Captain> = Object.assign({}, ...[act1, pacific, pacific2, gulf, gulf2, arctic, home, counter, finale, chance].map((f) => f.captains));
+export const CAPTAINS: Record<string, Captain> = Object.assign({}, ...[act1, pacific, pacific2, gulf, gulf2, arctic, home, counter, finale, chance, fleets].map((f) => f.captains));

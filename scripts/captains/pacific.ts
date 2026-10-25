@@ -122,7 +122,7 @@ function jatm(g: Game, i: number) {
   if (air) { const keep = g.selected; g.selected = air.id; orders.fire(g, 'jatm'); g.selected = keep; }
 }
 /** Anti-ship missiles at ships identified as `keys`, one per contact every few minutes. */
-function missiles(g: Game, i: number, s: CaptainState, keys: string[], maxR: number, type: 'mst' | 'harpoon' = 'mst', gap = 240) {
+function missiles(g: Game, i: number, s: CaptainState, keys: string[], maxR: number, type: 'mst' | 'nsm' = 'mst', gap = 240) {
   const t = seen(g, keys, 70).filter((c) => c.q > 0.8 && dist(g.own, c.est!) < maxR && i - (s.m[`f${c.id}`] ?? -1e9) > gap)
     .sort((a, b) => dist(g.own, a.est!) - dist(g.own, b.est!))[0];
   if (!t) return false;
@@ -258,7 +258,7 @@ export const captains: Record<string, Captain> = {
     if (evade(g, i, s)) return true;
     if (!atPeriscopeDepth(g)) { orders.depth(g, 0); orders.speed(g, 6); }
     orders.radar(g, true);
-    if (i % 20 === 0) missiles(g, i, s, ['type022'], 40, 'harpoon', 150);
+    if (i % 20 === 0) missiles(g, i, s, ['type022'], 40, 'nsm', 150);
     if (i % 60 === 30) missiles(g, i, s, ['type022'], 40, 'mst', 150) || missiles(g, i, s, ['type054a'], 20, 'mst', 200);
     if (i % 120 === 0) { const p = offset(MAKUNG, 270, 12); orders.heading(g, brg(g.own, p)); orders.speed(g, dist(g.own, p) > 2 ? 8 : 3); }
     return true;

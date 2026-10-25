@@ -63,8 +63,8 @@ const firedAny = (g: Game) => Object.values(g.stats.fired).some((n) => n > 0);
 // ---- P7 Natuna: the southern seas --------------------------------------------------------------------
 missions.P7 = {
   key: 'P7', title: 'Natuna', era: '2029', place: 'Natuna Islands, Indonesia', date: 'June 2029, 0430', night: true,
-  library: ['type071', 'type052d', 'type054a', 'type075', 'type056'],
-  brief: 'China has come for the Natuna Islands. An amphibious group is steaming south for the beaches at Ranai on Natuna Besar: the Type 071 landing ships Wuzhi Shan and Siming Shan, screened by the Type 052D destroyer Hefei ahead and the frigate Huangshan astern. The beaches are 14 nm south-southwest of you (bearing 200). The group was last fixed about 34 nm north of you, making 14 knots. Indonesia has nothing left at sea that can stop it, so it\'s up to Tang. Sink both landing ships. If either gets within 4 nm of the beach, the troops go ashore and the islands are lost. Indonesian F-16s will try a Harpoon strike on the landing ships about an hour in. Their close-in guns stop most anti-ship missiles: torpedoes are surer. Once you hit them, the escorts will come hunting with torpedoes, so shoot from outside 5 nm and go deep.',
+  library: ['type071', 'type052d', 'type054a', 'type075', 'type056', 'kq200'],
+  brief: 'China has come for the Natuna Islands. An amphibious group is steaming south for the beaches at Ranai on Natuna Besar: the Type 075 assault ship Anhui and the Type 071 landing ships Wuzhi Shan and Siming Shan, screened by the Type 052D destroyer Hefei ahead, the frigate Huangshan astern and the corvette Qujing on the flank. The beaches are 14 nm south-southwest of you (bearing 200). The group was last fixed about 34 nm north of you, making 14 knots. Indonesia has nothing left at sea that can stop it, so it\'s up to Tang. Sink all three landing ships. If any of them gets within 4 nm of the beach, the troops go ashore and the islands are lost. A KQ-200 is flying cover for the group. Indonesian F-16s will try a Harpoon strike on the landing ships about an hour in. Their close-in guns stop most anti-ship missiles: torpedoes are surer. Once you hit them, the escorts will come hunting with torpedoes, so shoot from outside 5 nm and go deep.',
   build(g, r) {
     g.startClock = clock(4, 30);
     g.timeLimit = 4 * 3600;
@@ -72,9 +72,10 @@ missions.P7 = {
     markAt(g, beach, 'Ranai beaches: stop them before 4 nm', 4);
     const p = offset(g.own, (r() * 2 - 1) * 15, 32 + r() * 4);
     const lead = add(g, 'type071', 'Wuzhi Shan', 'enemy', p, brg(p, beach), 14, go(brg(p, beach), 14));
-    const lpds = [lead, ...screen(g, lead, 'type071', ['Siming Shan'], [[180, 1.5]])];
-    const escorts = [...screen(g, lead, 'type052d', ['Hefei'], [[0, 3.5]]), ...screen(g, lead, 'type054a', ['Huangshan'], [[180, 4]])];
-    setGoal(g, { targets: ids(lpds), need: 2, win: 'Both landing ships are on the bottom. The invasion of Natuna is off.', timeout: 'The landing group is still afloat off Natuna.' });
+    const lpds = [lead, ...screen(g, lead, 'type071', ['Siming Shan'], [[180, 1.5]]), ...screen(g, lead, 'type075', ['Anhui'], [[90, 2]])];
+    const escorts = [...screen(g, lead, 'type052d', ['Hefei'], [[0, 3.5]]), ...screen(g, lead, 'type054a', ['Huangshan'], [[180, 4]]), ...screen(g, lead, 'type056', ['Qujing'], [[270, 3]])];
+    add(g, 'kq200', 'KQ-200', 'enemy', offset(lead, r() * 360, 40), 0, 230, patrolPlane({ x: lead.x, y: lead.y }));
+    setGoal(g, { targets: ids(lpds), need: 3, win: 'All three landing ships are on the bottom. The invasion of Natuna is off.', timeout: 'The landing group is still afloat off Natuna.' });
     g.script = (gg) => {
       pointDefence(gg, [...escorts, ...lpds], 0.6);
       listen(gg, escorts);
@@ -86,8 +87,8 @@ missions.P7 = {
   },
 };
 extras.P7 = (g, b) => {
-  const near = Math.min(...g.vessels.filter((v) => v.cls.key === 'type071' && v.alive).map((v) => dist(v, spot(g, 'beach'))), 99);
-  return [...b, watch('Keep both landing ships more than 4 nm from the beach', !!g.over?.reason.includes('ashore'),
+  const near = Math.min(...g.vessels.filter((v) => (v.cls.key === 'type071' || v.cls.key === 'type075') && v.alive).map((v) => dist(v, spot(g, 'beach'))), 99);
+  return [...b, watch('Keep all three landing ships more than 4 nm from the beach', !!g.over?.reason.includes('ashore'),
     near < 99 ? `The nearest is ${near.toFixed(1)} nm from the beach, bearing 200 and 14 nm from where you started.` : 'None left afloat.')];
 };
 
