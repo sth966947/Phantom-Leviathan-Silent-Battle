@@ -24,6 +24,12 @@ Stack: TypeScript, Vite, PixiJS 8, Vitest. The simulation in `src/sim` has no re
 - `npm test` runs the sim tests. `npx vite-node scripts/balance.ts` plays 100 scripted games per
   scenario and prints the outcome mix.
 
+## Manual
+
+`MANUAL.md` is the captain's manual. It is bundled into the game and opens from the **Manual** button
+on the campaign screen and the pause card (or the `?` key). Edit the Markdown to update it: the next
+build picks it up, and `src/ui/manual.test.ts` checks that it still renders with its main sections.
+
 ## Controls (keyboard and mouse)
 
 | Action | Mouse | Keys |

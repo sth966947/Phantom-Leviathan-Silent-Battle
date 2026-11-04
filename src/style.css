@@ -484,3 +484,48 @@ button.on-air { background: #1d4a3a; border-color: #2f7a5e; color: #d4ffe9; }
 .brief .sims button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 8px 10px; background: transparent; }
 .sims small { font-size: 12px; color: var(--dim); }
 @media (max-width: 700px) { .boats, .sims { grid-template-columns: 1fr; } .career { grid-template-columns: 1fr; } }
+
+/* Captain's manual: MANUAL.md in a full-screen reader, above every other screen. */
+.brief .modes .manual-btn { margin-left: auto; color: var(--ink); border-color: var(--own); }
+.manual {
+  position: fixed; inset: 0; z-index: 50; background: rgba(2, 7, 13, 0.88); box-sizing: border-box;
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.manual-frame {
+  display: flex; flex-direction: column; gap: 10px; background: var(--panel); border: 1px solid var(--own);
+  padding: 14px 16px; width: min(100%, 1100px); height: min(100%, 900px); box-sizing: border-box; min-height: 0;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+.manual-frame .sol-head span { font: 700 18px/1.1 var(--f-display); letter-spacing: 0.04em; }
+.manual-body { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 18px; min-height: 0; flex: 1; }
+.manual-toc { overflow-y: auto; border-right: 1px solid var(--rule); padding-right: 10px; }
+.manual-toc ul { list-style: none; margin: 0; padding: 0; }
+.manual-toc li { margin: 0; }
+.manual-toc a { display: block; padding: 3px 4px; color: var(--ink); text-decoration: none; font-size: 14px; }
+.manual-toc a:hover { background: #13304a; color: var(--own); }
+.manual-toc .l2 { margin-top: 6px; }
+.manual-toc .l2 a { font-weight: 600; }
+.manual-toc .l3 a { padding-left: 16px; color: var(--dim); font-size: 13px; }
+.manual-text { overflow-y: auto; padding-right: 8px; line-height: 1.5; outline: none; }
+.manual-text h1 { display: none; }
+.manual-text h2 { font: 700 22px/1.15 var(--f-display); letter-spacing: 0.04em; color: var(--own); margin: 26px 0 10px; padding-top: 10px; border-top: 1px solid var(--rule); }
+.manual-text h2:first-of-type { margin-top: 0; border-top: 0; padding-top: 0; }
+.manual-text h3 { font: 600 13px var(--f-data); letter-spacing: 0.1em; text-transform: uppercase; color: var(--contact); margin: 20px 0 8px; }
+.manual-text p { margin: 0 0 10px; max-width: 75ch; }
+.manual-text ul, .manual-text ol { margin: 0 0 12px; padding-left: 22px; max-width: 75ch; }
+.manual-text li { margin-bottom: 5px; }
+.manual-text b { color: #e6f1f8; }
+.manual-text code { font: 13px var(--f-data); background: #0a1a29; padding: 1px 4px; border: 1px solid var(--rule); }
+.manual-text a { color: var(--own); }
+.manual-text .mtable { overflow-x: auto; margin: 0 0 14px; }
+.manual-text table { border-collapse: collapse; font-size: 14px; min-width: 100%; }
+.manual-text th, .manual-text td { border: 1px solid var(--rule); padding: 6px 8px; text-align: left; vertical-align: top; }
+.manual-text th { font: 600 12px var(--f-data); letter-spacing: 0.06em; text-transform: uppercase; color: var(--dim); background: #0a1a29; }
+.manual-text td:first-child { white-space: nowrap; }
+@media (max-width: 760px) {
+  .manual { padding: 0; }
+  .manual-frame { height: 100%; border: 0; }
+  .manual-body { grid-template-columns: minmax(0, 1fr); }
+  .manual-toc { display: none; }
+  .manual-text td:first-child { white-space: normal; }
+}
