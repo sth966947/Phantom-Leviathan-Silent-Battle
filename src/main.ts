@@ -18,6 +18,7 @@ import { FRONTS, FRONT_NAMES, WAR_MAX, WAR_MIN, currentSlot, warLength, newsCard
 import { WAR_MISSIONS } from './sim/warData';
 import { currentWar, playable, restartWar, saveWar } from './warSave';
 import { showRsr, showRsrResult, type RsrHost, type RsrPlay } from './rsrMenu';
+import { Manual } from './ui/manual';
 
 const $ = (id: string) => document.getElementById(id)!;
 const esc = (t: string) => t.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]!));
@@ -41,7 +42,7 @@ let warMission: string | null = null; // the modern war mission being played, if
 let rsrPlay: RsrPlay | null = null; // a Red Storm Rising mission or battle sim, if that's what is being played
 type Mode = 'ww2' | 'war' | 'rsr';
 let mode: Mode = (() => { try { const m = localStorage.getItem('phantom-leviathan-mode'); return m === 'war' || m === 'rsr' ? m : 'ww2'; } catch { return 'ww2'; } })();
-const MODES = '<div class="modes"><button data-mode="ww2">WWII campaign</button><button data-mode="war">Modern war · 2029</button><button data-mode="rsr">Red Storm Rising · 1980s</button></div>';
+const MODES = '<div class="modes"><button data-mode="ww2">WWII campaign</button><button data-mode="war">Modern war · 2029</button><button data-mode="rsr">Red Storm Rising · 1980s</button><button class="manual-btn" data-manual title="The captain\'s manual: the campaigns, Tang, her weapons, drones and sensors, and every part of the screen">Manual <kbd>?</kbd></button></div>';
 
 const plot = new Plot();
 const waterfall = new Waterfall($('waterfall') as HTMLCanvasElement);
@@ -57,6 +58,14 @@ attack.onToggle = (open) => {
   if (open && timeScale && running && !finished(g)) { resumeScale = timeScale; timeScale = 0; attackPaused = true; pauseDismissed = true; }
   else if (!open && attackPaused) { attackPaused = false; if (!timeScale) timeScale = resumeScale; }
 };
+// The manual: opened mid-mission it holds the game still, and lets it go on at the same speed when it closes.
+const manual = new Manual();
+let manualPaused = false;
+manual.onToggle = (open) => {
+  if (open && timeScale && running && !finished(g) && !replay) { resumeScale = timeScale; timeScale = 0; manualPaused = true; pauseDismissed = true; }
+  else if (!open && manualPaused) { manualPaused = false; if (!timeScale) timeScale = resumeScale; }
+};
+document.addEventListener('click', (ev) => { if ((ev.target as HTMLElement).closest?.('[data-manual]')) manual.show(); });
 const strikeCam = new StrikeCam();
 let strikesSeen = 0; // land-attack arrivals already handed to the battle camera
 let hitsSeen = 0; // hits on vessels and aircraft already handed to it
@@ -133,7 +142,7 @@ function renderPause() {
     <p class="pbrief">${esc(m.brief)}</p>
     <h3>Objectives</h3>
     <ul class="obj">${obs.map((o) => `<li class="${o.state}"><span class="mk">${MARK[o.state]}</span><span><b>${esc(o.text)}</b>${o.detail ? `<small>${esc(o.detail)}</small>` : ''}</span></li>`).join('')}</ul>
-    <div class="row">${won ? '<button id="pEnd" class="primary">End mission</button>' : ''}<button id="pResume">${won ? 'Keep fighting' : 'Resume'} <kbd>Space</kbd></button><button id="pHide">Hide, stay paused</button></div>`;
+    <div class="row">${won ? '<button id="pEnd" class="primary">End mission</button>' : ''}<button id="pResume">${won ? 'Keep fighting' : 'Resume'} <kbd>Space</kbd></button><button id="pHide">Hide, stay paused</button><button data-manual>Manual <kbd>?</kbd></button></div>`;
   $('pResume').addEventListener('click', togglePause);
   $('pEnd')?.addEventListener('click', () => { orders.endMission(g); $('pauseCard').hidden = true; });
   $('pHide').addEventListener('click', () => { pauseDismissed = true; $('pauseCard').hidden = true; });
@@ -292,6 +301,11 @@ function acceptTop() {
 
 document.addEventListener('keydown', (ev) => {
   if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  if (manual.open) { // the manual holds the keyboard while it is up; other keys scroll it
+    if (ev.key === 'Escape' || ev.key === '?') { ev.preventDefault(); manual.close(); }
+    return;
+  }
+  if (ev.key === '?' && !(ev.target as HTMLElement).closest?.('input, select, textarea')) { ev.preventDefault(); manual.show(); return; }
   if (strikeCam.open) { // the strike camera holds the keyboard while it plays
     if (ev.key === 'Escape') { ev.preventDefault(); strikeCam.skip(); }
     return;
@@ -517,7 +531,7 @@ const rsrHost: RsrHost = {
   done: () => { $('overlay').hidden = false; running = false; },
 };
 function wireModes() {
-  for (const b of document.querySelectorAll<HTMLButtonElement>('.modes button')) {
+  for (const b of document.querySelectorAll<HTMLButtonElement>('.modes button[data-mode]')) {
     b.classList.toggle('on', b.dataset.mode === mode);
     b.addEventListener('click', () => setMode(b.dataset.mode as Mode));
   }
